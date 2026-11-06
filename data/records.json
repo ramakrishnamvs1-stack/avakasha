@@ -650,11 +650,7 @@
    "title": "JEE Main 2027",
    "org": "National Testing Agency",
    "line": "Entrance for NITs, IIITs and other engineering colleges. Taken in 2nd PUC and after.",
-   "closes": null,
-   "stat": {
-    "k": "exp",
-    "t": "Session 1 form closes 22 Nov 2026"
-   },
+   "closes": "2026-11-22",
    "cyc": "For students in 2nd PUC now: registration 24 Oct to 22 Nov 2026, exam 20 to 28 Jan 2027, second session 2 to 7 Apr 2027.",
    "facts": [
     [

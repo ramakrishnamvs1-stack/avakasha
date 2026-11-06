@@ -48,7 +48,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '12';
+var APPVER = '13';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -167,7 +167,7 @@ function evaluate(r, f) {
   rules.forEach(function (x) { if (x.s === 'fail') verdict = 'no'; else if (x.s === 'unsure' && verdict === 'yes') verdict = 'check'; if (x.from && (!from || x.from > from)) from = x.from; });
   var isLater = r.later && f.passed12 !== 'yes';
   if (isLater) verdict = 'later';
-  var live = st.k === 'open' || st.k === 'exp', grp;
+  var live = st.k === 'open', grp;
   if (isLater) grp = 4; else if (verdict === 'no') grp = 3; else if (!live) grp = 2; else grp = verdict === 'yes' ? 0 : 1;
   return { r: r, st: st, rules: rules, verdict: verdict, from: verdict === 'no' ? from : null, grp: grp };
 }
@@ -177,6 +177,7 @@ window.__eval = function (facts) { return (DATA ? DATA.records : []).map(functio
 var DATA = null;
 var TAB = 'work';
 var QOPEN = false;
+var SHOWALL = false;
 function completion() { var f = F(), n = 0, t = 0; FACTS.forEach(function (x) { if (x.g === 'Driving licence') return; t++; if (f[x.k]) n++; }); return Math.round(n / t * 100); }
 function srcLabel(p, fct) { if (fct.src === 'typed') return 'You entered'; var d = (p.docs || []).filter(function (x) { return x.id === fct.src; })[0]; return d ? 'From ' + d.label : 'You entered'; }
 function renderProfile() {
@@ -368,8 +369,15 @@ function renderExplore() {
   var m = ageM(f); if (m !== null) chips.push('Age ' + Math.floor(m / 12) + 'y ' + (m % 12) + 'm');
   if (f.cat) chips.push(showVal('cat', f.cat));
   if (f.state) chips.push(f.state === 'other' ? 'Another state' : f.state);
+  var hiddenN = all.filter(function (e) { return e.grp >= 2; }).length, allRecs = all;
+  if (!SHOWALL) all = all.filter(function (e) { return e.grp < 2; });
   var tabs = [['work', 'Start working early'], ['exp', 'With experience'], ['study', 'Study further'], ['scholar', 'Scholarships']];
   tabs = tabs.filter(function (t) { return all.some(function (e) { return e.r.tab === t[0]; }); });
+  if (!tabs.length && hiddenN && !SHOWALL) {
+    $('app').innerHTML = '<h2 class="h2">Opportunities for ' + esc(p.name) + '</h2><div class="chips" style="margin:8px 0 14px">' + chips.map(function (c) { return '<span class="chip">' + esc(c) + '</span>'; }).join('') + '</div><div class="card"><h3 class="h3">Nothing is open for you right now</h3><p class="note" style="margin-top:4px">' + hiddenN + (hiddenN === 1 ? ' record matches' : ' records match') + ' this profile but ' + (hiddenN === 1 ? 'is' : 'are') + ' closed, not open yet, or not eligible yet.</p><div class="row" style="margin-top:10px"><button class="btn" id="showAll" type="button">Show them</button></div></div>';
+    $('showAll').onclick = function () { SHOWALL = true; renderExplore(); };
+    return;
+  }
   if (!tabs.length) {
     $('app').innerHTML = '<h2 class="h2">Opportunities for ' + esc(p.name) + '</h2><div class="chips" style="margin:8px 0 14px">' + chips.map(function (c) { return '<span class="chip">' + esc(c) + '</span>'; }).join('') + '</div><div class="card"><h3 class="h3">Nothing to match yet</h3><p class="note" style="margin-top:4px">Results appear for the kinds of details a profile holds: Class 10 details, a driving licence or work experience. ' + (jobsOf(p).length || Object.keys(p.facts).length ? 'This profile has none of those that match the records available so far. More kinds of jobs are being added.' : 'Scan a document or add a detail on the Profile tab.') + '</p></div><p class="foot">Records so far cover Karnataka and central government posts open to Class 10 pass candidates, driver posts, and study and scholarship routes after Class 10.</p>';
     return;
@@ -398,9 +406,11 @@ function renderExplore() {
   if (later.length) h += '<details class="later-toggle"><summary>' + GROUPS[4][0] + ' (' + later.length + ')</summary><p class="gnote" style="margin-top:4px">' + GROUPS[4][1] + '</p><div class="recs">' + later.map(card).join('') + '</div></details>';
   $('app').innerHTML = '<div class="row" style="justify-content:space-between"><div><h2 class="h2">Opportunities for ' + esc(p.name) + '</h2><div class="chips" style="margin-top:8px">' + chips.map(function (c) { return '<span class="chip">' + esc(c) + '</span>'; }).join('') + '</div></div></div>'
     + '<div class="sub" role="tablist">' + tabsH + '</div>' + h
+    + (hiddenN ? '<div class="row" style="margin-top:18px"><button class="btn" id="showAll" type="button">' + (SHOWALL ? 'Hide closed and not-open records' : 'Show ' + hiddenN + ' closed or not-yet-open ' + (hiddenN === 1 ? 'record' : 'records')) + '</button></div>' : '')
     + '<p class="foot">Records marked “Read from the official notice” were taken from the government’s own notice. The others come from news or listing pages read on ' + esc(DATA.readOn) + ' and have not been checked against an official notice, so open the official site first. Check dates, age limits and fees on the official website before you apply, and never pay an agent to apply. NTSE is not listed because it has not been held since 2021. Only records that match what is on this profile are shown.</p>';
   Array.prototype.forEach.call(document.querySelectorAll('.sub button'), function (b) { b.onclick = function () { TAB = b.getAttribute('data-t'); try { sessionStorage.setItem('pa10.tab', TAB); } catch (e) {} renderExplore(); window.scrollTo(0, 0); }; });
   wireGap(p);
+  if ($('showAll')) $('showAll').onclick = function () { SHOWALL = !SHOWALL; renderExplore(); window.scrollTo(0, 0); };
   if ($('qd')) $('qd').ontoggle = function () { QOPEN = $('qd').open; };
   qs.forEach(function (q) { var el = $('q-' + q.k); el.onchange = function () { if (el.value) { setFact(q.k, el.value, 'typed'); renderExplore(); } }; });
 }
