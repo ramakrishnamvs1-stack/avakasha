@@ -27,19 +27,23 @@ var FACTS = [
   { k: 'minority', g: 'Eligibility', l: 'Notified minority community', type: 'select', o: YN, why: 'minority scholarships' },
   { k: 'income', g: 'Eligibility', l: 'Family income a year', type: 'select', o: [['100000', 'Up to ₹1 lakh'], ['250000', '₹1 to 2.5 lakh'], ['350000', '₹2.5 to 3.5 lakh'], ['800000', '₹3.5 to 8 lakh'], ['9999999', 'Above ₹8 lakh']], why: 'income limits' },
   { k: 'school', g: 'Eligibility', l: 'School type', type: 'select', o: [['govt', 'Government'], ['aided', 'Government-aided'], ['private', 'Private']], why: 'NMMSS' },
-  { k: 'nmms', g: 'Eligibility', l: 'Qualified Class 8 NMMS exam', type: 'select', o: YN, why: 'NMMSS' }
+  { k: 'nmms', g: 'Eligibility', l: 'Qualified Class 8 NMMS exam', type: 'select', o: YN, why: 'NMMSS' },
+  { k: 'lmv', g: 'Driving licence', l: 'Light vehicle (LMV) licence since', type: 'date', why: 'driver posts' },
+  { k: 'hmv', g: 'Driving licence', l: 'Heavy vehicle (HMV) licence since', type: 'date', why: 'driver posts' },
+  { k: 'badge', g: 'Driving licence', l: 'Public service badge', type: 'select', o: YN, why: 'driver posts' },
+  { k: 'dlValid', g: 'Driving licence', l: 'Licence valid until', type: 'date', why: 'driver posts' }
 ];
 var FD = {}; FACTS.forEach(function (f) { FD[f.k] = f; });
 function showVal(k, v) {
   var f = FD[k]; if (!f) return String(v);
   if (f.type === 'select') { for (var i = 0; i < f.o.length; i++) if (f.o[i][0] === String(v)) return f.o[i][1]; }
-  if (k === 'dob') { return fmt(pd(v)); }
+  if (f.type === 'date') { return fmt(pd(v)); }
   if (k === 'pct') return Number(v).toFixed(1) + '%';
   return String(v);
 }
 
 /* ================= storage ================= */
-var APPVER = '7';
+var APPVER = '8';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -108,6 +112,20 @@ function rule(sp, f) {
   if (t === 'school') { if (!f.school) return R('unsure', 'Government or aided school', 'Add your school type.', { needs: 'school' }); return f.school === 'private' ? R('fail', 'Government or aided school', 'Your school is private.') : R('pass', 'Government or aided school', 'Your school is ' + showVal('school', f.school).toLowerCase() + '.'); }
   if (t === 'gender') { if (!f.gender) return R('unsure', sp.title, sp.detail + ' Add your gender to check.', { needs: 'gender' }); if (f.gender === 'o') return R('unsure', sp.title, sp.detail); return f.gender === sp.is ? R('pass', sp.title, sp.detail) : R('fail', sp.title, sp.detail); }
   if (t === 'board') { if (!f.board) return R('unsure', sp.is, 'Add your board.', { needs: 'board' }); return f.board === sp.is ? R('pass', 'Karnataka SSLC', 'Matches the board named in the source.') : R('unsure', 'Board equivalence', 'The source speaks of Karnataka SSLC. Confirm ' + f.board + ' with the college.'); }
+  if (t === 'lic') {
+    var d0 = f[sp.cls], nm = sp.cls === 'hmv' ? 'Heavy vehicle licence' : 'Light vehicle licence';
+    var ttl = sp.min ? nm + ' held for ' + sp.min + ' years' : nm;
+    if (!d0) { return (f.lmv || f.hmv) ? R('unsure', ttl, 'Your licence on the profile does not show this class. Add the date if you hold it.', { needs: sp.cls }) : R('unsure', ttl, 'Scan your driving licence to check this.', { needs: sp.cls }); }
+    if (f.dlValid && pd(f.dlValid) < TODAY) return R('unsure', ttl, 'Your licence shows it was valid until ' + fmt(pd(f.dlValid)) + '. Renew it first.');
+    var held = monthsBetween(pd(d0), TODAY);
+    if (!sp.min) return R('pass', ttl, 'You have held it since ' + fmt(pd(d0)) + '.');
+    if (held >= sp.min * 12) return R('pass', ttl, 'You have held it since ' + fmt(pd(d0)) + ', about ' + expText(held) + '.');
+    var fr2 = addMonths(pd(d0), sp.min * 12); return R('fail', ttl, 'You have held it for ' + expText(Math.max(held, 0)) + '. You reach ' + sp.min + ' years on ' + fmt(fr2) + '.', { from: fr2 });
+  }
+  if (t === 'flag') {
+    var fv = f[sp.k]; if (fv === 'yes') return R('pass', sp.title, 'Your profile says yes.'); if (fv === 'no') return R('fail', sp.title, 'Your profile says no.');
+    return R('unsure', sp.title, sp.detail || 'Add this to your profile.', { needs: sp.k });
+  }
   if (t === 'exp') {
     var yy = f.exp === undefined ? null : parseFloat(f.exp);
     if (sp.min === undefined) return R('info', sp.title || 'Driving or work experience', yy === null ? 'Yours: none added yet. A relieving or experience letter would show it here.' : 'Yours: about ' + yy + (yy === 1 ? ' year' : ' years') + ' in total.', yy === null ? { needs: 'exp' } : null);
@@ -134,7 +152,7 @@ window.__eval = function (facts) { return (DATA ? DATA.records : []).map(functio
 /* ================= render: profile ================= */
 var DATA = null;
 var TAB = 'work';
-function completion() { var f = F(), n = 0; FACTS.forEach(function (x) { if (f[x.k]) n++; }); return Math.round(n / FACTS.length * 100); }
+function completion() { var f = F(), n = 0, t = 0; FACTS.forEach(function (x) { if (x.g === 'Driving licence') return; t++; if (f[x.k]) n++; }); return Math.round(n / t * 100); }
 function srcLabel(p, fct) { if (fct.src === 'typed') return 'You entered'; var d = (p.docs || []).filter(function (x) { return x.id === fct.src; })[0]; return d ? 'From ' + d.label : 'You entered'; }
 function renderProfile() {
   var p = prof();
@@ -322,7 +340,7 @@ function renderExplore() {
     if (bt) h += '<div class="banner">' + bt + '</div>';
   } else if (TAB === 'exp') {
     var js = jobsOf(p);
-    h += '<div class="banner">' + (js.some(jobDone) ? 'Your recorded work experience: <b>' + expText(expMonths(p)) + '</b>. ' : 'No work experience is recorded yet. Scan a relieving, experience or offer letter, or add a job on the Profile tab, so experience can be checked. ') + 'Driver posts ask for years of holding a heavy vehicle licence, which is not the same as job experience, so those are shown as details to confirm.</div>';
+    h += '<div class="banner">' + (js.some(jobDone) ? 'Your recorded work experience: <b>' + expText(expMonths(p)) + '</b>. ' : 'No work experience is recorded yet. Scan a relieving, experience or offer letter, or add a job on the Profile tab, so experience can be checked. ') + 'Driver posts also check the driving licence on your profile. Scan it from the Profile tab if you have not.</div>';
   } else if (TAB === 'scholar') {
     h += '<div class="banner">Post-matric scholarships apply once you are enrolled in Class 11, a diploma or an ITI. Apply on the official portals only.</div>';
   }
@@ -387,12 +405,12 @@ function menuSheet() {
 /* ================= scan ================= */
 var stream = null;
 function stopCam() { if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; } }
-var DOCTYPES = [['m10', 'Class 10 marksheet'], ['birth', 'Birth certificate'], ['cat', 'Category (caste) certificate'], ['inc', 'Income certificate'], ['exp', 'Work experience letter']];
+var DOCTYPES = [['m10', 'Class 10 marksheet'], ['birth', 'Birth certificate'], ['cat', 'Category (caste) certificate'], ['inc', 'Income certificate'], ['exp', 'Work experience letter'], ['dl', 'Driving licence']];
 var scan = { type: 'auto', canvas: null };
 function scanSheet() {
   scan = { type: 'auto', canvas: null, local: false };
   sheet('<h2>Scan a document</h2><p class="note">Photograph it flat, in good light, with the whole page in the frame. The photo is not saved.</p>'
-    + '<p class="note">You do not need to say what it is. The app works that out: a Class 10 marksheet, birth certificate, caste certificate, income certificate, or a relieving, experience or offer letter.</p>'
+    + '<p class="note">You do not need to say what it is. The app works that out: a Class 10 marksheet, birth certificate, caste certificate, income certificate, a driving licence, or a relieving, experience or offer letter.</p>'
     + '<div class="row" style="margin-top:14px"><button class="btn pri big" id="cam" type="button">Open camera</button><button class="btn big" id="gal" type="button">Choose from gallery</button></div><input type="file" id="gf" accept="image/*" hidden>'
     + '<div id="sm"></div><div class="row" style="margin-top:16px"><button class="btn" id="sc" type="button">Cancel</button></div>');
   $('sc').onclick = closeSheet;
@@ -461,7 +479,7 @@ function userKey() { try { return localStorage.getItem('pa10.key') || ''; } catc
 var MODEL = 'claude-sonnet-5-5';
 var COMMON = 'The image is a photo of an Indian official document. Read only the fields asked for. If a value is not clearly readable, use null. Do not guess. Do not include any person\'s name, roll or registration number, address, or any ID number. Reply with only one JSON object and nothing else.';
 var PROMPTS = {
-  auto: COMMON + '\nFirst decide what the document is and put it in docType: "m10" (a school Class 10, SSLC or matriculation marksheet or pass certificate), "m12" (a Class 12, PUC or higher secondary marksheet), "degree" (a college or university marksheet or degree), "exp" (a relieving letter, experience certificate, offer letter or appointment letter from an employer), "birth" (a birth certificate), "cat" (a caste or category certificate), "inc" (an income certificate), or "other". Fill only the fields for that document and use null for the rest. Fields: {"isDocument": boolean, "docType": "m10" | "m12" | "degree" | "exp" | "birth" | "cat" | "inc" | "other", "board": "CBSE" | "ICSE" | "Karnataka SSLC" | "Other state board" | null, "examYear": number | null, "dob": "YYYY-MM-DD" | null, "result": "pass" | "fail" | "unknown", "gradeSystem": "marks" | "cgpa" | "grades" | "unknown", "totalObtained": number | null, "totalMax": number | null, "printedPercentage": number | null, "cgpa": number | null, "subjects": [{"name": string, "obtained": number | null, "max": number | null}], "category": "SC" | "ST" | "OBC" | "General" | null, "categoryText": string | null, "annualIncomeRupees": number | null, "role": string | null, "employer": string | null, "startDate": "YYYY-MM-DD" | null, "endDate": "YYYY-MM-DD" | null, "stillWorking": boolean, "letterKind": "relieving" | "experience" | "offer" | "other" | null, "notes": [string]}. For a work letter, give the employer organisation name and the job title, never the person\'s name; use the date of joining as startDate and the last working day or relieving date as endDate, not the date the letter was written; if a date is not printed use null, and say so in notes. For a Class 10 marksheet use the printed total if there is one. In notes, list anything doubtful, such as a printed total that does not equal the sum of subjects, a subject printed separately from the total, or a blurred value. Keep notes short.',
+  auto: COMMON + '\nFirst decide what the document is and put it in docType: "m10" (a school Class 10, SSLC or matriculation marksheet or pass certificate), "m12" (a Class 12, PUC or higher secondary marksheet), "degree" (a college or university marksheet or degree), "exp" (a relieving letter, experience certificate, offer letter or appointment letter from an employer), "dl" (a driving licence), "birth" (a birth certificate), "cat" (a caste or category certificate), "inc" (an income certificate), or "other". Fill only the fields for that document and use null for the rest. Fields: {"isDocument": boolean, "docType": "m10" | "m12" | "degree" | "exp" | "dl" | "birth" | "cat" | "inc" | "other", "board": "CBSE" | "ICSE" | "Karnataka SSLC" | "Other state board" | null, "examYear": number | null, "dob": "YYYY-MM-DD" | null, "result": "pass" | "fail" | "unknown", "gradeSystem": "marks" | "cgpa" | "grades" | "unknown", "totalObtained": number | null, "totalMax": number | null, "printedPercentage": number | null, "cgpa": number | null, "subjects": [{"name": string, "obtained": number | null, "max": number | null}], "category": "SC" | "ST" | "OBC" | "General" | null, "categoryText": string | null, "annualIncomeRupees": number | null, "role": string | null, "employer": string | null, "startDate": "YYYY-MM-DD" | null, "endDate": "YYYY-MM-DD" | null, "stillWorking": boolean, "letterKind": "relieving" | "experience" | "offer" | "other" | null, "licenceClasses": [{"class": string, "issued": "YYYY-MM-DD" | null}], "validUpto": "YYYY-MM-DD" | null, "badgeHeld": boolean | null, "notes": [string]}. For a driving licence list each vehicle class printed (for example LMV, MCWG, HMV, HGMV, HPMV) with its own date of issue, the date the licence is valid until, and whether a public service vehicle badge is shown; never include the licence number, name or address. For a work letter, give the employer organisation name and the job title, never the person\'s name; use the date of joining as startDate and the last working day or relieving date as endDate, not the date the letter was written; if a date is not printed use null, and say so in notes. For a Class 10 marksheet use the printed total if there is one. In notes, list anything doubtful, such as a printed total that does not equal the sum of subjects, a subject printed separately from the total, or a blurred value. Keep notes short.',
   m10: COMMON + '\nThe document should be a school Class 10 marksheet or pass certificate (CBSE, ICSE, Karnataka SSLC, or another state board, in any year). Fields: {"isDocument": boolean, "board": "CBSE" | "ICSE" | "Karnataka SSLC" | "Other state board" | null, "examYear": number | null, "dob": "YYYY-MM-DD" | null, "result": "pass" | "fail" | "unknown", "gradeSystem": "marks" | "cgpa" | "grades" | "unknown", "totalObtained": number | null, "totalMax": number | null, "printedPercentage": number | null, "cgpa": number | null, "subjects": [{"name": string, "obtained": number | null, "max": number | null}], "notes": [string]}. Use the printed total if there is one. In notes, list anything doubtful, such as a printed total that does not equal the sum of subjects, a subject printed separately from the total, or a blurred value. Keep notes short.',
   birth: COMMON + '\nThe document should be a birth certificate. Fields: {"isDocument": boolean, "dob": "YYYY-MM-DD" | null, "notes": [string]}.',
   cat: COMMON + '\nThe document should be a caste or category certificate. Fields: {"isDocument": boolean, "category": "SC" | "ST" | "OBC" | "General" | null, "categoryText": string | null, "notes": [string]}.',
@@ -544,9 +562,10 @@ function isSupported(t) { return DOCTYPES.some(function (d) { return d[0] === t;
 function unsupportedMsg(t) {
   if (t === 'm12') return 'This looks like a Class 12 or PUC marksheet. The app reads Class 10 documents for now. Class 12 comes next.';
   if (t === 'degree') return 'This looks like a college or degree document. The app reads Class 10 documents for now.';
-  return 'This does not look like a Class 10 marksheet, birth, caste or income certificate, or a work letter. Retake the photo with the whole page in the frame.';
+  return 'This does not look like a Class 10 marksheet, birth, caste or income certificate, driving licence or work letter. Retake the photo with the whole page in the frame.';
 }
 function detectLocal(t) {
+  if (/driving\s+licen[cs]e|licen[cs]e\s+to\s+drive|\bmcwg\b|\bhgmv\b|\bhpmv\b|\blmv\b/i.test(t) && !/marks\s+obtained|grand\s+total/i.test(t)) return 'dl';
   if (/relieving|relieved\s+from|experience\s+(?:certificate|letter)|offer\s+letter|appointment\s+letter|date\s+of\s+joining|last\s+working\s+day/i.test(t) && !/marks\s+obtained|subject|grand\s+total/i.test(t)) return 'exp';
   if (/senior\s+secondary|class\s*(?:xii|12)\b|\bpuc\b|pre[\s-]*university|higher\s+secondary|\bhsc\b|intermediate/i.test(t)) return 'm12';
   if (/certificate\s+of\s+birth|birth\s+certificate|registrar\s+of\s+(?:births|birth)|date\s+of\s+birth[\s\S]{0,200}place\s+of\s+birth/i.test(t) && !/marks|subject/i.test(t)) return 'birth';
@@ -559,6 +578,20 @@ function mapServer(type, d) {
   var P = [], notes = (d.notes || []).filter(function (x) { return typeof x === 'string'; }).slice(0, 5);
   function add(k, v, conf, note) { P.push({ k: k, v: String(v), conf: conf, note: note || '' }); }
   if (d.isDocument === false) return { notDoc: true };
+  if (type === 'dl') {
+    var ok = function (v) { return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && +v.slice(0, 4) >= 1960 && pd(v) <= TODAY; }, lm = null, hm = null;
+    (d.licenceClasses || []).forEach(function (c) {
+      if (!c || typeof c.class !== 'string' || !ok(c.issued)) return; var n = c.class.toUpperCase();
+      if (/HMV|HGMV|HPMV|HGV|HPV|HEAVY/.test(n)) { if (!hm || c.issued < hm) hm = c.issued; } else if (/LMV|LIGHT/.test(n)) { if (!lm || c.issued < lm) lm = c.issued; }
+    });
+    if (lm) add('lmv', lm, 'guess', 'Earliest date of issue found for a light motor vehicle class. Check it.');
+    if (hm) add('hmv', hm, 'guess', 'Earliest date of issue found for a heavy vehicle class. Check it.');
+    if (typeof d.validUpto === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d.validUpto)) add('dlValid', d.validUpto, 'read', 'Check the valid-until date.');
+    if (d.badgeHeld === true) add('badge', 'yes', 'guess', 'A public service badge seems to be shown. Check it.');
+    var cl = (d.licenceClasses || []).map(function (c) { return c && c.class; }).filter(Boolean).join(', ');
+    if (cl) notes.push('Classes found on the licence: ' + cl + '. Only light (LMV) and heavy (HMV) classes are saved.');
+    return { props: P, notes: notes };
+  }
   if (type === 'birth') { if (validDob(d.dob)) add('dob', d.dob, 'read', 'Check the day and month.'); return { props: P, notes: notes }; }
   if (type === 'cat') {
     if (d.category === 'SC' || d.category === 'ST' || d.category === 'OBC' || d.category === 'General') add('cat', d.category, 'read', d.categoryText ? 'The certificate says: ' + d.categoryText : '');
@@ -608,6 +641,20 @@ function findDob(text) {
 function parse(type, text) {
   var P = [], t = text.replace(/[|_]/g, ' ');
   function add(k, v, conf, note) { P.push({ k: k, v: String(v), conf: conf, note: note || '' }); }
+  if (type === 'dl') {
+    var dd = function (l) { var m = l.match(/(\d{1,2})\s*[\/\-.]\s*(\d{1,2})\s*[\/\-.]\s*((?:19|20)\d{2})/); return m ? m[3] + '-' + two(+m[2]) + '-' + two(+m[1]) : null; };
+    var lm = null, hm = null, vu = null;
+    t.split(/\n/).forEach(function (l) {
+      var d = dd(l); if (!d) return;
+      if (/\bHMV\b|\bHGMV\b|\bHPMV\b|\bHGV\b|\bHPV\b/i.test(l)) { if (!hm || d < hm) hm = d; }
+      else if (/\bLMV\b/i.test(l)) { if (!lm || d < lm) lm = d; }
+      else if (/valid|validity|till|expiry/i.test(l) && /non[\s-]*transport|nt\b|transport/i.test(l) === false) { vu = vu || d; }
+    });
+    if (lm) add('lmv', lm, 'guess', 'Found a date beside LMV. Check it is the date of issue.');
+    if (hm) add('hmv', hm, 'guess', 'Found a date beside HMV. Check it is the date of issue.');
+    if (vu) add('dlValid', vu, 'guess', 'Check the valid-until date.');
+    return P;
+  }
   if (type === 'birth') { var d0 = findDob(t); if (d0) add('dob', d0.v, d0.conf, 'Check the day and month.'); return P; }
   if (type === 'cat') {
     if (/scheduled\s+tribe/i.test(t)) add('cat', 'ST', 'read', 'Found "Scheduled Tribe".');
@@ -647,8 +694,8 @@ function parse(type, text) {
   if (hasM && hasS && hasE && pass) add('core', 'yes', 'guess', 'Found Maths, Science and English with a pass.');
   return P;
 }
-var EXPECT = { m10: ['board', 'examYear', 'passed', 'pct', 'core', 'dob'], birth: ['dob'], cat: ['cat'], inc: ['income'] };
-var EXPECT_NOTE = { dob: 'Many marksheets do not print the date of birth. Use the birth certificate if so.', core: 'Check each of Maths, Science and English on the sheet.' };
+var EXPECT = { dl: ['lmv'], m10: ['board', 'examYear', 'passed', 'pct', 'core', 'dob'], birth: ['dob'], cat: ['cat'], inc: ['income'] };
+var EXPECT_NOTE = { lmv: 'Many licences list the date of issue next to each vehicle class. If you hold only a heavy or two-wheeler class, leave this blank.', dob: 'Many marksheets do not print the date of birth. Use the birth certificate if so.', core: 'Check each of Maths, Science and English on the sheet.' };
 function confirmSheet(props, text, notes) {
   var have = F(), got = {}; props.forEach(function (p) { got[p.k] = 1; });
   var missing = (EXPECT[scan.type] || []).filter(function (k) { return !got[k] && !have[k]; });

@@ -1001,7 +1001,7 @@
     "https://www.freejobalert.com/articles/kkrtc-driver-recruitment-2026-walk-in-for-78-posts-3035709"
    ],
    "conf": "Medium",
-   "note": "A third-party listing of the 20 January 2026 notice. The licence years are about holding the licence, not about a job you held.",
+   "note": "A third-party listing of the 20 January 2026 notice. The two years are counted from the date your heavy vehicle class was first issued on the licence.",
    "rules": [
     {
      "t": "age",
@@ -1013,10 +1013,15 @@
      "t": "passed"
     },
     {
-     "t": "static",
-     "s": "unsure",
-     "title": "Heavy vehicle licence held 2 years, with Karnataka Badge",
-     "detail": "Check your licence and badge. This app does not store them."
+     "t": "lic",
+     "cls": "hmv",
+     "min": 2
+    },
+    {
+     "t": "flag",
+     "k": "badge",
+     "title": "Karnataka public service badge",
+     "detail": "Scan your driving licence, or say whether you hold the badge."
     },
     {
      "t": "static",
@@ -1074,10 +1079,12 @@
      "t": "passed"
     },
     {
-     "t": "static",
-     "s": "unsure",
-     "title": "Light and heavy vehicle licence",
-     "detail": "Both licences are asked for. This app does not store them."
+     "t": "lic",
+     "cls": "lmv"
+    },
+    {
+     "t": "lic",
+     "cls": "hmv"
     },
     {
      "t": "static",
