@@ -48,7 +48,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '17';
+var APPVER = '18';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -184,7 +184,7 @@ function renderProfile() {
   var p = prof();
   if (!p) {
     $('app').innerHTML = '<div class="card empty"><h2 class="h2">Start a profile</h2><p>One profile for each person. It is built from their documents and stays on this phone.</p><button class="btn pri big" id="firstAdd" type="button">Add a person</button></div>';
-    $('firstAdd').onclick = addPersonSheet; return;
+    $('firstAdd').onclick = function () { addPersonSheet(false); }; return;
   }
   var nf = Object.keys(p.facts).length;
   var docs = (p.docs || []).length ? '<ul class="docs">' + p.docs.map(function (d) { return '<li><span>' + esc(d.label) + '<small>Added ' + fmt(new Date(d.at)) + ' · ' + (d.jobs ? d.jobs + (d.jobs === 1 ? ' job' : ' jobs') : d.keys.length + ' details') + ' read</small></span><button class="btn sm danger" data-deldoc="' + d.id + '" type="button">Remove</button></li>'; }).join('') + '</ul>' : '<p class="note" style="margin-top:10px">No documents yet.</p>';
@@ -483,10 +483,11 @@ function closeSheet() { stopCam(); $('sheet').hidden = true; $('sheetin').innerH
 $('sheet').addEventListener('click', function (e) { if (e.target === $('sheet')) closeSheet(); });
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('sheet').hidden) closeSheet(); });
 
-function addPersonSheet() {
-  sheet('<h2>Add a person</h2><p class="note">A first name or nickname is enough. It stays on this phone.</p><label class="field">Name<input id="pn" type="text" maxlength="40" autocomplete="off" placeholder="e.g. Asha"></label><div class="row" style="margin-top:16px"><button class="btn pri" id="pok" type="button">Add</button><button class="btn" id="pno" type="button">Cancel</button></div>');
+function addPersonSheet(first) {
+  first = first === true;
+  sheet('<h2>' + (first ? 'Who is this for?' : 'Add a person') + '</h2><p class="note">A first name or nickname is enough. It stays on this phone.</p><label class="field">Name<input id="pn" type="text" maxlength="40" autocomplete="off" placeholder="e.g. Asha"></label><div class="row" style="margin-top:16px"><button class="btn pri" id="pok" type="button">' + (first ? 'Continue' : 'Add') + '</button><button class="btn" id="pno" type="button">' + (first ? 'Later' : 'Cancel') + '</button></div>');
   $('pno').onclick = closeSheet;
-  $('pok').onclick = function () { var n = $('pn').value.trim(); if (!n) { $('pn').focus(); return; } var p = { id: uid(), name: n, created: Date.now(), facts: {}, docs: [] }; DB.profiles.push(p); DB.active = p.id; save(); closeSheet(); location.hash = '#profile'; render(); };
+  $('pok').onclick = function () { var n = $('pn').value.trim(); if (!n) { $('pn').focus(); return; } var p = { id: uid(), name: n, created: Date.now(), facts: {}, docs: [] }; DB.profiles.push(p); DB.active = p.id; save(); closeSheet(); location.hash = first ? '#home' : '#profile'; render(); };
   setTimeout(function () { var e = $('pn'); if (e) e.focus(); }, 50);
 }
 function editSheet(k) {
@@ -508,12 +509,13 @@ function peopleSheet() {
     return '<button type="button" class="prow' + (on ? ' on' : '') + '" data-pid="' + pp.id + '"><span class="av">' + initial(pp.name) + '</span><span class="pn"><b>' + esc(pp.name) + '</b><small>' + nf + (nf === 1 ? ' detail' : ' details') + ' · ' + nd + (nd === 1 ? ' document' : ' documents') + '</small></span>' + (on ? '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : '') + '</button>'; }).join('');
   sheet('<div class="sh">People on this phone</div>' + rows
     + '<button type="button" class="prow add" id="pa"><span class="av dash">+</span><b>Add person</b></button><div class="sdiv"></div>'
+    + '<button type="button" class="mrow" id="phow">How Avakasha works<span>›</span></button>'
     + '<button type="button" class="mrow" id="pbk">Backup and restore<span>' + '›' + '</span></button>'
     + '<button type="button" class="mrow" id="pco">Reading cost<span>' + (l.length ? inr(t30.reduce(function (s, x) { return s + x.usd; }, 0) * rate()) + ' in 30 days · ' + t30.length + (t30.length === 1 ? ' scan' : ' scans') : 'No scans yet') + '</span></button>'
     + '<button type="button" class="mrow" id="pky">Claude key<span>' + (CFG.readerUrl ? 'Server set up' : userKey() ? 'Saved on this phone' : 'Not saved') + '</span></button>'
     + (p ? '<div class="sdiv"></div><button type="button" class="mrow danger" id="pdel">Delete ' + esc(p.name) + '</button>' : ''));
   Array.prototype.forEach.call(document.querySelectorAll('[data-pid]'), function (b) { b.onclick = function () { DB.active = b.getAttribute('data-pid'); save(); closeSheet(); render(); }; });
-  $('pa').onclick = addPersonSheet; $('pbk').onclick = menuSheet; $('pco').onclick = menuSheet; $('pky').onclick = menuSheet;
+  $('pa').onclick = function () { addPersonSheet(false); }; $('phow').onclick = function () { closeSheet(); showIntro(null); }; $('pbk').onclick = menuSheet; $('pco').onclick = menuSheet; $('pky').onclick = menuSheet;
   if ($('pdel')) $('pdel').onclick = function () { deleteSheet(p); };
 }
 function menuSheet() {
@@ -906,6 +908,37 @@ function confirmSheet(props, text, notes) {
 }
 
 /* ================= shell ================= */
+/* ================= first-launch intro ================= */
+var ART = [
+  '<svg width="260" height="260" viewBox="0 0 260 260" aria-hidden="true"><rect x="70" y="40" width="120" height="160" rx="12" fill="#fff" stroke="#dfe5ea" stroke-width="2"/><rect x="88" y="62" width="60" height="8" rx="4" fill="#c9d2d9"/><rect x="88" y="82" width="84" height="6" rx="3" fill="#dfe5ea"/><rect x="88" y="98" width="76" height="6" rx="3" fill="#dfe5ea"/><rect x="88" y="120" width="84" height="40" rx="6" fill="none" stroke="#c9d2d9" stroke-width="2"/><path d="M40 90V62a14 14 0 0 1 14-14h28M178 48h28a14 14 0 0 1 14 14v28M220 170v28a14 14 0 0 1-14 14h-28M82 212H54a14 14 0 0 1-14-14v-28" fill="none" stroke="#0d6e6e" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><path d="M130 100l6 15 15 6-15 6-6 15-6-15-15-6 15-6z" fill="#f6b73c"/></svg>',
+  '<svg width="260" height="260" viewBox="0 0 260 260" aria-hidden="true"><rect x="52" y="30" width="156" height="64" rx="14" fill="#fff" stroke="#dfe5ea" stroke-width="2"/><rect x="66" y="44" width="52" height="12" rx="6" fill="#e0f2e7"/><rect x="66" y="66" width="100" height="9" rx="4.5" fill="#c9d2d9"/><circle cx="184" cy="62" r="13" fill="#0d6e6e"/><path d="M177 62l5 5 9-10" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="40" y="108" width="180" height="64" rx="14" fill="#fff" stroke="#dfe5ea" stroke-width="2"/><rect x="54" y="122" width="52" height="12" rx="6" fill="#dff1f0"/><rect x="54" y="144" width="110" height="9" rx="4.5" fill="#c9d2d9"/><circle cx="198" cy="140" r="13" fill="#0d6e6e"/><path d="M191 140l5 5 9-10" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="52" y="186" width="156" height="50" rx="14" fill="#fff" stroke="#dfe5ea" stroke-width="2"/><rect x="66" y="200" width="52" height="12" rx="6" fill="#fcebd0"/><rect x="66" y="218" width="84" height="8" rx="4" fill="#dfe5ea"/><path d="M214 40l4 10 10 4-10 4-4 10-4-10-10-4 10-4z" fill="#f6b73c"/></svg>',
+  '<svg width="260" height="260" viewBox="0 0 260 260" aria-hidden="true"><rect x="78" y="28" width="104" height="204" rx="20" fill="#17323f"/><rect x="88" y="46" width="84" height="168" rx="8" fill="#f2f5f7"/><rect x="108" y="34" width="44" height="6" rx="3" fill="#2f4a58"/><rect x="108" y="108" width="44" height="38" rx="8" fill="#0d6e6e"/><path d="M116 108v-9a14 14 0 0 1 28 0v9" fill="none" stroke="#0d6e6e" stroke-width="7" stroke-linecap="round"/><circle cx="130" cy="127" r="5" fill="#f6b73c"/><rect x="100" y="162" width="60" height="7" rx="3.5" fill="#c9d2d9"/><rect x="108" y="176" width="44" height="7" rx="3.5" fill="#dfe5ea"/></svg>'
+];
+var INTRO = [
+  ['Scan your documents', 'Point your camera at a marksheet, certificate, licence or work letter. Avakasha reads it and builds your profile.'],
+  ['See what suits you', 'Jobs, courses and scholarships that match your details, open right now. Add more documents and the list grows.'],
+  ['Stays on your phone', 'Your details are kept on this phone, and photos are not saved. You decide what to add.']
+];
+function introSeen() { try { return localStorage.getItem('pa10.intro') === '1'; } catch (e) { return false; } }
+function showIntro(done) {
+  var el = $('intro'), i = 0, x0 = null;
+  el.hidden = false; document.body.style.overflow = 'hidden';
+  function finish() { try { localStorage.setItem('pa10.intro', '1'); } catch (e) {} el.hidden = true; el.innerHTML = ''; document.body.style.overflow = ''; if (done) done(); }
+  function draw() {
+    var last = i === INTRO.length - 1;
+    el.innerHTML = (last ? '' : '<button type="button" class="iskip" id="isk">Skip</button>')
+      + '<div class="iart"><div class="icirc">' + ART[i] + '</div></div>'
+      + '<div class="itxt"><h1>' + esc(INTRO[i][0]) + '</h1><p>' + esc(INTRO[i][1]) + '</p></div>'
+      + '<div class="idots">' + INTRO.map(function (_, k) { return '<span' + (k === i ? ' class="on"' : '') + '></span>'; }).join('') + '</div>'
+      + '<div class="ibtn"><button type="button" class="btn pri big" id="inx">' + (last ? 'Get started' : 'Next') + '</button></div>';
+    $('inx').onclick = function () { if (last) finish(); else { i++; draw(); } };
+    if ($('isk')) $('isk').onclick = finish;
+  }
+  el.ontouchstart = function (e) { x0 = e.touches[0].clientX; };
+  el.ontouchend = function (e) { if (x0 === null) return; var dx = e.changedTouches[0].clientX - x0; x0 = null; if (dx < -60 && i < INTRO.length - 1) { i++; draw(); } else if (dx > 60 && i > 0) { i--; draw(); } };
+  draw();
+}
+function firstRun() { if (!prof()) addPersonSheet(true); }
 var CHEVD = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
 function route() { var h = location.hash.replace('#', ''); if (h.indexOf('job/') === 0) return { r: 'job', id: decodeURIComponent(h.slice(4)) }; if (h === 'explore' || h === 'profile') return { r: h }; return { r: 'home' }; }
 function renderTop(r) {
@@ -935,6 +968,8 @@ wireCamera();
 load();
 try { TAB = sessionStorage.getItem('pa10.tab') || 'work'; } catch (e) {}
 if (!DB.active && DB.profiles.length) DB.active = DB.profiles[0].id;
+if (DB.profiles.length && !introSeen()) { try { localStorage.setItem('pa10.intro', '1'); } catch (e) {} }
+if (!introSeen()) showIntro(firstRun);
 fetch('data/records.json').then(function (r) { return r.json(); }).then(function (d) { DATA = d; render(); }).catch(function () { $('app').innerHTML = '<div class="card empty"><h2 class="h2">Could not load the records</h2><p>Connect to the internet once and reopen the app.</p></div>'; });
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   var hadSW = !!navigator.serviceWorker.controller, reloaded = false;
