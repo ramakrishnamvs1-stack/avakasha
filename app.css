@@ -144,3 +144,5 @@ input,select{font:400 15px var(--f-body);color:var(--ink);background:var(--surfa
 .gl small{color:var(--muted)}
 .field small.note{display:block;font-weight:400}
 .field>.tag{align-self:flex-start}
+
+details.q summary{cursor:pointer;font-size:15px}

@@ -43,7 +43,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '8';
+var APPVER = '9';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -76,12 +76,12 @@ function ruleAge(sp, f) {
   var m = ageM(f), min = sp.min, max = sp.max;
   var lab = 'Age ' + (max ? lab2(min) + ' to ' + max : min + ' or older');
   function lab2(x) { return x === 17.5 ? '17½' : x; }
-  if (m === null) return R('unsure', lab, 'Add your date of birth to check this.', { needs: 'dob' });
+  if (m === null) return R('unsure', lab, 'No date of birth on your profile.', { needs: 'dob' });
   var fmin = sp.failMin !== undefined ? sp.failMin : min, fmax = sp.failMax !== undefined ? sp.failMax : max;
   if (m < fmin * 12) { var fr = addMonths(pd(f.dob), Math.round(min * 12)); return R('fail', lab, 'You are ' + ageText(m) + '. You reach ' + lab2(min) + ' on ' + fmt(fr) + '.', { from: fr }); }
   if (max && m > fmax * 12) {
     if (sp.relax && (f.cat === 'OBC' || f.cat === 'SC' || f.cat === 'ST')) return R('unsure', lab, 'Above the general limit. Reserved categories get extra years; the amount was not in my source.');
-    if (sp.relax && !f.cat) return R('unsure', lab, 'Above the general limit. Reserved categories get extra years. Add your category to check.', { needs: 'cat' });
+    if (sp.relax && !f.cat) return R('unsure', lab, 'Above the general limit. Reserved categories get extra years. No category on your profile.', { needs: 'cat' });
     return R('fail', lab, 'You are ' + ageText(m) + ', above the limit.');
   }
   if (sp.soft) return R('unsure', lab, 'You are ' + ageText(m) + '. The age limit was not in the page I read, so confirm it.');
@@ -90,32 +90,32 @@ function ruleAge(sp, f) {
 function rule(sp, f) {
   var t = sp.t;
   if (t === 'age') return ruleAge(sp, f);
-  if (t === 'passed') { if (f.passed === 'yes') return R('pass', 'Passed Class 10', 'Your profile shows a pass.'); if (f.passed === 'no') return R('fail', 'Passed Class 10', 'Your profile says Class 10 is not passed.'); return R('unsure', 'Passed Class 10', 'Add whether you passed.', { needs: 'passed' }); }
-  if (t === 'core') { if (f.core === 'yes') return R('pass', sp.need, 'Your profile shows these subjects passed.'); if (f.core === 'no') return R('fail', sp.need, 'Your profile says one of them is not passed.'); return R('unsure', sp.need, 'Add whether you passed these subjects.', { needs: 'core' }); }
+  if (t === 'passed') { if (f.passed === 'yes') return R('pass', 'Passed Class 10', 'Your profile shows a pass.'); if (f.passed === 'no') return R('fail', 'Passed Class 10', 'Your profile says Class 10 is not passed.'); return R('unsure', 'Passed Class 10', 'Not on your profile.', { needs: 'passed' }); }
+  if (t === 'core') { if (f.core === 'yes') return R('pass', sp.need, 'Your profile shows these subjects passed.'); if (f.core === 'no') return R('fail', sp.need, 'Your profile says one of them is not passed.'); return R('unsure', sp.need, 'Not on your profile.', { needs: 'core' }); }
   if (t === 'merit') { var v = parseFloat(f.pct); return R('info', 'Chosen by Class 10 marks', 'Yours: ' + (isNaN(v) ? 'not added yet' : v.toFixed(1) + '%') + '.'); }
-  if (t === 'pctmin') { var p = parseFloat(f.pct); if (isNaN(p)) return R('unsure', 'About ' + sp.min + '% overall', 'Add your percentage.', { needs: 'pct' }); return p >= sp.min ? R('pass', 'About ' + sp.min + '% overall', 'Yours is ' + p.toFixed(1) + '%.') : R('fail', 'About ' + sp.min + '% overall', 'Yours is ' + p.toFixed(1) + '%.'); }
-  if (t === 'state') { if (!f.state) return R('unsure', 'Karnataka student', 'Add your home state.', { needs: 'state' }); return f.state === 'Karnataka' ? R('pass', 'Karnataka student', 'This record is for Karnataka.') : R('fail', 'Karnataka students only', 'Your home state is not Karnataka.'); }
-  if (t === 'stage') { if (!f.stage) return R('unsure', 'Needs enrolment after 10th', 'Add where you are now.', { needs: 'stage' }); return f.stage === 'in' ? R('pass', 'Already enrolled', 'You are in Class 11, a diploma or an ITI.') : R('unsure', 'Needs enrolment after 10th', 'Applies once you are in Class 11, a diploma or an ITI.'); }
+  if (t === 'pctmin') { var p = parseFloat(f.pct); if (isNaN(p)) return R('unsure', 'About ' + sp.min + '% overall', 'No percentage on your profile.', { needs: 'pct' }); return p >= sp.min ? R('pass', 'About ' + sp.min + '% overall', 'Yours is ' + p.toFixed(1) + '%.') : R('fail', 'About ' + sp.min + '% overall', 'Yours is ' + p.toFixed(1) + '%.'); }
+  if (t === 'state') { if (!f.state) return R('unsure', 'Karnataka student', 'No home state on your profile.', { needs: 'state' }); return f.state === 'Karnataka' ? R('pass', 'Karnataka student', 'This record is for Karnataka.') : R('fail', 'Karnataka students only', 'Your home state is not Karnataka.'); }
+  if (t === 'stage') { if (!f.stage) return R('unsure', 'Needs enrolment after 10th', 'Not on your profile.', { needs: 'stage' }); return f.stage === 'in' ? R('pass', 'Already enrolled', 'You are in Class 11, a diploma or an ITI.') : R('unsure', 'Needs enrolment after 10th', 'Applies once you are in Class 11, a diploma or an ITI.'); }
   if (t === 'cat') {
-    if (sp.is === 'MIN') { if (!f.minority) return R('unsure', sp.name, 'Add whether you belong to a notified minority.', { needs: 'minority' }); return f.minority === 'yes' ? R('pass', sp.name, 'Your profile matches.') : R('fail', sp.name, 'Your profile says no.'); }
-    if (!f.cat) return R('unsure', sp.name, 'Add your category.', { needs: 'cat' });
+    if (sp.is === 'MIN') { if (!f.minority) return R('unsure', sp.name, 'Not on your profile.', { needs: 'minority' }); return f.minority === 'yes' ? R('pass', sp.name, 'Your profile matches.') : R('fail', sp.name, 'Your profile says no.'); }
+    if (!f.cat) return R('unsure', sp.name, 'No category on your profile.', { needs: 'cat' });
     return f.cat === sp.is ? R('pass', sp.name, 'Your category matches.') : R('fail', sp.name, 'Your category is ' + showVal('cat', f.cat) + '.');
   }
-  if (t === 'catAny') { if (!f.cat) return R('unsure', 'SC, ST, OBC or minority', 'Add your category.', { needs: 'cat' }); var ok = f.cat === 'SC' || f.cat === 'ST' || f.cat === 'OBC' || f.minority === 'yes'; if (ok) return R('pass', 'SC, ST, OBC or minority', 'Your category fits at least one scheme.'); if (!f.minority) return R('unsure', 'SC, ST, OBC or minority', 'Add whether you belong to a notified minority.', { needs: 'minority' }); return R('fail', 'SC, ST, OBC or minority', 'Your category is ' + showVal('cat', f.cat) + '.'); }
+  if (t === 'catAny') { if (!f.cat) return R('unsure', 'SC, ST, OBC or minority', 'No category on your profile.', { needs: 'cat' }); var ok = f.cat === 'SC' || f.cat === 'ST' || f.cat === 'OBC' || f.minority === 'yes'; if (ok) return R('pass', 'SC, ST, OBC or minority', 'Your category fits at least one scheme.'); if (!f.minority) return R('unsure', 'SC, ST, OBC or minority', 'Not on your profile.', { needs: 'minority' }); return R('fail', 'SC, ST, OBC or minority', 'Your category is ' + showVal('cat', f.cat) + '.'); }
   if (t === 'income') {
     var lab = sp.known ? 'Family income up to ₹' + (sp.max / 100000) + ' lakh' : 'Income limit';
-    if (!f.income) return R('unsure', lab, 'Add your income band to check this.', { needs: 'income' });
+    if (!f.income) return R('unsure', lab, 'No income on your profile.', { needs: 'income' });
     if (!sp.known) return R('unsure', lab, 'The limit was not in my source. Your band is shown on your profile.');
     return parseInt(f.income, 10) <= sp.max ? R('pass', lab, 'Your band is within this limit.') : R('fail', lab, 'Your band is above this limit.');
   }
-  if (t === 'nmms') { if (f.nmms === 'yes') return R('pass', 'Qualified the Class 8 NMMS exam', 'Your profile says yes. Renew on the portal.'); if (f.nmms === 'no') return R('fail', 'Qualified the Class 8 NMMS exam', 'Your profile says no.'); return R('unsure', 'Qualified the Class 8 NMMS exam', 'Add this, or check with your school.', { needs: 'nmms' }); }
-  if (t === 'school') { if (!f.school) return R('unsure', 'Government or aided school', 'Add your school type.', { needs: 'school' }); return f.school === 'private' ? R('fail', 'Government or aided school', 'Your school is private.') : R('pass', 'Government or aided school', 'Your school is ' + showVal('school', f.school).toLowerCase() + '.'); }
-  if (t === 'gender') { if (!f.gender) return R('unsure', sp.title, sp.detail + ' Add your gender to check.', { needs: 'gender' }); if (f.gender === 'o') return R('unsure', sp.title, sp.detail); return f.gender === sp.is ? R('pass', sp.title, sp.detail) : R('fail', sp.title, sp.detail); }
-  if (t === 'board') { if (!f.board) return R('unsure', sp.is, 'Add your board.', { needs: 'board' }); return f.board === sp.is ? R('pass', 'Karnataka SSLC', 'Matches the board named in the source.') : R('unsure', 'Board equivalence', 'The source speaks of Karnataka SSLC. Confirm ' + f.board + ' with the college.'); }
+  if (t === 'nmms') { if (f.nmms === 'yes') return R('pass', 'Qualified the Class 8 NMMS exam', 'Your profile says yes. Renew on the portal.'); if (f.nmms === 'no') return R('fail', 'Qualified the Class 8 NMMS exam', 'Your profile says no.'); return R('unsure', 'Qualified the Class 8 NMMS exam', 'Not on your profile. Check with your school.', { needs: 'nmms' }); }
+  if (t === 'school') { if (!f.school) return R('unsure', 'Government or aided school', 'Not on your profile.', { needs: 'school' }); return f.school === 'private' ? R('fail', 'Government or aided school', 'Your school is private.') : R('pass', 'Government or aided school', 'Your school is ' + showVal('school', f.school).toLowerCase() + '.'); }
+  if (t === 'gender') { if (!f.gender) return R('unsure', sp.title, sp.detail + ' Gender is not on your profile.', { needs: 'gender' }); if (f.gender === 'o') return R('unsure', sp.title, sp.detail); return f.gender === sp.is ? R('pass', sp.title, sp.detail) : R('fail', sp.title, sp.detail); }
+  if (t === 'board') { if (!f.board) return R('unsure', sp.is, 'No board on your profile.', { needs: 'board' }); return f.board === sp.is ? R('pass', 'Karnataka SSLC', 'Matches the board named in the source.') : R('unsure', 'Board equivalence', 'The source speaks of Karnataka SSLC. Confirm ' + f.board + ' with the college.'); }
   if (t === 'lic') {
     var d0 = f[sp.cls], nm = sp.cls === 'hmv' ? 'Heavy vehicle licence' : 'Light vehicle licence';
     var ttl = sp.min ? nm + ' held for ' + sp.min + ' years' : nm;
-    if (!d0) { return (f.lmv || f.hmv) ? R('unsure', ttl, 'Your licence on the profile does not show this class. Add the date if you hold it.', { needs: sp.cls }) : R('unsure', ttl, 'Scan your driving licence to check this.', { needs: sp.cls }); }
+    if (!d0) { return (f.lmv || f.hmv) ? R('unsure', ttl, 'Your licence on the profile does not show this class.', { needs: sp.cls }) : R('unsure', ttl, 'No driving licence on your profile.', { needs: sp.cls }); }
     if (f.dlValid && pd(f.dlValid) < TODAY) return R('unsure', ttl, 'Your licence shows it was valid until ' + fmt(pd(f.dlValid)) + '. Renew it first.');
     var held = monthsBetween(pd(d0), TODAY);
     if (!sp.min) return R('pass', ttl, 'You have held it since ' + fmt(pd(d0)) + '.');
@@ -124,12 +124,12 @@ function rule(sp, f) {
   }
   if (t === 'flag') {
     var fv = f[sp.k]; if (fv === 'yes') return R('pass', sp.title, 'Your profile says yes.'); if (fv === 'no') return R('fail', sp.title, 'Your profile says no.');
-    return R('unsure', sp.title, sp.detail || 'Add this to your profile.', { needs: sp.k });
+    return R('unsure', sp.title, sp.detail || 'Not on your profile.', { needs: sp.k });
   }
   if (t === 'exp') {
     var yy = f.exp === undefined ? null : parseFloat(f.exp);
     if (sp.min === undefined) return R('info', sp.title || 'Driving or work experience', yy === null ? 'Yours: none added yet. A relieving or experience letter would show it here.' : 'Yours: about ' + yy + (yy === 1 ? ' year' : ' years') + ' in total.', yy === null ? { needs: 'exp' } : null);
-    if (yy === null) return R('unsure', sp.min + ' years of experience', 'Add your work experience to check this.', { needs: 'exp' });
+    if (yy === null) return R('unsure', sp.min + ' years of experience', 'No work experience on your profile.', { needs: 'exp' });
     return yy >= sp.min ? R('pass', sp.min + ' years of experience', 'You have about ' + yy + ' years.') : R('fail', sp.min + ' years of experience', 'You have about ' + yy + ' years.');
   }
   if (t === 'static') return R(sp.s, sp.title, sp.detail);
@@ -152,6 +152,7 @@ window.__eval = function (facts) { return (DATA ? DATA.records : []).map(functio
 /* ================= render: profile ================= */
 var DATA = null;
 var TAB = 'work';
+var QOPEN = false;
 function completion() { var f = F(), n = 0, t = 0; FACTS.forEach(function (x) { if (x.g === 'Driving licence') return; t++; if (f[x.k]) n++; }); return Math.round(n / t * 100); }
 function srcLabel(p, fct) { if (fct.src === 'typed') return 'You entered'; var d = (p.docs || []).filter(function (x) { return x.id === fct.src; })[0]; return d ? 'From ' + d.label : 'You entered'; }
 function renderProfile() {
@@ -160,26 +161,34 @@ function renderProfile() {
     $('app').innerHTML = '<div class="card empty"><h2 class="h2">Start a profile</h2><p>One profile for each person. It is built from their documents and stays on this phone.</p><button class="btn pri big" id="firstAdd" type="button">Add a person</button></div>';
     $('firstAdd').onclick = addPersonSheet; return;
   }
-  var pc = completion();
-  var docs = (p.docs || []).length ? '<ul class="docs">' + p.docs.map(function (d) { return '<li><span>' + esc(d.label) + '<small>Added ' + fmt(new Date(d.at)) + ' · ' + (d.jobs ? d.jobs + (d.jobs === 1 ? ' job' : ' jobs') : d.keys.length + ' details') + ' read</small></span><button class="btn sm danger" data-deldoc="' + d.id + '" type="button">Remove</button></li>'; }).join('') + '</ul>' : '<p class="note" style="margin-top:10px">No documents yet. Scan the Class 10 marksheet first.</p>';
-  var groups = {}; FACTS.forEach(function (x) { (groups[x.g] = groups[x.g] || []).push(x); });
+  var nf = Object.keys(p.facts).length;
+  var docs = (p.docs || []).length ? '<ul class="docs">' + p.docs.map(function (d) { return '<li><span>' + esc(d.label) + '<small>Added ' + fmt(new Date(d.at)) + ' · ' + (d.jobs ? d.jobs + (d.jobs === 1 ? ' job' : ' jobs') : d.keys.length + ' details') + ' read</small></span><button class="btn sm danger" data-deldoc="' + d.id + '" type="button">Remove</button></li>'; }).join('') + '</ul>' : '<p class="note" style="margin-top:10px">No documents yet.</p>';
+  var groups = {}; FACTS.forEach(function (x) { if (p.facts[x.k]) (groups[x.g] = groups[x.g] || []).push(x); });
   var f = F();
   var facts = Object.keys(groups).map(function (g) {
     return '<div class="fgroup"><h3>' + g + '</h3>' + groups[g].map(function (x) {
       var fct = p.facts[x.k];
-      return '<div class="fact"><div><div class="k">' + x.l + '</div>' + (fct ? '<div class="v">' + esc(showVal(x.k, fct.v)) + '</div><div class="src">' + esc(srcLabel(p, fct)) + '</div>' : '<div class="v none">Not added' + (x.why ? ' · used for ' + x.why : '') + '</div>') + '</div><button class="btn sm" data-edit="' + x.k + '" type="button">' + (fct ? 'Edit' : 'Add') + '</button></div>';
+      return '<div class="fact"><div><div class="k">' + x.l + '</div>' + '<div class="v">' + esc(showVal(x.k, fct.v)) + '</div><div class="src">' + esc(srcLabel(p, fct)) + '</div></div><button class="btn sm" data-edit="' + x.k + '" type="button">Edit</button></div>';
     }).join('') + '</div>';
   }).join('');
   $('app').innerHTML = '<div class="cols"><div class="stack">'
-    + gapCard(p) + '<div class="card"><h2 class="h2">' + esc(p.name) + '</h2><div class="note" style="margin-top:2px">Profile ' + pc + '% complete</div><div class="meter" aria-hidden="true"><i style="width:' + pc + '%"></i></div>'
+    + gapCard(p) + '<div class="card"><h2 class="h2">' + esc(p.name) + '</h2><div class="note" style="margin-top:2px">' + (nf ? nf + (nf === 1 ? ' detail' : ' details') + ' from what you added' : 'Nothing added yet') + '</div>'
     + '<div class="row" style="margin-top:14px"><button class="btn pri big" id="scanBtn" type="button">Scan a document</button><button class="btn big" id="goExplore" type="button">Explore</button></div>'
     + '<p class="note" style="margin-top:10px">Photos are not kept. Only the details you confirm are saved, and they stay on this phone.</p></div>'
     + '<div class="card"><h3 class="h3">Documents</h3>' + docs + '</div>' + jobCard(p) + '</div>'
-    + '<div class="card"><h3 class="h3">Details</h3><p class="note" style="margin-top:2px">Tap Edit to correct anything. Every record on the Explore tab uses these.</p>' + facts + '</div></div>';
-  wireGap(p); wireJobs(p);
+    + '<div class="card"><h3 class="h3">Details</h3><p class="note" style="margin-top:2px">' + (nf ? 'Only what you have added or confirmed is shown. Tap Edit to correct anything.' : 'Scan any document, or add a detail by hand. Only what you add is shown here.') + '</p>' + facts + '<div class="row" style="margin-top:12px"><button class="btn" id="addFact" type="button">Add a detail by hand</button><button class="btn" id="addJob" type="button">Add a job by hand</button></div></div></div>';
+  wireGap(p); wireJobs(p); $('addFact').onclick = addFactSheet;
   $('scanBtn').onclick = scanSheet; $('goExplore').onclick = function () { location.hash = '#explore'; };
   Array.prototype.forEach.call(document.querySelectorAll('[data-edit]'), function (b) { b.onclick = function () { editSheet(b.getAttribute('data-edit')); }; });
   Array.prototype.forEach.call(document.querySelectorAll('[data-deldoc]'), function (b) { b.onclick = function () { delDoc(b.getAttribute('data-deldoc')); }; });
+}
+function addFactSheet() {
+  var p = prof(), left = FACTS.filter(function (x) { return !p.facts[x.k]; });
+  if (!left.length) { toast('Every detail is already on the profile.'); return; }
+  sheet('<h2>Add a detail</h2><label class="field">Which detail<select id="afk">' + left.map(function (x) { return '<option value="' + x.k + '">' + esc(x.l) + '</option>'; }).join('') + '</select></label><div id="afc"></div><div class="row" style="margin-top:16px"><button class="btn pri" id="afok" type="button">Save</button><button class="btn" id="afno" type="button">Cancel</button></div>');
+  function draw() { var x = FD[$('afk').value]; $('afc').innerHTML = '<label class="field">' + esc(x.l) + ctl(x, '', 'afv') + '</label>'; }
+  $('afk').onchange = draw; draw(); $('afno').onclick = closeSheet;
+  $('afok').onclick = function () { var k = $('afk').value, v = $('afv').value; if (v === '') { toast('Choose or type a value first.'); return; } if (k === 'dob' && !(parseInt(v.slice(0, 4), 10) >= 1930 && parseInt(v.slice(0, 4), 10) <= TODAY.getFullYear())) { toast('Check the year of birth.'); return; } setFact(k, v, 'typed'); closeSheet(); render(); };
 }
 function delDoc(id) {
   var p = prof(); var d = p.docs.filter(function (x) { return x.id === id; })[0]; if (!d) return;
@@ -190,16 +199,15 @@ function delDoc(id) {
 
 
 /* ================= missing details and work experience ================= */
-var ESSENTIAL = ['dob', 'passed', 'pct'];
+var ESSENTIAL = [];
 function gaps(p) {
   var f = F(), keys = ESSENTIAL.filter(function (k) { return !f[k]; }), jb = jobsOf(p).filter(function (j) { return !jobDone(j); });
   return { keys: keys, jobs: jb, n: keys.length + jb.length };
 }
 function gapCard(p) {
-  if (!(p.docs || []).length && !Object.keys(p.facts).length && !jobsOf(p).length) return '';
   var g = gaps(p); if (!g.n) return '';
   var li = g.keys.map(function (k) { return '<li>' + esc(FD[k].l) + ' <small>used for ' + esc(FD[k].why) + '</small></li>'; }).concat(g.jobs.map(function (j) { return '<li>Dates for ' + esc(j.role || 'a job') + ' <small>' + (j.start ? 'the end date is missing' : 'the start date is missing') + '</small></li>'; })).join('');
-  return '<div class="q gap"><h3>Add ' + (g.n === 1 ? 'this detail' : 'these ' + g.n + ' details') + ' first</h3><p class="note" style="margin-top:2px">Without ' + (g.n === 1 ? 'it' : 'them') + ', the results on the Explore tab cannot be checked properly.</p><ul class="gl">' + li + '</ul><div class="row" style="margin-top:10px"><button class="btn pri" id="gapBtn" type="button">Add now</button></div></div>';
+  return '<div class="q gap"><h3>' + (g.n === 1 ? 'A job is missing its dates' : g.n + ' jobs are missing dates') + '</h3><p class="note" style="margin-top:2px">Experience is counted from the dates.</p><ul class="gl">' + li + '</ul><div class="row" style="margin-top:10px"><button class="btn pri" id="gapBtn" type="button">Add now</button></div></div>';
 }
 function wireGap(p) { var b = $('gapBtn'); if (b) b.onclick = function () { fillSheet(p); }; }
 function fillSheet(p) {
@@ -220,12 +228,13 @@ function fillSheet(p) {
 }
 function jobCard(p) {
   var js = jobsOf(p), tot = expMonths(p);
+  if (!js.length) return '';
   var list = js.length ? '<ul class="docs">' + js.map(function (j) {
     var span = j.start ? fmt(pd(j.start)) + ' to ' + (j.end ? fmt(pd(j.end)) : j.current ? 'now' : '<b>end date missing</b>') : '<b>dates missing</b>';
     var dur = jobDone(j) ? ' · ' + expText(monthsBetween(pd(j.start), j.end ? pd(j.end) : TODAY)) : '';
     return '<li><span>' + esc(j.role || 'Job') + (j.org ? ' at ' + esc(j.org) : '') + '<small>' + span + dur + '</small></span><span class="row" style="gap:6px;flex-wrap:nowrap"><button class="btn sm" data-editjob="' + j.id + '" type="button">Edit</button><button class="btn sm danger" data-deljob="' + j.id + '" type="button">Remove</button></span></li>';
-  }).join('') + '</ul>' + (tot ? '<p class="note" style="margin-top:8px">Total work experience: <b>' + expText(tot) + '</b> (overlapping jobs are counted once).</p>' : '') : '<p class="note" style="margin-top:10px">No jobs yet. Scan a relieving, experience or offer letter, or add a job by hand.</p>';
-  return '<div class="card"><h3 class="h3">Work experience</h3>' + list + '<div class="row" style="margin-top:10px"><button class="btn" id="addJob" type="button">Add a job by hand</button></div></div>';
+  }).join('') + '</ul>' + (tot ? '<p class="note" style="margin-top:8px">Total work experience: <b>' + expText(tot) + '</b> (overlapping jobs are counted once).</p>' : '') : '';
+  return '<div class="card"><h3 class="h3">Work experience</h3>' + list + '</div>';
 }
 function wireJobs(p) {
   var b = $('addJob'); if (b) b.onclick = function () { jobSheet(null, null, [], '', true); };
@@ -306,7 +315,7 @@ function sortG(a, b) {
 }
 function questions(list, f) {
   var count = {};
-  list.forEach(function (e) { if (e.grp > 3) return; var seen = {}; e.rules.forEach(function (x) { if (x.s === 'unsure' && x.needs && FD[x.needs] && !f[x.needs] && !seen[x.needs]) { seen[x.needs] = 1; count[x.needs] = (count[x.needs] || 0) + 1; } }); });
+  list.forEach(function (e) { if (e.grp > 3) return; var seen = {}; e.rules.forEach(function (x) { if (x.s === 'unsure' && x.needs && FD[x.needs] && FD[x.needs].g !== 'Driving licence' && !f[x.needs] && !seen[x.needs]) { seen[x.needs] = 1; count[x.needs] = (count[x.needs] || 0) + 1; } }); });
   return Object.keys(count).sort(function (a, b) { return count[b] - count[a]; }).slice(0, 4).map(function (k) { return { k: k, n: count[k] }; });
 }
 function ctl(x, val, id) {
@@ -330,17 +339,15 @@ function renderExplore() {
   var h = gapCard(p);
   var qs = questions(list, f);
   if (qs.length) {
-    h += '<div class="q" style="margin-top:14px"><h3>Answer these to sharpen your results</h3>' + qs.map(function (q) { var x = FD[q.k]; return '<div class="qrow"><span>' + x.l + '<small>Settles ' + q.n + (q.n === 1 ? ' record' : ' records') + ' here</small></span><span class="in">' + ctl(x, '', 'q-' + q.k) + '</span></div>'; }).join('') + '</div>';
+    h += '<details class="q" id="qd" style="margin-top:14px"' + (QOPEN ? ' open' : '') + '><summary><b>Optional: narrow these results</b></summary>' + qs.map(function (q) { var x = FD[q.k]; return '<div class="qrow"><span>' + x.l + '<small>Settles ' + q.n + (q.n === 1 ? ' record' : ' records') + ' here</small></span><span class="in">' + ctl(x, '', 'q-' + q.k) + '</span></div>'; }).join('') + '</details>';
   }
   if (TAB === 'work') {
     var bt = '';
     if (m !== null && m < 18 * 12) { var nx = all.filter(function (e) { return e.r.tab === 'work' && e.from; }).sort(function (a, b) { return a.from - b.from; })[0]; bt = 'Most government jobs start at 18. You are ' + ageText(m) + '.' + (nx ? ' The first to open for your age is <b>' + esc(nx.r.title) + '</b>, from ' + fmt(nx.from) + '.' : '') + ' Before that, the routes that lead to paid work are an ITI or diploma with an apprenticeship. See <b>Study further</b>.'; }
-    else if (m === null) bt = 'Add a date of birth so the age limits on these jobs can be checked.';
     if (f.state === 'other') bt += (bt ? ' ' : '') + 'Only Karnataka and central records are listed. Other states’ recruitments are not included.';
     if (bt) h += '<div class="banner">' + bt + '</div>';
   } else if (TAB === 'exp') {
-    var js = jobsOf(p);
-    h += '<div class="banner">' + (js.some(jobDone) ? 'Your recorded work experience: <b>' + expText(expMonths(p)) + '</b>. ' : 'No work experience is recorded yet. Scan a relieving, experience or offer letter, or add a job on the Profile tab, so experience can be checked. ') + 'Driver posts also check the driving licence on your profile. Scan it from the Profile tab if you have not.</div>';
+    if (jobsOf(p).some(jobDone)) h += '<div class="banner">Your recorded work experience: <b>' + expText(expMonths(p)) + '</b>.</div>';
   } else if (TAB === 'scholar') {
     h += '<div class="banner">Post-matric scholarships apply once you are enrolled in Class 11, a diploma or an ITI. Apply on the official portals only.</div>';
   }
@@ -353,6 +360,7 @@ function renderExplore() {
     + '<p class="foot">Every record comes from a news or listing page read on ' + esc(DATA.readOn) + ', not from the official notice. Check dates, age limits and fees on the official website before you apply, and never pay an agent to apply. NTSE is not listed because it has not been held since 2021.</p>';
   Array.prototype.forEach.call(document.querySelectorAll('.sub button'), function (b) { b.onclick = function () { TAB = b.getAttribute('data-t'); try { sessionStorage.setItem('pa10.tab', TAB); } catch (e) {} renderExplore(); window.scrollTo(0, 0); }; });
   wireGap(p);
+  if ($('qd')) $('qd').ontoggle = function () { QOPEN = $('qd').open; };
   qs.forEach(function (q) { var el = $('q-' + q.k); el.onchange = function () { if (el.value) { setFact(q.k, el.value, 'typed'); renderExplore(); } }; });
 }
 
