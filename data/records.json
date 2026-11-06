@@ -411,7 +411,8 @@
     {
      "t": "merit"
     }
-   ]
+   ],
+   "upto12": true
   },
   {
    "id": "dip",
@@ -459,7 +460,8 @@
      "t": "pctmin",
      "min": 35
     }
-   ]
+   ],
+   "upto12": true
   },
   {
    "id": "iti",
@@ -501,7 +503,8 @@
      "title": "Admission rules",
      "detail": "Not checked yet."
     }
-   ]
+   ],
+   "upto12": true
   },
   {
    "id": "kcet",
@@ -537,7 +540,20 @@
    ],
    "conf": "Low",
    "note": "Dates are estimates; the authority has not announced them.",
-   "rules": []
+   "rules": [
+    {
+     "t": "stream",
+     "any": [
+      "pcm",
+      "pcb",
+      "pcmb"
+     ],
+     "title": "Physics and Chemistry with Maths or Biology"
+    },
+    {
+     "t": "passed12"
+    }
+   ]
   },
   {
    "id": "neet",
@@ -569,7 +585,19 @@
    ],
    "conf": "Low",
    "note": "Date is a projection, not an NTA notice.",
-   "rules": []
+   "rules": [
+    {
+     "t": "stream",
+     "any": [
+      "pcb",
+      "pcmb"
+     ],
+     "title": "Physics, Chemistry and Biology"
+    },
+    {
+     "t": "passed12"
+    }
+   ]
   },
   {
    "id": "cuet",
@@ -601,7 +629,11 @@
    ],
    "conf": "Low",
    "note": "Every 2027 date on the source is an estimate.",
-   "rules": []
+   "rules": [
+    {
+     "t": "passed12"
+    }
+   ]
   },
   {
    "id": "jee",
@@ -633,7 +665,19 @@
    ],
    "conf": "Medium",
    "note": "The source does not link an NTA notice and has small inconsistencies.",
-   "rules": []
+   "rules": [
+    {
+     "t": "stream",
+     "any": [
+      "pcm",
+      "pcmb"
+     ],
+     "title": "Physics, Chemistry and Maths"
+    },
+    {
+     "t": "passed12"
+    }
+   ]
   },
   {
    "id": "bscot",
@@ -666,7 +710,23 @@
    "link": null,
    "conf": "Low",
    "note": "I could not confirm whether admission is by merit or an entrance test.",
-   "rules": []
+   "rules": [
+    {
+     "t": "stream",
+     "any": [
+      "pcb",
+      "pcmb"
+     ],
+     "title": "10+2 Science with Biology"
+    },
+    {
+     "t": "pct12",
+     "min": 45
+    },
+    {
+     "t": "passed12"
+    }
+   ]
   },
   {
    "id": "nmmss",
@@ -713,7 +773,8 @@
      "max": 350000,
      "known": 1
     }
-   ]
+   ],
+   "upto12": true
   },
   {
    "id": "sspsw",
@@ -971,7 +1032,17 @@
    ],
    "conf": "Medium",
    "note": "Check again when you finish 2nd PUC.",
-   "rules": []
+   "rules": [
+    {
+     "t": "passed12"
+    },
+    {
+     "t": "static",
+     "s": "unsure",
+     "title": "Top 1% in Class 12 Science, or a top JEE/NEET rank",
+     "detail": "Your rank or percentile is not on the profile."
+    }
+   ]
   },
   {
    "id": "kkrtc",
@@ -1095,6 +1166,294 @@
     {
      "t": "exp",
      "title": "Practical driving experience"
+    }
+   ]
+  },
+  {
+   "id": "ntpc12",
+   "tab": "work",
+   "kind": "Job",
+   "lvl": 12,
+   "title": "Railway clerks: NTPC 12th level (CEN 07/2026)",
+   "org": "Railway Recruitment Boards",
+   "line": "Commercial cum ticket clerk, junior clerk cum typist, accounts clerk cum typist and trains clerk posts, chosen through two computer tests.",
+   "closes": "2026-11-13",
+   "cyc": "Applications 15 Oct to 13 Nov 2026 per the article I read, which said the notice would appear in Employment News on 26 Sep 2026. Exam dates are not announced.",
+   "facts": [
+    [
+     "Age",
+     "18 to 30 on 1 Jan 2027 (33 OBC, 35 SC/ST)"
+    ],
+    [
+     "Qualification",
+     "Class 12 with 50% aggregate (no minimum for SC, ST, disabled, ex-servicemen)"
+    ],
+    [
+     "Pay",
+     "₹19,900 to ₹21,700 a month to start"
+    ]
+   ],
+   "src": [
+    "Sarkari Jobs article",
+    "https://www.sarkarijobs.com/rrb-ntpc-12th-level-recruitment-2026-apply-online-to-1688-trains-clerk-commercial-cum-ticket-clerk-accounts-clerk-junior-clerk-vacancies-by-november-13/"
+   ],
+   "link": [
+    "RRB application portal",
+    "https://rrbapply.gov.in"
+   ],
+   "conf": "Low",
+   "note": "A third-party article that calls its dates indicative and its 1,688 vacancies tentative. Check the official CEN 07/2026 notice before anything else.",
+   "rules": [
+    {
+     "t": "age",
+     "min": 18,
+     "max": 30,
+     "asOn": "2027-01-01",
+     "maxByCat": {
+      "OBC": 33,
+      "SC": 35,
+      "ST": 35
+     },
+     "relax": 1
+    },
+    {
+     "t": "passed12"
+    },
+    {
+     "t": "pct12",
+     "min": 50,
+     "exemptCat": [
+      "SC",
+      "ST"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "kea-sda",
+   "tab": "work",
+   "kind": "Job",
+   "lvl": 12,
+   "title": "Second Division Assistant and other PUC-level posts (KEA)",
+   "org": "Karnataka Examinations Authority, notices 16 and 17",
+   "line": "2,705 posts in many Karnataka departments, filled by two written papers and a qualifying Kannada test.",
+   "closes": "2026-11-25",
+   "cyc": "Applications 30 Oct to 25 Nov 2026, fee by 26 Nov. Kannada test 8 Jan 2027; papers on 16 and 17 Jan 2027.",
+   "facts": [
+    [
+     "Age",
+     "18 to 40 (43 for 2A, 2B, 3A, 3B; 45 for SC, ST, Category-1)"
+    ],
+    [
+     "Qualification",
+     "II PUC or equivalent; some posts need Commerce or a computer course"
+    ],
+    [
+     "Pay",
+     "₹34,100 to ₹67,600 a month"
+    ]
+   ],
+   "src": [
+    "GovtJobsAlert listing",
+    "https://govtjobsalert.in/kea-fda-sda-recruitment-2026/"
+   ],
+   "link": [
+    "KEA",
+    "https://cetonline.karnataka.gov.in/kea/"
+   ],
+   "conf": "Medium",
+   "note": "A third-party listing whose notice PDFs sit on its own server. The age limits it gives already include a 5-year relaxation, which I could not check.",
+   "rules": [
+    {
+     "t": "age",
+     "min": 18,
+     "max": 40,
+     "maxByCat": {
+      "OBC": 43,
+      "SC": 45,
+      "ST": 45
+     },
+     "relax": 1
+    },
+    {
+     "t": "passed12"
+    },
+    {
+     "t": "static",
+     "s": "unsure",
+     "title": "Qualifying Kannada language test",
+     "detail": "A Kannada test is part of the selection."
+    },
+    {
+     "t": "static",
+     "s": "unsure",
+     "title": "Post-specific needs",
+     "detail": "Some posts need Commerce with Accountancy or a computer course."
+    }
+   ]
+  },
+  {
+   "id": "chsl",
+   "tab": "work",
+   "kind": "Job",
+   "lvl": 12,
+   "title": "SSC CHSL: clerks, postal and sorting assistants, data entry operators",
+   "org": "Staff Selection Commission",
+   "line": "Central government clerical posts, chosen through computer tests.",
+   "closes": "2026-05-31",
+   "cyc": "Last window 30 April to 31 May 2026; the first test was planned for July to September 2026. The next notice has not been announced.",
+   "facts": [
+    [
+     "Age",
+     "18 to 27 (30 OBC, 32 SC/ST)"
+    ],
+    [
+     "Qualification",
+     "Class 12; some data entry posts need Science with Maths"
+    ],
+    [
+     "Pay",
+     "₹19,900 to ₹81,100 a month by post"
+    ]
+   ],
+   "src": [
+    "Central State Jobs listing",
+    "https://centralstatejobs.in/jobs/ssc-chsl-recruitment-2026-ldc-jsa-pa-sa-deo"
+   ],
+   "link": [
+    "SSC",
+    "https://ssc.gov.in"
+   ],
+   "conf": "Medium",
+   "note": "A third-party summary. Its vacancy field is unclear and its notice link looks mislabelled.",
+   "rules": [
+    {
+     "t": "age",
+     "min": 18,
+     "max": 27,
+     "maxByCat": {
+      "OBC": 30,
+      "SC": 32,
+      "ST": 32
+     },
+     "relax": 1
+    },
+    {
+     "t": "passed12"
+    }
+   ]
+  },
+  {
+   "id": "ksp12",
+   "tab": "work",
+   "kind": "Job",
+   "lvl": 12,
+   "title": "Police constables (Karnataka State Police)",
+   "org": "Karnataka State Police",
+   "line": "Civil, KSRP, armed and KSISF constable posts, with a written test and physical tests.",
+   "closes": "2026-04-25",
+   "cyc": "Last window 28 March to 25 April 2026, for 8,176 posts. The next notice has not been announced.",
+   "facts": [
+    [
+     "Age",
+     "18 to 27 (30 OBC, 32 SC/ST)"
+    ],
+    [
+     "Qualification",
+     "Class 12 (PUC)"
+    ],
+    [
+     "Pay",
+     "₹21,400 to ₹51,400 a month by wing"
+    ]
+   ],
+   "src": [
+    "Central State Jobs listing",
+    "https://centralstatejobs.in/jobs/ksp-police-constable-recruitment-2026-8176-vacancies"
+   ],
+   "link": [
+    "Karnataka State Police",
+    "https://ksp.karnataka.gov.in"
+   ],
+   "conf": "Medium",
+   "note": "A third-party summary that says it is not an official site and is inconsistent about pay and the portal.",
+   "rules": [
+    {
+     "t": "age",
+     "min": 18,
+     "max": 27,
+     "maxByCat": {
+      "OBC": 30,
+      "SC": 32,
+      "ST": 32
+     },
+     "relax": 1
+    },
+    {
+     "t": "passed12"
+    },
+    {
+     "t": "static",
+     "s": "unsure",
+     "title": "Physical standards",
+     "detail": "Height, chest and running standards apply and differ for men and women."
+    }
+   ]
+  },
+  {
+   "id": "iaf12",
+   "tab": "work",
+   "kind": "Job",
+   "lvl": 12,
+   "title": "Agniveervayu (Air Force), intake 02/2027",
+   "org": "Indian Air Force",
+   "line": "Four-year Air Force service through an online test, physical tests and a medical.",
+   "closes": "2026-07-26",
+   "cyc": "Applications 6 to 26 July 2026; online exam 22 and 23 Sep 2026. Later intakes follow a similar yearly cycle.",
+   "facts": [
+    [
+     "Age",
+     "Born 1 Jul 2005 to 1 Jan 2010 for this intake"
+    ],
+    [
+     "Qualification",
+     "Class 12 with 50%; Science stream needs Maths, Physics and English at 50% each"
+    ],
+    [
+     "Pay",
+     "Agnipath stipend, from Level-3 entry pay"
+    ]
+   ],
+   "src": [
+    "Sarkari Naukri listing",
+    "https://www.mysarkarinaukri.com/find/indian-air-force-jobs/160486"
+   ],
+   "conf": "Medium",
+   "note": "A third-party listing whose own date labels are outdated and which names two different portals, so no link is given.",
+   "rules": [
+    {
+     "t": "dobrange",
+     "from": "2005-07-01",
+     "to": "2010-01-01"
+    },
+    {
+     "t": "passed12"
+    },
+    {
+     "t": "pct12",
+     "min": 50
+    },
+    {
+     "t": "static",
+     "s": "unsure",
+     "title": "Subjects",
+     "detail": "Science needs Maths, Physics and English at 50% each; other streams need English at 50%."
+    },
+    {
+     "t": "static",
+     "s": "unsure",
+     "title": "Physical and medical standards",
+     "detail": "Fitness and medical standards apply."
     }
    ]
   }
