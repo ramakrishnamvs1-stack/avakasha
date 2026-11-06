@@ -138,3 +138,9 @@ input,select{font:400 15px var(--f-body);color:var(--ink);background:var(--surfa
 .toast[hidden]{display:none}
 .empty{text-align:center;padding:34px 16px}
 .empty p{color:var(--muted);margin:8px auto 16px;max-width:44ch}
+
+.gap{border-left:4px solid var(--warn)}
+.gl{margin:8px 0 0;padding-left:18px;font-size:14px}
+.gl small{color:var(--muted)}
+.field small.note{display:block;font-weight:400}
+.field>.tag{align-self:flex-start}
