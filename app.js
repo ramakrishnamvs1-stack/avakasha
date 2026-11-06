@@ -43,7 +43,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '9';
+var APPVER = '10';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -323,10 +323,18 @@ function ctl(x, val, id) {
   if (x.type === 'date') return '<input id="' + id + '" type="date" value="' + esc(val || '') + '">';
   return '<input id="' + id + '" type="number" inputmode="decimal" value="' + esc(val || '') + '"' + (x.step ? ' step="' + x.step + '"' : '') + (x.min !== undefined ? ' min="' + x.min + '"' : '') + (x.max !== undefined ? ' max="' + x.max + '"' : '') + '>';
 }
+function has10(f) { return !!(f.board || f.examYear || f.pct || f.passed || f.core); }
+/* A record is shown only when the profile holds something it is about. */
+function relevant(r, f, p) {
+  if (r.tab === 'exp') return !!(f.lmv || f.hmv);
+  if (!has10(f)) return false;
+  if (r.tab === 'work') return true;
+  var m = ageM(f); return !!(f.stage || m === null || m <= 25 * 12);
+}
 function renderExplore() {
   var p = prof();
   if (!p) { renderProfile(); return; }
-  var f = F(), all = DATA.records.map(function (r) { return evaluate(r, f); });
+  var f = F(), all = DATA.records.filter(function (r) { return relevant(r, f, p); }).map(function (r) { return evaluate(r, f); });
   var chips = [];
   if (f.board) chips.push(f.board + (f.examYear ? ' ' + f.examYear : ''));
   if (f.pct) chips.push(Number(f.pct).toFixed(1) + '%');
@@ -334,6 +342,12 @@ function renderExplore() {
   if (f.cat) chips.push(showVal('cat', f.cat));
   if (f.state) chips.push(f.state === 'other' ? 'Another state' : f.state);
   var tabs = [['work', 'Start working early'], ['exp', 'With experience'], ['study', 'Study further'], ['scholar', 'Scholarships']];
+  tabs = tabs.filter(function (t) { return all.some(function (e) { return e.r.tab === t[0]; }); });
+  if (!tabs.length) {
+    $('app').innerHTML = '<h2 class="h2">Opportunities for ' + esc(p.name) + '</h2><div class="chips" style="margin:8px 0 14px">' + chips.map(function (c) { return '<span class="chip">' + esc(c) + '</span>'; }).join('') + '</div><div class="card"><h3 class="h3">Nothing to match yet</h3><p class="note" style="margin-top:4px">Results appear for the kinds of details a profile holds: Class 10 details, a driving licence or work experience. ' + (jobsOf(p).length || Object.keys(p.facts).length ? 'This profile has none of those that match the records available so far. More kinds of jobs are being added.' : 'Scan a document or add a detail on the Profile tab.') + '</p></div><p class="foot">Records so far cover Karnataka and central government posts open to Class 10 pass candidates, driver posts, and study and scholarship routes after Class 10.</p>';
+    return;
+  }
+  if (!tabs.some(function (t) { return t[0] === TAB; })) TAB = tabs[0][0];
   var tabsH = tabs.map(function (t) { var n = all.filter(function (e) { return e.r.tab === t[0] && e.grp < 2; }).length; return '<button role="tab" data-t="' + t[0] + '" aria-selected="' + (t[0] === TAB) + '">' + t[1] + '<span>' + n + ' open for you</span></button>'; }).join('');
   var list = all.filter(function (e) { return e.r.tab === TAB; });
   var h = gapCard(p);
@@ -357,7 +371,7 @@ function renderExplore() {
   if (later.length) h += '<details class="later-toggle"><summary>' + GROUPS[4][0] + ' (' + later.length + ')</summary><p class="gnote" style="margin-top:4px">' + GROUPS[4][1] + '</p><div class="recs">' + later.map(card).join('') + '</div></details>';
   $('app').innerHTML = '<div class="row" style="justify-content:space-between"><div><h2 class="h2">Opportunities for ' + esc(p.name) + '</h2><div class="chips" style="margin-top:8px">' + chips.map(function (c) { return '<span class="chip">' + esc(c) + '</span>'; }).join('') + '</div></div></div>'
     + '<div class="sub" role="tablist">' + tabsH + '</div>' + h
-    + '<p class="foot">Every record comes from a news or listing page read on ' + esc(DATA.readOn) + ', not from the official notice. Check dates, age limits and fees on the official website before you apply, and never pay an agent to apply. NTSE is not listed because it has not been held since 2021.</p>';
+    + '<p class="foot">Every record comes from a news or listing page read on ' + esc(DATA.readOn) + ', not from the official notice. Check dates, age limits and fees on the official website before you apply, and never pay an agent to apply. NTSE is not listed because it has not been held since 2021. Only records that match what is on this profile are shown.</p>';
   Array.prototype.forEach.call(document.querySelectorAll('.sub button'), function (b) { b.onclick = function () { TAB = b.getAttribute('data-t'); try { sessionStorage.setItem('pa10.tab', TAB); } catch (e) {} renderExplore(); window.scrollTo(0, 0); }; });
   wireGap(p);
   if ($('qd')) $('qd').ontoggle = function () { QOPEN = $('qd').open; };
