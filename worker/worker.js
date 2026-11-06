@@ -1,6 +1,8 @@
-/* Path After 10th: reading server (Cloudflare Worker).
+/* Avakasha: reading server (Cloudflare Worker).
    Receives a photo from the app, asks Claude to read it, returns only the details the app needs.
-   Secrets (set in Cloudflare, never in this file): ANTHROPIC_API_KEY. Optional: APP_KEY, MODEL, ALLOWED_ORIGIN.
+   Secrets (set in Cloudflare, never in this file): ANTHROPIC_API_KEY. Optional: APP_KEY, MODEL, ALLOWED_ORIGIN, PER_DAY, GLOBAL_DAY.
+   Optional limits: bind a KV namespace named LIMITS to count scans a day for each phone address (PER_DAY, default 5)
+   and in all (GLOBAL_DAY, default 300). Without it there is no per-person limit, so set the Anthropic spend limit too.
    The photo is passed to the Anthropic API and is not stored by this worker. */
 
 var DEFAULT_ORIGIN = 'https://ramakrishnamvs1-stack.github.io';
@@ -21,6 +23,18 @@ function cors(origin) {
 }
 function json(body, status, origin) {
   return new Response(JSON.stringify(body), { status: status, headers: Object.assign({ 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }, cors(origin)) });
+}
+/* Soft daily limits kept in KV. KV is not atomic, so a few extra scans can slip through; the Anthropic spend limit is the hard stop. */
+async function overLimit(request, env) {
+  if (!env.LIMITS) return false;
+  var day = new Date().toISOString().slice(0, 10), ip = request.headers.get('CF-Connecting-IP') || 'x';
+  var per = parseInt(env.PER_DAY || '5', 10), all = parseInt(env.GLOBAL_DAY || '300', 10);
+  var kp = 'ip:' + day + ':' + ip, kg = 'all:' + day;
+  var np = parseInt((await env.LIMITS.get(kp)) || '0', 10), ng = parseInt((await env.LIMITS.get(kg)) || '0', 10);
+  if (np >= per || ng >= all) return true;
+  await env.LIMITS.put(kp, String(np + 1), { expirationTtl: 172800 });
+  await env.LIMITS.put(kg, String(ng + 1), { expirationTtl: 172800 });
+  return false;
 }
 function extractJson(text) {
   var a = text.indexOf('{'), b = text.lastIndexOf('}');
@@ -45,6 +59,8 @@ export default {
     if (image.length > MAX_B64) return json({ error: 'too_large' }, 413, origin);
     if (mt !== 'image/jpeg' && mt !== 'image/png') return json({ error: 'bad_request' }, 400, origin);
 
+    if (await overLimit(request, env)) return json({ error: 'daily_limit' }, 429, origin);
+
     var ctl = new AbortController(), timer = setTimeout(function () { ctl.abort(); }, 55000), up;
     try {
       up = await fetch('https://api.anthropic.com/v1/messages', {
@@ -63,6 +79,7 @@ export default {
     var text = (data.content || []).filter(function (c) { return c.type === 'text'; }).map(function (c) { return c.text; }).join('');
     var out = extractJson(text);
     if (!out) return json({ error: 'unreadable' }, 422, origin);
+    out.__usage = data.usage || null;
     return json({ ok: true, type: type, data: out }, 200, origin);
   }
 };

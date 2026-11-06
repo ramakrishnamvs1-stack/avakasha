@@ -48,7 +48,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '15';
+var APPVER = '16';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -690,7 +690,7 @@ function downscale(src, max) {
   c.width = Math.round(src.width * s); c.height = Math.round(src.height * s); c.getContext('2d').drawImage(src, 0, 0, c.width, c.height); return c;
 }
 function blobToB64(b) { return new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(String(r.result).split(',')[1]); }; r.onerror = rej; r.readAsDataURL(b); }); }
-var SERR = { bad_key: 'Claude refused the key saved on this phone. Check it in Backup.', credit: 'The Anthropic account has no credit left for this key. Add credit in the Anthropic console.', forbidden: 'The reading server refused this app. Tell whoever set it up.', not_configured: 'The reading server is not finished being set up.', too_large: 'The photo is too large. Retake it a little farther away.', rate_limited: 'Too many photos just now. Wait a minute and try again.', upstream: 'The reading service did not answer. Try again in a moment.', unreadable: 'The photo could not be read. Try a clearer photo.', bad_request: 'The app sent something the server did not understand.' };
+var SERR = { daily_limit: 'You have used today’s free scans. Try again tomorrow, or read on this phone.', bad_key: 'Claude refused the key saved on this phone. Check it in Backup.', credit: 'The Anthropic account has no credit left for this key. Add credit in the Anthropic console.', forbidden: 'The reading server refused this app. Tell whoever set it up.', not_configured: 'The reading server is not finished being set up.', too_large: 'The photo is too large. Retake it a little farther away.', rate_limited: 'Too many photos just now. Wait a minute and try again.', upstream: 'The reading service did not answer. Try again in a moment.', unreadable: 'The photo could not be read. Try a clearer photo.', bad_request: 'The app sent something the server did not understand.' };
 async function readRemote() {
   var box = $('sm');
   box.innerHTML = '<div class="status"><span class="note">Reading with Claude. This takes about 10 to 30 seconds.</span><div class="bar"><i style="width:60%"></i></div></div>';
