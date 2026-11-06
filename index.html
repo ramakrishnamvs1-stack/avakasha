@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Path After 10th</title>
+<meta name="theme-color" content="#0d6e6e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="top">
+  <div class="topin">
+    <div class="who">
+      <label class="eyebrow" for="whoSel">Profile</label>
+      <select id="whoSel" aria-label="Choose person"></select>
+    </div>
+    <div class="topbtns">
+      <button class="btn sm" id="addPerson" type="button">Add person</button>
+      <button class="btn sm" id="menuBtn" type="button" aria-haspopup="dialog">Backup</button>
+    </div>
+  </div>
+</header>
+<main id="app" class="main"></main>
+<nav class="bnav" aria-label="Main">
+  <a href="#profile" id="nav-profile">Profile</a>
+  <a href="#explore" id="nav-explore">Explore</a>
+</nav>
+<div id="sheet" class="sheet" hidden role="dialog" aria-modal="true" aria-label="Dialog"><div class="sheetin" id="sheetin"></div></div>
+<div id="toast" class="toast" hidden role="status"></div>
+<script src="vendor/tesseract/tesseract.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
