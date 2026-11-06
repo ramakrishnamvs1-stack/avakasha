@@ -48,7 +48,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '13';
+var APPVER = '14';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -274,6 +274,7 @@ function jobSheet(j, d, notes, text, hand) {
   function miss(v, what) { return (!v && !hand) ? '<span class="tag guess">not found on the document</span>' : (!v ? '' : '<span class="tag read">read</span>'); }
   sheet('<h2>' + (j ? 'Edit job' : hand ? 'Add a job' : 'Check the job details') + '</h2>'
     + ((notes && notes.length) ? '<div class="status warn"><b>Please check:</b><ul style="margin:6px 0 0;padding-left:18px">' + notes.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul></div>' : '')
+    + costLine()
     + '<label class="field">Job title ' + miss(role0) + '<input id="jr" type="text" maxlength="60" value="' + esc(role0) + '" placeholder="e.g. Customer support executive"></label>'
     + '<label class="field">Employer ' + miss(org0) + '<input id="jo" type="text" maxlength="60" value="' + esc(org0) + '" placeholder="Company or office name"></label>'
     + '<label class="field">Start date (date of joining) ' + miss(s0) + '<input id="js" type="date" value="' + esc(s0) + '"></label>'
@@ -440,9 +441,13 @@ function menuSheet() {
     + '<div class="row" style="margin-top:14px"><button class="btn pri" id="bk" type="button">Save backup file</button><button class="btn" id="rs" type="button">Restore from file</button></div><input type="file" id="rsf" accept="application/json,.json" hidden>'
     + '<hr style="border:0;border-top:1px solid var(--line);margin:18px 0"><h3 class="h3">Claude key for testing</h3><p class="note" style="margin-top:4px">Lets this phone read documents with Claude without a server. The key is saved only on this phone and is never put in the app files. Use a key that has a spend limit, and delete it in the Anthropic console if you lose the phone.</p>'
     + (CFG.readerUrl ? '<p class="note" style="margin-top:6px">A reading server is set up, so no key is needed.</p>' : '<p class="note" style="margin-top:6px">' + (userKey() ? 'A key is saved on this phone.' : 'No key saved yet.') + '</p><label class="field">Paste key<input id="ak" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="sk-ant-..."></label><div class="row" style="margin-top:10px"><button class="btn pri" id="aks" type="button">Save key</button>' + (userKey() ? '<button class="btn danger" id="akc" type="button">Remove key</button>' : '') + '</div>')
+    + (function () { var l = costLog(), tot = l.reduce(function (s, x) { return s + x.usd; }, 0), t30 = l.filter(function (x) { return x.at > Date.now() - 30 * 864e5; }).reduce(function (s, x) { return s + x.usd; }, 0);
+        return '<hr style="border:0;border-top:1px solid var(--line);margin:18px 0"><h3 class="h3">Reading cost</h3><p class="note" style="margin-top:4px">' + (l.length ? l.length + (l.length === 1 ? ' scan' : ' scans') + ' read with Claude on this phone: about <b>' + inr(tot * rate()) + '</b> in all, <b>' + inr(t30 * rate()) + '</b> in the last 30 days. Average ' + inr(tot / l.length * rate()) + ' a scan.' : 'No scans read with Claude yet.') + ' Estimated from the token counts Claude returns and the list price of $' + PRICE_IN + ' in and $' + PRICE_OUT + ' out per million tokens. The Anthropic console shows the real bill. Exploring and reading on the phone cost nothing.</p><label class="field">Rupees per US dollar<input id="rt" type="number" inputmode="decimal" step="0.1" min="1" value="' + rate() + '"></label><div class="row" style="margin-top:8px"><button class="btn" id="rts" type="button">Save rate</button>' + (l.length ? '<button class="btn" id="cc" type="button">Clear this count</button>' : '') + '</div>'; })()
     + (prof() ? '<hr style="border:0;border-top:1px solid var(--line);margin:18px 0"><button class="btn danger" id="dp" type="button">Delete ' + esc(prof().name) + '’s profile</button>' : '')
     + '<p class="note" style="margin-top:16px">App version ' + APPVER + '. Records dated ' + esc(DATA ? DATA.version : '') + '.</p><div class="row" style="margin-top:10px"><button class="btn" id="mc" type="button">Close</button></div>');
   $('mc').onclick = closeSheet;
+  if ($('rts')) $('rts').onclick = function () { var v = parseFloat($('rt').value); if (!(v > 0)) { toast('Type a rate above zero.'); return; } try { localStorage.setItem('pa10.rate', String(v)); } catch (e) {} closeSheet(); toast('Rate saved.'); };
+  if ($('cc')) $('cc').onclick = function () { try { localStorage.removeItem('pa10.cost'); } catch (e) {} closeSheet(); toast('Count cleared.'); };
   if ($('aks')) $('aks').onclick = function () { var v = $('ak').value.trim(); if (!/^sk-ant-/.test(v)) { toast('That does not look like an Anthropic key. It starts with sk-ant-'); return; } try { localStorage.setItem('pa10.key', v); } catch (e) { toast('Could not save the key on this phone.'); return; } closeSheet(); toast('Key saved on this phone.'); };
   if ($('akc')) $('akc').onclick = function () { try { localStorage.removeItem('pa10.key'); } catch (e) {} closeSheet(); toast('Key removed.'); };
   $('bk').onclick = function () {
@@ -544,6 +549,19 @@ var PROMPTS = {
   cat: COMMON + '\nThe document should be a caste or category certificate. Fields: {"isDocument": boolean, "category": "SC" | "ST" | "OBC" | "General" | null, "categoryText": string | null, "notes": [string]}.',
   inc: COMMON + '\nThe document should be an income certificate. Fields: {"isDocument": boolean, "annualIncomeRupees": number | null, "notes": [string]}.'
 };
+/* ---- cost of reading (Claude Sonnet 5.5 list price, per million tokens; check the Anthropic console for the real bill) ---- */
+var PRICE_IN = 2, PRICE_OUT = 10;
+function rate() { try { var r = parseFloat(localStorage.getItem('pa10.rate')); return r > 0 ? r : 95; } catch (e) { return 95; } }
+function costLog() { try { var l = JSON.parse(localStorage.getItem('pa10.cost') || '[]'); return Array.isArray(l) ? l : []; } catch (e) { return []; } }
+function inr(x) { return '₹' + (x < 10 ? x.toFixed(2) : x < 100 ? x.toFixed(1) : Math.round(x).toLocaleString('en-IN')); }
+function recordCost(u) {
+  if (!u || typeof u.input_tokens !== 'number') return null;
+  var usd = (u.input_tokens * PRICE_IN + (u.output_tokens || 0) * PRICE_OUT) / 1e6, l = costLog();
+  l.push({ at: Date.now(), usd: usd, i: u.input_tokens, o: u.output_tokens || 0 }); if (l.length > 500) l = l.slice(-500);
+  try { localStorage.setItem('pa10.cost', JSON.stringify(l)); } catch (e) {}
+  return { usd: usd, inr: usd * rate(), i: u.input_tokens, o: u.output_tokens || 0 };
+}
+function costLine() { return scan.cost ? '<p class="note" style="margin-top:8px">This scan cost about <b>' + inr(scan.cost.inr) + '</b> (' + scan.cost.i.toLocaleString('en-IN') + ' tokens in, ' + scan.cost.o.toLocaleString('en-IN') + ' out).</p>' : ''; }
 async function callDirect(type, b64, signal) {
   var res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST', signal: signal,
@@ -558,7 +576,8 @@ async function callDirect(type, b64, signal) {
   var text = ((j && j.content) || []).filter(function (c) { return c.type === 'text'; }).map(function (c) { return c.text; }).join('');
   var a = text.indexOf('{'), b = text.lastIndexOf('}');
   if (a < 0 || b < a) { var e2 = new Error('unreadable'); e2.code = 'unreadable'; throw e2; }
-  try { return JSON.parse(text.slice(a, b + 1)); } catch (e) { var e3 = new Error('unreadable'); e3.code = 'unreadable'; throw e3; }
+  var out; try { out = JSON.parse(text.slice(a, b + 1)); } catch (e) { var e3 = new Error('unreadable'); e3.code = 'unreadable'; e3.usage = j && j.usage; throw e3; }
+  out.__usage = j && j.usage; return out;
 }
 
 /* ---- reading: Claude through the server when set up, otherwise on this phone ---- */
@@ -602,18 +621,20 @@ async function readRemote() {
       data = j.data;
     } else { data = await callDirect(scan.type, b64, ctlr.signal); }
     clearTimeout(timer);
+    scan.cost = recordCost(data && data.__usage);
     var t = scan.type === 'auto' ? (data && data.isDocument !== false ? data.docType : 'other') : scan.type;
-    if (!isSupported(t)) { $('rd').disabled = false; $('rt').disabled = false; box.innerHTML = '<div class="status warn">' + esc(unsupportedMsg(t)) + '</div>'; return; }
+    if (!isSupported(t)) { $('rd').disabled = false; $('rt').disabled = false; box.innerHTML = '<div class="status warn">' + esc(unsupportedMsg(t)) + '</div>' + costLine(); return; }
     scan.type = t;
     if (t === 'exp') { var xn = (data.notes || []).filter(function (x) { return typeof x === 'string'; }).slice(0, 5); jobSheet(null, data, xn, '', false); return; }
     var m = mapServer(t, data);
-    if (m.notDoc) { $('rd').disabled = false; $('rt').disabled = false; box.innerHTML = '<div class="status warn">' + esc(unsupportedMsg('other')) + '</div>'; return; }
+    if (m.notDoc) { $('rd').disabled = false; $('rt').disabled = false; box.innerHTML = '<div class="status warn">' + esc(unsupportedMsg('other')) + '</div>' + costLine(); return; }
     confirmSheet(m.props, '', m.notes);
   } catch (e) {
     clearTimeout(timer);
+    if (e && e.usage) scan.cost = recordCost(e.usage);
     $('rd').disabled = false; $('rt').disabled = false;
     var msg = e && e.name === 'AbortError' ? 'The reading took too long.' : (SERR[e && e.code] || 'Could not reach the reading server. Check your internet.');
-    box.innerHTML = '<div class="status err">' + esc(msg) + '</div><div class="row" style="margin-top:10px"><button class="btn" id="loc" type="button">Read on this phone instead</button></div><p class="note" style="margin-top:6px">Reading on this phone misses more details.</p>';
+    box.innerHTML = '<div class="status err">' + esc(msg) + '</div>' + costLine() + '<div class="row" style="margin-top:10px"><button class="btn" id="loc" type="button">Read on this phone instead</button></div><p class="note" style="margin-top:6px">Reading on this phone misses more details.</p>';
     $('loc').onclick = function () { scan.local = true; review(); readLocal(); };
   }
 }
@@ -783,6 +804,7 @@ function confirmSheet(props, text, notes) {
   var canSave = props.length || missing.length;
   sheet('<h2>' + (props.length ? 'Check what was read' : 'Nothing could be read') + '</h2>'
     + ((notes && notes.length) ? '<div class="status warn"><b>Please check:</b><ul style="margin:6px 0 0;padding-left:18px">' + notes.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul></div>' : '')
+    + costLine()
     + (props.length ? '<p class="note">Untick anything that is wrong or fix it. Only ticked details are saved.</p>' + rows : '<div class="status warn">The text was too faint or the page was cut off. Retake the photo in better light, or type the details from the document below.</div>')
     + (missing.length ? '<h3 class="h3" style="margin-top:14px">Not found on this document</h3><p class="note" style="margin-top:2px">This document should show these. Type them from the document if you can; leave blank if not.</p>' + mrows : '')
     + (text ? '<details style="margin-top:12px"><summary class="note">What the phone read</summary><pre style="white-space:pre-wrap;font-size:12px;color:var(--muted);max-height:180px;overflow:auto">' + esc(text.trim().slice(0, 1500)) + '</pre></details>' : '')
