@@ -39,7 +39,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '4';
+var APPVER = '5';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -248,9 +248,13 @@ function editSheet(k) {
 function menuSheet() {
   sheet('<h2>Backup and people</h2><p class="note">Profiles live only on this phone. If the phone is lost or its data is cleared, they are gone, so save a backup file now and then.</p>'
     + '<div class="row" style="margin-top:14px"><button class="btn pri" id="bk" type="button">Save backup file</button><button class="btn" id="rs" type="button">Restore from file</button></div><input type="file" id="rsf" accept="application/json,.json" hidden>'
+    + '<hr style="border:0;border-top:1px solid var(--line);margin:18px 0"><h3 class="h3">Claude key for testing</h3><p class="note" style="margin-top:4px">Lets this phone read documents with Claude without a server. The key is saved only on this phone and is never put in the app files. Use a key that has a spend limit, and delete it in the Anthropic console if you lose the phone.</p>'
+    + (CFG.readerUrl ? '<p class="note" style="margin-top:6px">A reading server is set up, so no key is needed.</p>' : '<p class="note" style="margin-top:6px">' + (userKey() ? 'A key is saved on this phone.' : 'No key saved yet.') + '</p><label class="field">Paste key<input id="ak" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="sk-ant-..."></label><div class="row" style="margin-top:10px"><button class="btn pri" id="aks" type="button">Save key</button>' + (userKey() ? '<button class="btn danger" id="akc" type="button">Remove key</button>' : '') + '</div>')
     + (prof() ? '<hr style="border:0;border-top:1px solid var(--line);margin:18px 0"><button class="btn danger" id="dp" type="button">Delete ' + esc(prof().name) + '’s profile</button>' : '')
     + '<p class="note" style="margin-top:16px">App version ' + APPVER + '. Records dated ' + esc(DATA ? DATA.version : '') + '.</p><div class="row" style="margin-top:10px"><button class="btn" id="mc" type="button">Close</button></div>');
   $('mc').onclick = closeSheet;
+  if ($('aks')) $('aks').onclick = function () { var v = $('ak').value.trim(); if (!/^sk-ant-/.test(v)) { toast('That does not look like an Anthropic key. It starts with sk-ant-'); return; } try { localStorage.setItem('pa10.key', v); } catch (e) { toast('Could not save the key on this phone.'); return; } closeSheet(); toast('Key saved on this phone.'); };
+  if ($('akc')) $('akc').onclick = function () { try { localStorage.removeItem('pa10.key'); } catch (e) {} closeSheet(); toast('Key removed.'); };
   $('bk').onclick = function () {
     var blob = new Blob([JSON.stringify({ app: 'path-after-10th', saved: new Date().toISOString(), db: DB }, null, 1)], { type: 'application/json' });
     var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'path-after-10th-backup-' + TODAY.toISOString().slice(0, 10) + '.json'; document.body.appendChild(a); a.click(); a.remove(); toast('Backup file saved to your downloads.');
@@ -340,10 +344,37 @@ async function readLocal() {
   }
 }
 
+/* ---- personal test key: saved only on this phone, used to call Claude directly ---- */
+function userKey() { try { return localStorage.getItem('pa10.key') || ''; } catch (e) { return ''; } }
+var MODEL = 'claude-sonnet-5-5';
+var COMMON = 'The image is a photo of an Indian official document. Read only the fields asked for. If a value is not clearly readable, use null. Do not guess. Do not include any person\'s name, roll or registration number, address, or any ID number. Reply with only one JSON object and nothing else.';
+var PROMPTS = {
+  m10: COMMON + '\nThe document should be a school Class 10 marksheet or pass certificate (CBSE, ICSE, Karnataka SSLC, or another state board, in any year). Fields: {"isDocument": boolean, "board": "CBSE" | "ICSE" | "Karnataka SSLC" | "Other state board" | null, "examYear": number | null, "dob": "YYYY-MM-DD" | null, "result": "pass" | "fail" | "unknown", "gradeSystem": "marks" | "cgpa" | "grades" | "unknown", "totalObtained": number | null, "totalMax": number | null, "printedPercentage": number | null, "cgpa": number | null, "subjects": [{"name": string, "obtained": number | null, "max": number | null}], "notes": [string]}. Use the printed total if there is one. In notes, list anything doubtful, such as a printed total that does not equal the sum of subjects, a subject printed separately from the total, or a blurred value. Keep notes short.',
+  birth: COMMON + '\nThe document should be a birth certificate. Fields: {"isDocument": boolean, "dob": "YYYY-MM-DD" | null, "notes": [string]}.',
+  cat: COMMON + '\nThe document should be a caste or category certificate. Fields: {"isDocument": boolean, "category": "SC" | "ST" | "OBC" | "General" | null, "categoryText": string | null, "notes": [string]}.',
+  inc: COMMON + '\nThe document should be an income certificate. Fields: {"isDocument": boolean, "annualIncomeRupees": number | null, "notes": [string]}.'
+};
+async function callDirect(type, b64, signal) {
+  var res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST', signal: signal,
+    headers: { 'content-type': 'application/json', 'x-api-key': userKey(), 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+    body: JSON.stringify({ model: MODEL, max_tokens: 1200, messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }, { type: 'text', text: PROMPTS[type] }] }] })
+  });
+  var j = null; try { j = await res.json(); } catch (e) {}
+  if (!res.ok) {
+    var er = new Error('upstream'), m = (j && j.error && j.error.message) || '';
+    er.code = res.status === 401 || res.status === 403 ? 'bad_key' : res.status === 429 ? 'rate_limited' : /credit|balance|billing/i.test(m) ? 'credit' : 'upstream'; throw er;
+  }
+  var text = ((j && j.content) || []).filter(function (c) { return c.type === 'text'; }).map(function (c) { return c.text; }).join('');
+  var a = text.indexOf('{'), b = text.lastIndexOf('}');
+  if (a < 0 || b < a) { var e2 = new Error('unreadable'); e2.code = 'unreadable'; throw e2; }
+  try { return JSON.parse(text.slice(a, b + 1)); } catch (e) { var e3 = new Error('unreadable'); e3.code = 'unreadable'; throw e3; }
+}
+
 /* ---- reading: Claude through the server when set up, otherwise on this phone ---- */
 function consented() { try { return localStorage.getItem('pa10.consent') === '1'; } catch (e) { return false; } }
 function readIt() {
-  var server = CFG.readerUrl && navigator.onLine !== false && !scan.local;
+  var server = (CFG.readerUrl || userKey()) && navigator.onLine !== false && !scan.local;
   if (!server) return readLocal();
   if (!consented()) return consentSheet();
   return readRemote();
@@ -365,7 +396,7 @@ function downscale(src, max) {
   c.width = Math.round(src.width * s); c.height = Math.round(src.height * s); c.getContext('2d').drawImage(src, 0, 0, c.width, c.height); return c;
 }
 function blobToB64(b) { return new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(String(r.result).split(',')[1]); }; r.onerror = rej; r.readAsDataURL(b); }); }
-var SERR = { forbidden: 'The reading server refused this app. Tell whoever set it up.', not_configured: 'The reading server is not finished being set up.', too_large: 'The photo is too large. Retake it a little farther away.', rate_limited: 'Too many photos just now. Wait a minute and try again.', upstream: 'The reading service did not answer. Try again in a moment.', unreadable: 'The photo could not be read. Try a clearer photo.', bad_request: 'The app sent something the server did not understand.' };
+var SERR = { bad_key: 'Claude refused the key saved on this phone. Check it in Backup.', credit: 'The Anthropic account has no credit left for this key. Add credit in the Anthropic console.', forbidden: 'The reading server refused this app. Tell whoever set it up.', not_configured: 'The reading server is not finished being set up.', too_large: 'The photo is too large. Retake it a little farther away.', rate_limited: 'Too many photos just now. Wait a minute and try again.', upstream: 'The reading service did not answer. Try again in a moment.', unreadable: 'The photo could not be read. Try a clearer photo.', bad_request: 'The app sent something the server did not understand.' };
 async function readRemote() {
   var box = $('sm');
   box.innerHTML = '<div class="status"><span class="note">Reading with Claude. This takes about 10 to 30 seconds.</span><div class="bar"><i style="width:60%"></i></div></div>';
@@ -374,11 +405,15 @@ async function readRemote() {
   try {
     var blob = await new Promise(function (r) { downscale(scan.canvas, 1800).toBlob(r, 'image/jpeg', 0.82); });
     var b64 = await blobToB64(blob);
-    var res = await fetch(CFG.readerUrl, { method: 'POST', signal: ctlr.signal, headers: { 'Content-Type': 'application/json', 'X-App-Key': CFG.appKey || '' }, body: JSON.stringify({ type: scan.type, image: b64, mediaType: 'image/jpeg' }) });
-    var j = null; try { j = await res.json(); } catch (e) {}
+    var data;
+    if (CFG.readerUrl) {
+      var res = await fetch(CFG.readerUrl, { method: 'POST', signal: ctlr.signal, headers: { 'Content-Type': 'application/json', 'X-App-Key': CFG.appKey || '' }, body: JSON.stringify({ type: scan.type, image: b64, mediaType: 'image/jpeg' }) });
+      var j = null; try { j = await res.json(); } catch (e) {}
+      if (!res.ok || !j || !j.ok) { var er = new Error((j && j.error) || 'upstream'); er.code = (j && j.error) || 'upstream'; throw er; }
+      data = j.data;
+    } else { data = await callDirect(scan.type, b64, ctlr.signal); }
     clearTimeout(timer);
-    if (!res.ok || !j || !j.ok) { var er = new Error((j && j.error) || 'upstream'); er.code = (j && j.error) || 'upstream'; throw er; }
-    var m = mapServer(scan.type, j.data);
+    var m = mapServer(scan.type, data);
     if (m.notDoc) { $('rd').disabled = false; $('rt').disabled = false; box.innerHTML = '<div class="status warn">This does not look like the document you chose. Check the type, or retake the photo.</div>'; return; }
     confirmSheet(m.props, '', m.notes);
   } catch (e) {

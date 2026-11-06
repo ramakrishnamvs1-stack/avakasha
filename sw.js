@@ -1,5 +1,5 @@
 /* Offline cache. Bump VERSION whenever any file changes so phones pick up the update. */
-var VERSION = 'pa10-v4';
+var VERSION = 'pa10-v5';
 var SHELL = [
   './', './index.html', './app.css', './app.js', './config.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png',
