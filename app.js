@@ -18,7 +18,7 @@ var FACTS = [
   { k: 'gender', g: 'Identity', l: 'Gender', type: 'select', o: [['f', 'Girl / woman'], ['m', 'Boy / man'], ['o', 'Prefer not to say']], why: 'posts for women' },
   { k: 'state', g: 'Identity', l: 'Home state', type: 'select', o: [['Karnataka', 'Karnataka'], ['other', 'Another state']], why: 'state records' },
   { k: 'board', g: 'Class 10', l: 'Board', type: 'select', o: [['CBSE', 'CBSE'], ['ICSE', 'ICSE'], ['Karnataka SSLC', 'Karnataka SSLC'], ['Other state board', 'Other state board']], why: 'PUC admission' },
-  { k: 'examYear', g: 'Class 10', l: 'Year of exam', type: 'number', min: 2000, max: 2035, why: '' },
+  { k: 'examYear', g: 'Class 10', l: 'Year of exam', type: 'number', min: 1960, max: 2035, why: '' },
   { k: 'pct', g: 'Class 10', l: 'Total percentage', type: 'number', step: 0.1, min: 0, max: 100, why: 'marks-based selection' },
   { k: 'passed', g: 'Class 10', l: 'Passed Class 10', type: 'select', o: YN, why: 'basic eligibility' },
   { k: 'core', g: 'Class 10', l: 'Passed Maths, Science and English', type: 'select', o: YN, why: 'diploma and post rules' },
@@ -182,7 +182,7 @@ function questions(list, f) {
 }
 function ctl(x, val, id) {
   if (x.type === 'select') return '<select id="' + id + '"><option value="">Select</option>' + x.o.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (String(val) === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>';
-  if (x.type === 'date') return '<input id="' + id + '" type="date" value="' + esc(val || '') + '" min="1995-01-01" max="' + TODAY.getFullYear() + '-12-31">';
+  if (x.type === 'date') return '<input id="' + id + '" type="date" value="' + esc(val || '') + '" min="1940-01-01" max="' + TODAY.getFullYear() + '-12-31">';
   return '<input id="' + id + '" type="number" inputmode="decimal" value="' + esc(val || '') + '"' + (x.step ? ' step="' + x.step + '"' : '') + (x.min !== undefined ? ' min="' + x.min + '"' : '') + (x.max !== undefined ? ' max="' + x.max + '"' : '') + '>';
 }
 function renderExplore() {
@@ -342,7 +342,7 @@ var MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, s
 function two(n) { return (n < 10 ? '0' : '') + n; }
 function findDob(text) {
   var lines = text.split(/\n/), best = null, re1 = /(\d{1,2})\s*[\/\-.]\s*(\d{1,2})\s*[\/\-.]\s*((?:19|20)\d{2})/, re2 = /(\d{1,2})\s*(?:st|nd|rd|th)?\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\s,.\-]*((?:19|20)\d{2})/i;
-  function ok(y, m, d) { return y >= 2000 && y <= 2014 && m >= 1 && m <= 12 && d >= 1 && d <= 31; }
+  function ok(y, m, d) { return y >= 1940 && y <= 2014 && m >= 1 && m <= 12 && d >= 1 && d <= 31; }
   for (var i = 0; i < lines.length; i++) {
     var near = /birth|dob|d\.o\.b/i.test(lines[i]) || (i > 0 && /birth|dob|d\.o\.b/i.test(lines[i - 1]));
     var m = lines[i].match(re1), d2 = lines[i].match(re2), y, mo, dd;
@@ -371,9 +371,9 @@ function parse(type, text) {
   else if (/council\s+for\s+the\s+indian\s+school|\bicse\b|\bcisce\b/i.test(t)) add('board', 'ICSE', 'read');
   else if (/karnataka\s+(?:school\s+)?(?:secondary\s+)?(?:education|examination)|\bsslc\b|\bkseab\b|\bkseeb\b/i.test(t)) add('board', 'Karnataka SSLC', 'read');
   else if (/board\s+of\s+(?:secondary|school)|secondary\s+education/i.test(t)) add('board', 'Other state board', 'guess');
-  var yrs = (t.match(/\b20[0-3]\d\b/g) || []).map(Number).filter(function (y) { return y <= TODAY.getFullYear() && y >= 2005; });
-  var yl = t.split(/\n/).filter(function (l) { return /exam|march|april|result|issued|year/i.test(l); }).join(' ').match(/\b20[0-3]\d\b/g);
-  if (yl) { var yy = Math.max.apply(null, yl.map(Number).filter(function (y) { return y <= TODAY.getFullYear() && y >= 2005; }).concat([0])); if (yy) add('examYear', yy, 'guess', 'Check the year.'); }
+  var yrs = (t.match(/\b(?:19[6-9]\d|20[0-3]\d)\b/g) || []).map(Number).filter(function (y) { return y <= TODAY.getFullYear() && y >= 1960; });
+  var yl = t.split(/\n/).filter(function (l) { return /exam|march|april|result|issued|year/i.test(l); }).join(' ').match(/\b(?:19[6-9]\d|20[0-3]\d)\b/g);
+  if (yl) { var yy = Math.max.apply(null, yl.map(Number).filter(function (y) { return y <= TODAY.getFullYear() && y >= 1960; }).concat([0])); if (yy) add('examYear', yy, 'guess', 'Check the year.'); }
   else if (yrs.length) add('examYear', Math.max.apply(null, yrs), 'guess', 'Check the year.');
   var dob = findDob(t); if (dob) add('dob', dob.v, dob.conf, 'Check the day and month.');
   var pass = /\b(pass|passed|qualified|successful)\b/i.test(t) && !/\b(fail|failed|essential\s+repeat|compartment)\b/i.test(t);
