@@ -48,7 +48,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '11';
+var APPVER = '12';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -328,7 +328,7 @@ function card(e) {
   var facts = r.facts.map(function (x) { return '<dt>' + esc(x[0]) + '</dt><dd>' + esc(x[1]) + '</dd>'; }).join('');
   var from = e.from ? '<div class="from">You can apply from ' + fmt(e.from) + '.</div>' : '';
   var link = r.link ? '<div class="note">Official site: <a href="' + r.link[1] + '" target="_blank" rel="noopener">' + esc(r.link[0]) + '</a></div>' : '';
-  return '<article class="rec"><div class="rhead"><div><div class="pills"><span class="pill">' + esc(r.kind) + '</span><span class="pill ' + e.st.k + '">' + esc(e.st.t) + '</span></div><h3>' + esc(r.title) + '</h3><div class="org">' + esc(r.org) + '</div></div><span class="verdict v-' + e.verdict + '">' + VLAB[e.verdict] + '</span></div>'
+  return '<article class="rec"><div class="rhead"><div><div class="pills"><span class="pill">' + esc(r.kind) + '</span><span class="pill ' + e.st.k + '">' + esc(e.st.t) + '</span><span class="pill ' + (r.off ? 'open' : 'exp') + '">' + (r.off ? 'Read from the official notice' : 'Not checked on the official site') + '</span></div><h3>' + esc(r.title) + '</h3><div class="org">' + esc(r.org) + '</div></div><span class="verdict v-' + e.verdict + '">' + VLAB[e.verdict] + '</span></div>'
     + '<p class="line">' + esc(r.line) + '</p>' + from + (rules ? '<ul class="rules">' + rules + '</ul>' : '') + '<dl class="facts">' + facts + '</dl>'
     + '<details><summary>Dates, source and how sure I am</summary><p>' + esc(r.cyc) + '</p><p>Source: <a href="' + r.src[1] + '" target="_blank" rel="noopener">' + esc(r.src[0]) + '</a>. Read on ' + esc(DATA.readOn) + '. Confidence: ' + r.conf + '. ' + esc(r.note) + '</p></details>' + link + '</article>';
 }
@@ -398,7 +398,7 @@ function renderExplore() {
   if (later.length) h += '<details class="later-toggle"><summary>' + GROUPS[4][0] + ' (' + later.length + ')</summary><p class="gnote" style="margin-top:4px">' + GROUPS[4][1] + '</p><div class="recs">' + later.map(card).join('') + '</div></details>';
   $('app').innerHTML = '<div class="row" style="justify-content:space-between"><div><h2 class="h2">Opportunities for ' + esc(p.name) + '</h2><div class="chips" style="margin-top:8px">' + chips.map(function (c) { return '<span class="chip">' + esc(c) + '</span>'; }).join('') + '</div></div></div>'
     + '<div class="sub" role="tablist">' + tabsH + '</div>' + h
-    + '<p class="foot">Every record comes from a news or listing page read on ' + esc(DATA.readOn) + ', not from the official notice. Check dates, age limits and fees on the official website before you apply, and never pay an agent to apply. NTSE is not listed because it has not been held since 2021. Only records that match what is on this profile are shown.</p>';
+    + '<p class="foot">Records marked “Read from the official notice” were taken from the government’s own notice. The others come from news or listing pages read on ' + esc(DATA.readOn) + ' and have not been checked against an official notice, so open the official site first. Check dates, age limits and fees on the official website before you apply, and never pay an agent to apply. NTSE is not listed because it has not been held since 2021. Only records that match what is on this profile are shown.</p>';
   Array.prototype.forEach.call(document.querySelectorAll('.sub button'), function (b) { b.onclick = function () { TAB = b.getAttribute('data-t'); try { sessionStorage.setItem('pa10.tab', TAB); } catch (e) {} renderExplore(); window.scrollTo(0, 0); }; });
   wireGap(p);
   if ($('qd')) $('qd').ontoggle = function () { QOPEN = $('qd').open; };

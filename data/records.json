@@ -9,37 +9,42 @@
    "title": "Gramin Dak Sevak (India Post)",
    "org": "Department of Posts",
    "line": "Village post office roles, filled on Class 10 marks with no written exam or interview.",
-   "closes": "2026-02-16",
-   "cyc": "Last window 30 Jan to 16 Feb 2026. The next notice has not been announced.",
+   "closes": "2026-09-21",
+   "cyc": "Official notice dated 20 Aug 2026 (Schedule-II, July 2026): registration 31 Aug to 19 Sep, application and fee 2 to 21 Sep 2026, corrections 23 and 24 Sep. The next schedule has not been announced.",
    "facts": [
     [
      "Age",
-     "18 to 40"
+     "18 to 40 on the last date (43 OBC, 45 SC/ST)"
     ],
     [
      "Qualification",
-     "Class 10 with Maths and English; local language"
+     "Class 10 pass with passing marks in Maths and English; local language studied up to Class 10"
     ],
     [
      "Pay",
-     "₹10,000 to ₹29,380 a month"
+     "₹10,000 to ₹29,380 a month by post (TRCA)"
     ]
    ],
    "src": [
-    "PW news summary",
-    "https://www.pw.live/news/india-post-gds-recruitment-2026"
+    "India Post official notice, 20 Aug 2026",
+    "https://www.indiapost.gov.in/gdsonlineengagement/pdf/descriptive-notification.pdf"
    ],
    "link": [
-    "indiapost.gov.in",
-    "https://www.indiapost.gov.in"
+    "India Post GDS portal",
+    "https://www.indiapost.gov.in/gdsonlineengagement"
    ],
-   "conf": "Medium",
-   "note": "A third-party summary of the notification. Circle-wise vacancies for Karnataka were not listed in it.",
+   "conf": "High",
+   "note": "Read from the Department of Posts notice itself. It gives no vacancy numbers; they are on the portal division by division. Selection is a merit list on Class 10 marks. The fee is ₹100, and women, SC/ST and disabled applicants pay nothing.",
    "rules": [
     {
      "t": "age",
      "min": 18,
      "max": 40,
+     "maxByCat": {
+      "OBC": 43,
+      "SC": 45,
+      "ST": 45
+     },
      "relax": 1
     },
     {
@@ -52,13 +57,14 @@
     {
      "t": "static",
      "s": "unsure",
-     "title": "Know the local language",
-     "detail": "Kannada knowledge is required in the Karnataka circle."
+     "title": "Studied the local language up to Class 10",
+     "detail": "Kannada is the language listed for the Karnataka circle."
     },
     {
      "t": "merit"
     }
-   ]
+   ],
+   "off": true
   },
   {
    "id": "rrbd",
@@ -120,7 +126,7 @@
     "k": "unk",
     "t": "2026 notice not confirmed"
    },
-   "cyc": "An April article expected the notice in June to July 2026. I could not confirm it was released.",
+   "cyc": "The 2025 exam was held in February 2026 (result notice 3 Aug 2026). The SSC notices I could read, up to 26 Oct 2026, do not announce an MTS 2026 exam. Check ssc.gov.in.",
    "facts": [
     [
      "Age",
@@ -136,15 +142,15 @@
     ]
    ],
    "src": [
-    "PW, 25 Apr 2026",
-    "https://www.pw.live/ssc/exams/ssc-mts-notification-2026-expected-date"
+    "SSC result notice for MTS 2025, 3 Aug 2026",
+    "https://ssc.gov.in/api/attachment/uploads/masterData/NoticeBoards/writeup_mts_03082026.pdf"
    ],
    "link": [
     "ssc.gov.in",
     "https://ssc.gov.in"
    ],
    "conf": "Low",
-   "note": "The source predicted dates and did not confirm them.",
+   "note": "The source predicted dates and did not confirm them. The SSC notices I could read (to 26 Oct 2026) show the 2025 exam held in February 2026 and no MTS 2026 notice yet.",
    "rules": [
     {
      "t": "age",
@@ -155,7 +161,8 @@
     {
      "t": "passed"
     }
-   ]
+   ],
+   "off": true
   },
   {
    "id": "agni",
@@ -1170,66 +1177,6 @@
    ]
   },
   {
-   "id": "ntpc12",
-   "tab": "work",
-   "kind": "Job",
-   "lvl": 12,
-   "title": "Railway clerks: NTPC 12th level (CEN 07/2026)",
-   "org": "Railway Recruitment Boards",
-   "line": "Commercial cum ticket clerk, junior clerk cum typist, accounts clerk cum typist and trains clerk posts, chosen through two computer tests.",
-   "closes": "2026-11-13",
-   "cyc": "Applications 15 Oct to 13 Nov 2026 per the article I read, which said the notice would appear in Employment News on 26 Sep 2026. Exam dates are not announced.",
-   "facts": [
-    [
-     "Age",
-     "18 to 30 on 1 Jan 2027 (33 OBC, 35 SC/ST)"
-    ],
-    [
-     "Qualification",
-     "Class 12 with 50% aggregate (no minimum for SC, ST, disabled, ex-servicemen)"
-    ],
-    [
-     "Pay",
-     "₹19,900 to ₹21,700 a month to start"
-    ]
-   ],
-   "src": [
-    "Sarkari Jobs article",
-    "https://www.sarkarijobs.com/rrb-ntpc-12th-level-recruitment-2026-apply-online-to-1688-trains-clerk-commercial-cum-ticket-clerk-accounts-clerk-junior-clerk-vacancies-by-november-13/"
-   ],
-   "link": [
-    "RRB application portal",
-    "https://rrbapply.gov.in"
-   ],
-   "conf": "Low",
-   "note": "A third-party article that calls its dates indicative and its 1,688 vacancies tentative. Check the official CEN 07/2026 notice before anything else.",
-   "rules": [
-    {
-     "t": "age",
-     "min": 18,
-     "max": 30,
-     "asOn": "2027-01-01",
-     "maxByCat": {
-      "OBC": 33,
-      "SC": 35,
-      "ST": 35
-     },
-     "relax": 1
-    },
-    {
-     "t": "passed12"
-    },
-    {
-     "t": "pct12",
-     "min": 50,
-     "exemptCat": [
-      "SC",
-      "ST"
-     ]
-    }
-   ]
-  },
-  {
    "id": "kea-sda",
    "tab": "work",
    "kind": "Job",
@@ -1300,37 +1247,38 @@
    "title": "SSC CHSL: clerks, postal and sorting assistants, data entry operators",
    "org": "Staff Selection Commission",
    "line": "Central government clerical posts, chosen through computer tests.",
-   "closes": "2026-05-31",
-   "cyc": "Last window 30 April to 31 May 2026; the first test was planned for July to September 2026. The next notice has not been announced.",
+   "closes": "2026-10-07",
+   "cyc": "Official advance notice: applications 7 Sep to 7 Oct 2026 (fee by 8 Oct). Tier I and Tier II dates are to be notified. About 2,536 tentative vacancies.",
    "facts": [
     [
      "Age",
-     "18 to 27 (30 OBC, 32 SC/ST)"
+     "18 to 27 on 1 Aug 2026, born between 2 Aug 1999 and 1 Aug 2008 (more for reserved categories)"
     ],
     [
      "Qualification",
-     "Class 12; some data entry posts need Science with Maths"
+     "Class 12 pass or equivalent; some data entry posts need Science with Maths"
     ],
     [
      "Pay",
-     "₹19,900 to ₹81,100 a month by post"
+     "Not in the advance notice"
     ]
    ],
    "src": [
-    "Central State Jobs listing",
-    "https://centralstatejobs.in/jobs/ssc-chsl-recruitment-2026-ldc-jsa-pa-sa-deo"
+    "SSC official notice for CHSL 2026",
+    "https://ssc.gov.in/api/attachment/uploads/masterData/NoticeBoards/Notice_of_adv_chsl_2026.pdf"
    ],
    "link": [
     "SSC",
     "https://ssc.gov.in"
    ],
-   "conf": "Medium",
-   "note": "A third-party summary. Its vacancy field is unclear and its notice link looks mislabelled.",
+   "conf": "High",
+   "note": "Read from the Commission's own advance notice. The extra years for OBC (3) and SC/ST (5) are the usual central rule and were not stated in the part of the notice I read, so confirm them there. An earlier version of this record, taken from a third-party page, had the wrong dates.",
    "rules": [
     {
      "t": "age",
      "min": 18,
      "max": 27,
+     "asOn": "2026-08-01",
      "maxByCat": {
       "OBC": 30,
       "SC": 32,
@@ -1341,7 +1289,8 @@
     {
      "t": "passed12"
     }
-   ]
+   ],
+   "off": true
   },
   {
    "id": "ksp12",
