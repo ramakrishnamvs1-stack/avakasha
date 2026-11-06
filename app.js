@@ -39,7 +39,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '5';
+var APPVER = '6';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -275,15 +275,14 @@ function menuSheet() {
 var stream = null;
 function stopCam() { if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; } }
 var DOCTYPES = [['m10', 'Class 10 marksheet'], ['birth', 'Birth certificate'], ['cat', 'Category (caste) certificate'], ['inc', 'Income certificate']];
-var scan = { type: 'm10', canvas: null };
+var scan = { type: 'auto', canvas: null };
 function scanSheet() {
-  scan = { type: 'm10', canvas: null, local: false };
+  scan = { type: 'auto', canvas: null, local: false };
   sheet('<h2>Scan a document</h2><p class="note">Photograph it flat, in good light, with the whole page in the frame. The photo is not saved.</p>'
-    + '<label class="field">What is it?<select id="dt">' + DOCTYPES.map(function (d) { return '<option value="' + d[0] + '">' + d[1] + '</option>'; }).join('') + '</select></label>'
+    + '<p class="note">You do not need to say what it is. The app works that out: a Class 10 marksheet, birth certificate, caste certificate or income certificate.</p>'
     + '<div class="row" style="margin-top:14px"><button class="btn pri big" id="cam" type="button">Open camera</button><button class="btn big" id="gal" type="button">Choose from gallery</button></div><input type="file" id="gf" accept="image/*" hidden>'
     + '<div id="sm"></div><div class="row" style="margin-top:16px"><button class="btn" id="sc" type="button">Cancel</button></div>');
   $('sc').onclick = closeSheet;
-  $('dt').onchange = function () { scan.type = $('dt').value; };
   $('gal').onclick = function () { $('gf').click(); };
   $('gf').onchange = function () { var fl = $('gf').files[0]; if (fl) loadFile(fl); };
   $('cam').onclick = openCamera;
@@ -293,11 +292,9 @@ async function openCamera() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { $('sm').innerHTML = '<div class="status warn">The camera is not available here. Choose from gallery instead.</div>'; return; }
   try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1440 } }, audio: false }); }
   catch (e) { $('sm').innerHTML = '<div class="status warn">The camera is blocked or not found. Allow camera access for this app in the browser, or choose from gallery.</div>'; return; }
-  var dt = scan.type;
   sheet('<h2>Frame the document</h2><div class="cam"><video id="vid" autoplay playsinline muted></video></div><div class="row" style="margin-top:14px"><button class="btn pri big" id="snap" type="button">Take photo</button><button class="btn" id="cx" type="button">Cancel</button></div>');
-  scan.type = dt;
   var v = $('vid'); v.srcObject = stream;
-  $('cx').onclick = function () { scanSheet(); $('dt').value = dt; scan.type = dt; };
+  $('cx').onclick = scanSheet;
   $('snap').onclick = function () {
     var c = document.createElement('canvas'); c.width = v.videoWidth || 1280; c.height = v.videoHeight || 960; c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
     stopCam(); scan.canvas = c; review();
@@ -310,11 +307,10 @@ function loadFile(fl) {
   img.src = u;
 }
 function review() {
-  var url = scan.canvas.toDataURL('image/jpeg', 0.6), dt = scan.type;
+  var url = scan.canvas.toDataURL('image/jpeg', 0.6);
   sheet('<h2>Check the photo</h2><img class="prev" alt="Your photo" src="' + url + '"><p class="note" style="margin-top:8px">Is the text sharp and the whole page visible? If not, retake it.</p>'
     + '<div class="row" style="margin-top:14px"><button class="btn pri big" id="rd" type="button">Read this document</button><button class="btn" id="rt" type="button">Retake</button></div><div id="sm"></div>');
-  scan.type = dt;
-  $('rt').onclick = function () { scanSheet(); $('dt').value = dt; scan.type = dt; };
+  $('rt').onclick = scanSheet;
   $('rd').onclick = readIt;
 }
 function prepCanvas(src) {
@@ -336,8 +332,10 @@ async function readLocal() {
   $('rd').disabled = true; $('rt').disabled = true;
   try {
     var text = await ocr(prepCanvas(scan.canvas), function (st, p) { $('ps') && ($('ps').textContent = st === 'recognizing text' ? 'Reading the text…' : 'Getting ready…'); $('pb') && ($('pb').style.width = Math.round(p * 100) + '%'); });
-    var props = parse(scan.type, text);
-    confirmSheet(props, text);
+    var t = scan.type === 'auto' ? detectLocal(text) : scan.type;
+    if (!isSupported(t)) { $('rd').disabled = false; $('rt').disabled = false; box.innerHTML = '<div class="status warn">' + esc(unsupportedMsg(t)) + '</div>'; return; }
+    scan.type = t;
+    confirmSheet(parse(t, text), text);
   } catch (e) {
     $('rd').disabled = false; $('rt').disabled = false;
     box.innerHTML = '<div class="status err">Reading failed (' + esc(String(e && e.message || e)) + '). Try again with a clearer photo, or close this and add the details by hand.</div>';
@@ -349,6 +347,7 @@ function userKey() { try { return localStorage.getItem('pa10.key') || ''; } catc
 var MODEL = 'claude-sonnet-5-5';
 var COMMON = 'The image is a photo of an Indian official document. Read only the fields asked for. If a value is not clearly readable, use null. Do not guess. Do not include any person\'s name, roll or registration number, address, or any ID number. Reply with only one JSON object and nothing else.';
 var PROMPTS = {
+  auto: COMMON + '\nFirst decide what the document is and put it in docType: "m10" (a school Class 10, SSLC or matriculation marksheet or pass certificate), "m12" (a Class 12, PUC or higher secondary marksheet), "degree" (a college or university marksheet or degree), "birth" (a birth certificate), "cat" (a caste or category certificate), "inc" (an income certificate), or "other". Fill only the fields for that document and use null for the rest. Fields: {"isDocument": boolean, "docType": "m10" | "m12" | "degree" | "birth" | "cat" | "inc" | "other", "board": "CBSE" | "ICSE" | "Karnataka SSLC" | "Other state board" | null, "examYear": number | null, "dob": "YYYY-MM-DD" | null, "result": "pass" | "fail" | "unknown", "gradeSystem": "marks" | "cgpa" | "grades" | "unknown", "totalObtained": number | null, "totalMax": number | null, "printedPercentage": number | null, "cgpa": number | null, "subjects": [{"name": string, "obtained": number | null, "max": number | null}], "category": "SC" | "ST" | "OBC" | "General" | null, "categoryText": string | null, "annualIncomeRupees": number | null, "notes": [string]}. For a Class 10 marksheet use the printed total if there is one. In notes, list anything doubtful, such as a printed total that does not equal the sum of subjects, a subject printed separately from the total, or a blurred value. Keep notes short.',
   m10: COMMON + '\nThe document should be a school Class 10 marksheet or pass certificate (CBSE, ICSE, Karnataka SSLC, or another state board, in any year). Fields: {"isDocument": boolean, "board": "CBSE" | "ICSE" | "Karnataka SSLC" | "Other state board" | null, "examYear": number | null, "dob": "YYYY-MM-DD" | null, "result": "pass" | "fail" | "unknown", "gradeSystem": "marks" | "cgpa" | "grades" | "unknown", "totalObtained": number | null, "totalMax": number | null, "printedPercentage": number | null, "cgpa": number | null, "subjects": [{"name": string, "obtained": number | null, "max": number | null}], "notes": [string]}. Use the printed total if there is one. In notes, list anything doubtful, such as a printed total that does not equal the sum of subjects, a subject printed separately from the total, or a blurred value. Keep notes short.',
   birth: COMMON + '\nThe document should be a birth certificate. Fields: {"isDocument": boolean, "dob": "YYYY-MM-DD" | null, "notes": [string]}.',
   cat: COMMON + '\nThe document should be a caste or category certificate. Fields: {"isDocument": boolean, "category": "SC" | "ST" | "OBC" | "General" | null, "categoryText": string | null, "notes": [string]}.',
@@ -385,11 +384,10 @@ function consentSheet() {
     + '<label class="field" style="flex-direction:row;align-items:flex-start;gap:10px;font-weight:500"><input type="checkbox" id="cg" style="width:22px;height:22px;flex:none"><span>I am an adult, or a parent or guardian agrees to this photo being read by Claude.</span></label>'
     + '<div class="row" style="margin-top:16px"><button class="btn pri big" id="cy" type="button" disabled>Agree and read</button><button class="btn" id="cl" type="button">Read on this phone instead</button><button class="btn" id="cn" type="button">Cancel</button></div>'
     + '<p class="note" style="margin-top:10px">Reading on this phone keeps the photo here but misses more details.</p>');
-  var dt = scan.type;
   $('cg').onchange = function () { $('cy').disabled = !$('cg').checked; };
-  $('cy').onclick = function () { try { localStorage.setItem('pa10.consent', '1'); } catch (e) {} review(); scan.type = dt; readRemote(); };
-  $('cl').onclick = function () { scan.local = true; review(); scan.type = dt; readLocal(); };
-  $('cn').onclick = function () { review(); scan.type = dt; };
+  $('cy').onclick = function () { try { localStorage.setItem('pa10.consent', '1'); } catch (e) {} review(); readRemote(); };
+  $('cl').onclick = function () { scan.local = true; review(); readLocal(); };
+  $('cn').onclick = function () { review(); };
 }
 function downscale(src, max) {
   var s = Math.min(1, max / Math.max(src.width, src.height)), c = document.createElement('canvas');
@@ -413,16 +411,33 @@ async function readRemote() {
       data = j.data;
     } else { data = await callDirect(scan.type, b64, ctlr.signal); }
     clearTimeout(timer);
-    var m = mapServer(scan.type, data);
-    if (m.notDoc) { $('rd').disabled = false; $('rt').disabled = false; box.innerHTML = '<div class="status warn">This does not look like the document you chose. Check the type, or retake the photo.</div>'; return; }
+    var t = scan.type === 'auto' ? (data && data.isDocument !== false ? data.docType : 'other') : scan.type;
+    if (!isSupported(t)) { $('rd').disabled = false; $('rt').disabled = false; box.innerHTML = '<div class="status warn">' + esc(unsupportedMsg(t)) + '</div>'; return; }
+    scan.type = t;
+    var m = mapServer(t, data);
+    if (m.notDoc) { $('rd').disabled = false; $('rt').disabled = false; box.innerHTML = '<div class="status warn">' + esc(unsupportedMsg('other')) + '</div>'; return; }
     confirmSheet(m.props, '', m.notes);
   } catch (e) {
     clearTimeout(timer);
     $('rd').disabled = false; $('rt').disabled = false;
     var msg = e && e.name === 'AbortError' ? 'The reading took too long.' : (SERR[e && e.code] || 'Could not reach the reading server. Check your internet.');
     box.innerHTML = '<div class="status err">' + esc(msg) + '</div><div class="row" style="margin-top:10px"><button class="btn" id="loc" type="button">Read on this phone instead</button></div><p class="note" style="margin-top:6px">Reading on this phone misses more details.</p>';
-    var dt = scan.type; $('loc').onclick = function () { scan.local = true; review(); scan.type = dt; readLocal(); };
+    $('loc').onclick = function () { scan.local = true; review(); readLocal(); };
   }
+}
+function isSupported(t) { return DOCTYPES.some(function (d) { return d[0] === t; }); }
+function unsupportedMsg(t) {
+  if (t === 'm12') return 'This looks like a Class 12 or PUC marksheet. The app reads Class 10 documents for now. Class 12 comes next.';
+  if (t === 'degree') return 'This looks like a college or degree document. The app reads Class 10 documents for now.';
+  return 'This does not look like a Class 10 marksheet, birth certificate, caste certificate or income certificate. Retake the photo with the whole page in the frame.';
+}
+function detectLocal(t) {
+  if (/senior\s+secondary|class\s*(?:xii|12)\b|\bpuc\b|pre[\s-]*university|higher\s+secondary|\bhsc\b|intermediate/i.test(t)) return 'm12';
+  if (/certificate\s+of\s+birth|birth\s+certificate|registrar\s+of\s+(?:births|birth)|date\s+of\s+birth[\s\S]{0,200}place\s+of\s+birth/i.test(t) && !/marks|subject/i.test(t)) return 'birth';
+  if (/income\s+certificate|annual\s+(?:family\s+)?income/i.test(t)) return 'inc';
+  if (/caste\s+certificate|scheduled\s+(?:caste|tribe)|other\s+backward|category\s+certificate/i.test(t) && !/marks|subject/i.test(t)) return 'cat';
+  if (/secondary\s+school|\bsslc\b|class\s*(?:x|10)\b|matriculation|marks|subject|\bcbse\b|\bicse\b/i.test(t)) return 'm10';
+  return 'other';
 }
 function mapServer(type, d) {
   var P = [], notes = (d.notes || []).filter(function (x) { return typeof x === 'string'; }).slice(0, 5);
@@ -531,7 +546,7 @@ function confirmSheet(props, text, notes) {
     var p = prof(), dt = DOCTYPES.filter(function (d) { return d[0] === scan.type; })[0], doc = { id: uid(), label: dt[1], at: Date.now(), keys: [] }, n = 0;
     props.forEach(function (pr, i) { if ($('pc' + i).checked) { var v = $('pv' + i).value; if (v !== '') { setFact(pr.k, v, doc.id); doc.keys.push(pr.k); n++; } } });
     if (!n) { toast('Nothing was ticked.'); return; }
-    p.docs.push(doc); save(); closeSheet(); scan = { type: 'm10', canvas: null }; location.hash = '#profile'; render(); toast(n + ' detail' + (n === 1 ? '' : 's') + ' saved. Add the rest below.');
+    p.docs.push(doc); save(); closeSheet(); scan = { type: 'auto', canvas: null }; location.hash = '#profile'; render(); toast('Read as ' + dt[1] + '. ' + n + ' detail' + (n === 1 ? '' : 's') + ' saved. Add the rest below.');
   };
 }
 
