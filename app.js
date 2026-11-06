@@ -39,7 +39,8 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '3';
+var APPVER = '4';
+var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
 function load() { try { var r = localStorage.getItem(KEY); if (r) { var o = JSON.parse(r); if (o && o.profiles) DB = o; } } catch (e) {} }
@@ -138,7 +139,7 @@ function renderProfile() {
   $('app').innerHTML = '<div class="cols"><div class="stack">'
     + '<div class="card"><h2 class="h2">' + esc(p.name) + '</h2><div class="note" style="margin-top:2px">Profile ' + pc + '% complete</div><div class="meter" aria-hidden="true"><i style="width:' + pc + '%"></i></div>'
     + '<div class="row" style="margin-top:14px"><button class="btn pri big" id="scanBtn" type="button">Scan a document</button><button class="btn big" id="goExplore" type="button">Explore</button></div>'
-    + '<p class="note" style="margin-top:10px">Photos are read on this phone and thrown away. Only the details you confirm are saved, and they stay on this phone.</p></div>'
+    + '<p class="note" style="margin-top:10px">Photos are not kept. Only the details you confirm are saved, and they stay on this phone.</p></div>'
     + '<div class="card"><h3 class="h3">Documents</h3>' + docs + '</div></div>'
     + '<div class="card"><h3 class="h3">Details</h3><p class="note" style="margin-top:2px">Tap Edit to correct anything. Every record on the Explore tab uses these.</p>' + facts + '</div></div>';
   $('scanBtn').onclick = scanSheet; $('goExplore').onclick = function () { location.hash = '#explore'; };
@@ -272,8 +273,8 @@ function stopCam() { if (stream) { stream.getTracks().forEach(function (t) { t.s
 var DOCTYPES = [['m10', 'Class 10 marksheet'], ['birth', 'Birth certificate'], ['cat', 'Category (caste) certificate'], ['inc', 'Income certificate']];
 var scan = { type: 'm10', canvas: null };
 function scanSheet() {
-  scan = { type: 'm10', canvas: null };
-  sheet('<h2>Scan a document</h2><p class="note">Photograph it flat, in good light, with the whole page in the frame. The photo is read on this phone and not saved.</p>'
+  scan = { type: 'm10', canvas: null, local: false };
+  sheet('<h2>Scan a document</h2><p class="note">Photograph it flat, in good light, with the whole page in the frame. The photo is not saved.</p>'
     + '<label class="field">What is it?<select id="dt">' + DOCTYPES.map(function (d) { return '<option value="' + d[0] + '">' + d[1] + '</option>'; }).join('') + '</select></label>'
     + '<div class="row" style="margin-top:14px"><button class="btn pri big" id="cam" type="button">Open camera</button><button class="btn big" id="gal" type="button">Choose from gallery</button></div><input type="file" id="gf" accept="image/*" hidden>'
     + '<div id="sm"></div><div class="row" style="margin-top:16px"><button class="btn" id="sc" type="button">Cancel</button></div>');
@@ -325,7 +326,7 @@ async function ocr(canvas, onp) {
   var w = await Tesseract.createWorker('eng', 1, { workerPath: base + 'worker.min.js', corePath: base, langPath: base, gzip: true, logger: function (m) { if (m && typeof m.progress === 'number') onp(m.status, m.progress); } });
   try { var r = await w.recognize(canvas); return r.data.text || ''; } finally { try { await w.terminate(); } catch (e) {} }
 }
-async function readIt() {
+async function readLocal() {
   var box = $('sm');
   box.innerHTML = '<div class="status"><span id="ps">Getting ready…</span><div class="bar"><i id="pb"></i></div></div>';
   $('rd').disabled = true; $('rt').disabled = true;
@@ -338,6 +339,91 @@ async function readIt() {
     box.innerHTML = '<div class="status err">Reading failed (' + esc(String(e && e.message || e)) + '). Try again with a clearer photo, or close this and add the details by hand.</div>';
   }
 }
+
+/* ---- reading: Claude through the server when set up, otherwise on this phone ---- */
+function consented() { try { return localStorage.getItem('pa10.consent') === '1'; } catch (e) { return false; } }
+function readIt() {
+  var server = CFG.readerUrl && navigator.onLine !== false && !scan.local;
+  if (!server) return readLocal();
+  if (!consented()) return consentSheet();
+  return readRemote();
+}
+function consentSheet() {
+  sheet('<h2>Read this with Claude?</h2><p>To read the document accurately, the photo is sent over the internet to Claude, an AI service run by Anthropic. This app does not keep the photo. Only the details you tick afterwards are saved, and they stay on this phone.</p>'
+    + '<p style="margin-top:10px"><b>If the person in the document is under 18, a parent or guardian must agree.</b></p>'
+    + '<label class="field" style="flex-direction:row;align-items:flex-start;gap:10px;font-weight:500"><input type="checkbox" id="cg" style="width:22px;height:22px;flex:none"><span>I am an adult, or a parent or guardian agrees to this photo being read by Claude.</span></label>'
+    + '<div class="row" style="margin-top:16px"><button class="btn pri big" id="cy" type="button" disabled>Agree and read</button><button class="btn" id="cl" type="button">Read on this phone instead</button><button class="btn" id="cn" type="button">Cancel</button></div>'
+    + '<p class="note" style="margin-top:10px">Reading on this phone keeps the photo here but misses more details.</p>');
+  var dt = scan.type;
+  $('cg').onchange = function () { $('cy').disabled = !$('cg').checked; };
+  $('cy').onclick = function () { try { localStorage.setItem('pa10.consent', '1'); } catch (e) {} review(); scan.type = dt; readRemote(); };
+  $('cl').onclick = function () { scan.local = true; review(); scan.type = dt; readLocal(); };
+  $('cn').onclick = function () { review(); scan.type = dt; };
+}
+function downscale(src, max) {
+  var s = Math.min(1, max / Math.max(src.width, src.height)), c = document.createElement('canvas');
+  c.width = Math.round(src.width * s); c.height = Math.round(src.height * s); c.getContext('2d').drawImage(src, 0, 0, c.width, c.height); return c;
+}
+function blobToB64(b) { return new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(String(r.result).split(',')[1]); }; r.onerror = rej; r.readAsDataURL(b); }); }
+var SERR = { forbidden: 'The reading server refused this app. Tell whoever set it up.', not_configured: 'The reading server is not finished being set up.', too_large: 'The photo is too large. Retake it a little farther away.', rate_limited: 'Too many photos just now. Wait a minute and try again.', upstream: 'The reading service did not answer. Try again in a moment.', unreadable: 'The photo could not be read. Try a clearer photo.', bad_request: 'The app sent something the server did not understand.' };
+async function readRemote() {
+  var box = $('sm');
+  box.innerHTML = '<div class="status"><span class="note">Reading with Claude. This takes about 10 to 30 seconds.</span><div class="bar"><i style="width:60%"></i></div></div>';
+  $('rd').disabled = true; $('rt').disabled = true;
+  var ctlr = new AbortController(), timer = setTimeout(function () { ctlr.abort(); }, 70000);
+  try {
+    var blob = await new Promise(function (r) { downscale(scan.canvas, 1800).toBlob(r, 'image/jpeg', 0.82); });
+    var b64 = await blobToB64(blob);
+    var res = await fetch(CFG.readerUrl, { method: 'POST', signal: ctlr.signal, headers: { 'Content-Type': 'application/json', 'X-App-Key': CFG.appKey || '' }, body: JSON.stringify({ type: scan.type, image: b64, mediaType: 'image/jpeg' }) });
+    var j = null; try { j = await res.json(); } catch (e) {}
+    clearTimeout(timer);
+    if (!res.ok || !j || !j.ok) { var er = new Error((j && j.error) || 'upstream'); er.code = (j && j.error) || 'upstream'; throw er; }
+    var m = mapServer(scan.type, j.data);
+    if (m.notDoc) { $('rd').disabled = false; $('rt').disabled = false; box.innerHTML = '<div class="status warn">This does not look like the document you chose. Check the type, or retake the photo.</div>'; return; }
+    confirmSheet(m.props, '', m.notes);
+  } catch (e) {
+    clearTimeout(timer);
+    $('rd').disabled = false; $('rt').disabled = false;
+    var msg = e && e.name === 'AbortError' ? 'The reading took too long.' : (SERR[e && e.code] || 'Could not reach the reading server. Check your internet.');
+    box.innerHTML = '<div class="status err">' + esc(msg) + '</div><div class="row" style="margin-top:10px"><button class="btn" id="loc" type="button">Read on this phone instead</button></div><p class="note" style="margin-top:6px">Reading on this phone misses more details.</p>';
+    var dt = scan.type; $('loc').onclick = function () { scan.local = true; review(); scan.type = dt; readLocal(); };
+  }
+}
+function mapServer(type, d) {
+  var P = [], notes = (d.notes || []).filter(function (x) { return typeof x === 'string'; }).slice(0, 5);
+  function add(k, v, conf, note) { P.push({ k: k, v: String(v), conf: conf, note: note || '' }); }
+  if (d.isDocument === false) return { notDoc: true };
+  if (type === 'birth') { if (validDob(d.dob)) add('dob', d.dob, 'read', 'Check the day and month.'); return { props: P, notes: notes }; }
+  if (type === 'cat') {
+    if (d.category === 'SC' || d.category === 'ST' || d.category === 'OBC' || d.category === 'General') add('cat', d.category, 'read', d.categoryText ? 'The certificate says: ' + d.categoryText : '');
+    return { props: P, notes: notes };
+  }
+  if (type === 'inc') {
+    var n = Number(d.annualIncomeRupees);
+    if (n > 0) { var band = n <= 100000 ? '100000' : n <= 250000 ? '250000' : n <= 350000 ? '350000' : n <= 800000 ? '800000' : '9999999'; add('income', band, 'read', 'The certificate says ₹' + n.toLocaleString('en-IN') + ' a year. Check the band.'); }
+    return { props: P, notes: notes };
+  }
+  var boards = ['CBSE', 'ICSE', 'Karnataka SSLC', 'Other state board'];
+  if (boards.indexOf(d.board) >= 0) add('board', d.board, 'read');
+  if (typeof d.examYear === 'number' && d.examYear >= 1960 && d.examYear <= TODAY.getFullYear()) add('examYear', d.examYear, 'read');
+  if (validDob(d.dob)) add('dob', d.dob, 'read', 'Check the day and month. Some marksheets do not print a birth date; if so, use the birth certificate.');
+  if (d.result === 'pass') add('passed', 'yes', 'read'); else if (d.result === 'fail') { add('passed', 'no', 'guess', 'The sheet seems to show a fail.'); }
+  var subs = (d.subjects || []).filter(function (s) { return s && s.name; }), sumO = 0, sumM = 0, cnt = 0;
+  subs.forEach(function (s) { if (typeof s.obtained === 'number') { sumO += s.obtained; cnt++; } if (typeof s.max === 'number') sumM += s.max; });
+  var tO = typeof d.totalObtained === 'number' ? d.totalObtained : (cnt ? sumO : null), tM = typeof d.totalMax === 'number' ? d.totalMax : (sumM || null);
+  var pc = null, pconf = 'read', pnote = '';
+  if (tO !== null && tM) { pc = Math.round(tO / tM * 1000) / 10; pnote = 'Read ' + tO + ' of ' + tM + '.'; }
+  else if (typeof d.printedPercentage === 'number') { pc = d.printedPercentage; pnote = 'The sheet prints this percentage.'; }
+  else if (d.gradeSystem === 'cgpa' || typeof d.cgpa === 'number') { notes.push('This sheet gives a CGPA' + (typeof d.cgpa === 'number' ? ' of ' + d.cgpa : '') + ', not marks. Enter the percentage your board states for it, or leave it blank.'); }
+  if (typeof d.totalObtained === 'number' && cnt && Math.abs(sumO - d.totalObtained) > 0) { pconf = 'guess'; notes.push('The subject marks add up to ' + sumO + ', but the printed total is ' + d.totalObtained + '. A subject may be counted separately, or one value was misread.'); }
+  if (pc !== null && (pc <= 0 || pc > 100)) { notes.push('The percentage came out as ' + pc + ', which cannot be right.'); pc = null; }
+  if (pc !== null) add('pct', pc, pconf, pnote + (pconf === 'guess' ? ' Check it.' : ''));
+  var has = function (re) { return subs.some(function (s) { return re.test(s.name); }); };
+  if (subs.length && has(/math/i) && has(/scien|physic|chem|bio/i) && has(/engl/i) && d.result === 'pass') add('core', 'yes', 'guess', 'Found Maths, Science and English with a pass. Check that each was passed.');
+  else if (subs.length) notes.push('Maths, Science and English were not all found in the subject list. Set that answer yourself.');
+  return { props: P, notes: notes };
+}
+function validDob(v) { if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false; var y = +v.slice(0, 4); return y >= 1940 && y <= 2014; }
 
 /* ---- parsing (every value is only a proposal until the person confirms it) ---- */
 var MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
@@ -395,14 +481,15 @@ function parse(type, text) {
   if (hasM && hasS && hasE && pass) add('core', 'yes', 'guess', 'Found Maths, Science and English with a pass.');
   return P;
 }
-function confirmSheet(props, text) {
+function confirmSheet(props, text, notes) {
   var rows = props.map(function (p, i) {
     var x = FD[p.k];
     return '<div class="prop"><input type="checkbox" id="pc' + i + '" checked aria-label="Use ' + x.l + '"><div class="main2"><b>' + x.l + '</b><span class="tag ' + p.conf + '">' + (p.conf === 'read' ? 'read clearly' : 'please check') + '</span>' + '<div style="margin-top:6px">' + ctl(x, p.v, 'pv' + i) + '</div>' + (p.note ? '<small>' + esc(p.note) + '</small>' : '') + '</div></div>';
   }).join('');
   sheet('<h2>' + (props.length ? 'Check what was read' : 'Nothing could be read') + '</h2>'
+    + ((notes && notes.length) ? '<div class="status warn"><b>Please check:</b><ul style="margin:6px 0 0;padding-left:18px">' + notes.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul></div>' : '')
     + (props.length ? '<p class="note">Untick anything that is wrong or fix it. Only ticked details are saved.</p>' + rows : '<div class="status warn">The text was too faint or the page was cut off. Retake the photo in better light, or close this and add the details by hand on the Profile screen.</div>')
-    + '<details style="margin-top:12px"><summary class="note">What the phone read</summary><pre style="white-space:pre-wrap;font-size:12px;color:var(--muted);max-height:180px;overflow:auto">' + esc(text.trim().slice(0, 1500)) + '</pre></details>'
+    + (text ? '<details style="margin-top:12px"><summary class="note">What the phone read</summary><pre style="white-space:pre-wrap;font-size:12px;color:var(--muted);max-height:180px;overflow:auto">' + esc(text.trim().slice(0, 1500)) + '</pre></details>' : '')
     + '<div class="row" style="margin-top:16px">' + (props.length ? '<button class="btn pri big" id="ok" type="button">Save to profile</button>' : '') + '<button class="btn" id="back" type="button">' + (props.length ? 'Cancel' : 'Retake') + '</button></div>');
   $('back').onclick = props.length ? closeSheet : function () { scanSheet(); };
   if (props.length) $('ok').onclick = function () {
