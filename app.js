@@ -48,7 +48,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '14';
+var APPVER = '15';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -203,7 +203,7 @@ function renderProfile() {
     + '<div class="card"><h3 class="h3">Documents</h3>' + docs + '</div>' + jobCard(p) + '</div>'
     + '<div class="card"><h3 class="h3">Details</h3><p class="note" style="margin-top:2px">' + (nf ? 'Only what you have added or confirmed is shown. Tap Edit to correct anything.' : 'Scan any document, or add a detail by hand. Only what you add is shown here.') + '</p>' + facts + '<div class="row" style="margin-top:12px"><button class="btn" id="addFact" type="button">Add a detail by hand</button><button class="btn" id="addJob" type="button">Add a job by hand</button></div></div></div>';
   wireGap(p); wireJobs(p); $('addFact').onclick = addFactSheet;
-  $('scanBtn').onclick = scanSheet; $('goExplore').onclick = function () { location.hash = '#explore'; };
+  $('scanBtn').onclick = scanFlow; $('goExplore').onclick = function () { location.hash = '#explore'; };
   Array.prototype.forEach.call(document.querySelectorAll('[data-edit]'), function (b) { b.onclick = function () { editSheet(b.getAttribute('data-edit')); }; });
   Array.prototype.forEach.call(document.querySelectorAll('[data-deldoc]'), function (b) { b.onclick = function () { delDoc(b.getAttribute('data-deldoc')); }; });
 }
@@ -324,15 +324,70 @@ var GROUPS = [
   ['Plan ahead: after Class 12', 'Dates shown are for students finishing 2nd PUC now. Yours will be later.']];
 var VLAB = { yes: 'Likely eligible', check: 'Check details', no: 'Not eligible', later: 'After Class 12' };
 function mark(s) { return s === 'pass' ? '✓' : s === 'fail' ? '✕' : s === 'unsure' ? '?' : '•'; }
+var CHEV = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
 function card(e) {
   var r = e.r;
-  var rules = e.rules.map(function (x) { return '<li><i class="m ' + x.s + '" aria-hidden="true">' + mark(x.s) + '</i><span><b>' + esc(x.t) + '</b> <span>' + esc(x.d) + '</span></span></li>'; }).join('');
-  var facts = r.facts.map(function (x) { return '<dt>' + esc(x[0]) + '</dt><dd>' + esc(x[1]) + '</dd>'; }).join('');
-  var from = e.from ? '<div class="from">You can apply from ' + fmt(e.from) + '.</div>' : '';
-  var link = r.link ? '<div class="note">Official site: <a href="' + r.link[1] + '" target="_blank" rel="noopener">' + esc(r.link[0]) + '</a></div>' : '';
-  return '<article class="rec"><div class="rhead"><div><div class="pills"><span class="pill">' + esc(r.kind) + '</span><span class="pill ' + e.st.k + '">' + esc(e.st.t) + '</span><span class="pill ' + (r.off ? 'open' : 'exp') + '">' + (r.off ? 'Read from the official notice' : 'Not checked on the official site') + '</span></div><h3>' + esc(r.title) + '</h3><div class="org">' + esc(r.org) + '</div></div><span class="verdict v-' + e.verdict + '">' + VLAB[e.verdict] + '</span></div>'
-    + '<p class="line">' + esc(r.line) + '</p>' + from + (rules ? '<ul class="rules">' + rules + '</ul>' : '') + '<dl class="facts">' + facts + '</dl>'
-    + '<details><summary>Dates, source and how sure I am</summary><p>' + esc(r.cyc) + '</p><p>Source: <a href="' + r.src[1] + '" target="_blank" rel="noopener">' + esc(r.src[0]) + '</a>. Read on ' + esc(DATA.readOn) + '. Confidence: ' + r.conf + '. ' + esc(r.note) + '</p></details>' + link + '</article>';
+  return '<a class="jc" href="#job/' + encodeURIComponent(r.id) + '"><div class="jct"><span class="pill ' + e.st.k + '">' + esc(e.st.t) + '</span><span class="verdict v-' + e.verdict + '">' + VLAB[e.verdict] + '</span></div>'
+    + '<h3>' + esc(r.title) + '</h3><div class="org">' + esc(r.org) + '</div><div class="jcl">' + esc(r.line) + '</div>'
+    + '<div class="jcf"><span class="' + (r.off ? 'o1' : 'o0') + '">' + (r.off ? 'Read from the official notice' : 'Not checked on the official site') + '</span>' + CHEV + '</div></a>';
+}
+function renderDetail(id) {
+  var r = DATA.records.filter(function (x) { return x.id === id; })[0];
+  if (!r) { location.hash = '#explore'; return; }
+  var e = evaluate(r, F());
+  var rules = e.rules.map(function (x) { return '<li><i class="m ' + x.s + '" aria-hidden="true">' + mark(x.s) + '</i><span><b>' + esc(x.t) + '</b><br><span>' + esc(x.d) + '</span></span></li>'; }).join('');
+  var facts = r.facts.map(function (x) { return '<div class="dkv"><span>' + esc(x[0]) + '</span><span>' + esc(x[1]) + '</span></div>'; }).join('');
+  var url = r.link ? r.link[1] : r.src[1], lab = r.link ? 'Open official site' : 'Open the source page';
+  $('app').innerHTML = '<div class="dbar"><button type="button" id="dback" aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><b>Job details</b></div>'
+    + '<div class="pills" style="margin-top:8px"><span class="pill ' + e.st.k + '">' + esc(e.st.t) + '</span><span class="verdict v-' + e.verdict + '">' + VLAB[e.verdict] + '</span></div>'
+    + '<h1 class="dtitle">' + esc(r.title) + '</h1><div class="org" style="font-size:15px;margin-top:6px">' + esc(r.org) + '</div>'
+    + (r.off ? '<div class="dnote g"><b>Read from the official notice.</b> Dates and rules here were taken from the government’s own notice.</div>' : '<div class="dnote w"><b>Not checked on the official site.</b> Dates and rules here come from a news or listing page. Confirm them in the official notice before you apply.</div>')
+    + (e.from ? '<div class="from" style="margin-top:12px">You can apply from ' + fmt(e.from) + '.</div>' : '')
+    + (rules ? '<div class="dh">How you match</div><div class="dlist"><ul class="rules">' + rules + '</ul></div>' : '')
+    + '<div class="dh">Key facts</div><div class="dlist">' + facts + '</div>'
+    + '<div class="dh">About</div><div class="dabout"><p>' + esc(r.line) + '</p><p class="muted">' + esc(r.cyc) + '</p><p class="note">Source: <a href="' + r.src[1] + '" target="_blank" rel="noopener">' + esc(r.src[0]) + '</a>. Read on ' + esc(DATA.readOn) + '. Confidence: ' + r.conf + '. ' + esc(r.note) + '</p></div>'
+    + '<p class="foot">Check dates, age limits and fees on the official website before you apply, and never pay an agent to apply.</p>'
+    + '<div class="dact"><a class="btn pri" href="' + url + '" target="_blank" rel="noopener">' + lab + ' ↗</a></div>';
+  $('dback').onclick = function () { if (history.length > 1) history.back(); else location.hash = '#explore'; };
+}
+
+/* ================= render: home (one card at a time) ================= */
+var HOME = { i: 0, t: null, items: [] };
+var NOTES = [
+  ['A Class 12 pass opens many more posts than Class 10.', 'Scan your marksheet and Explore grows to match.'],
+  ['Apply only on the official site.', 'Never pay an agent to apply for a government post.'],
+  ['Scan once, use it everywhere.', 'Your details stay on this phone. Photos are not saved.']
+];
+function stopHome() { if (HOME.t) { clearInterval(HOME.t); HOME.t = null; } }
+function homeItems() {
+  var f = F(), p = prof(), hasFacts = p && Object.keys(p.facts).length;
+  var ev = DATA.records.map(function (r) { return evaluate(r, f); }).filter(function (e) { return e.st.k === 'open'; });
+  var pool = hasFacts ? ev.filter(function (e) { return relevant(e.r, f, p) && e.grp < 2; }) : ev.filter(function (e) { return !e.r.later && e.r.tab !== 'exp'; });
+  pool.sort(function (a, b) { return pd(a.r.closes) - pd(b.r.closes); });
+  var out = pool.slice(0, 3).map(function (e) { return { job: e }; });
+  var n = NOTES[(Math.floor(TODAY.getTime() / 864e5)) % NOTES.length];
+  out.push({ note: n });
+  return out;
+}
+function homeCard(it) {
+  if (it.note) return '<div class="hcard note" id="hc" aria-live="polite"><i class="tbar"></i><span class="hp">Career note</span><h2>' + esc(it.note[0]) + '</h2><div class="hs">' + esc(it.note[1]) + '</div></div>';
+  var e = it.job, r = e.r, d = daysBetween(TODAY, pd(r.closes));
+  return '<a class="hcard" id="hc" href="#job/' + encodeURIComponent(r.id) + '"><i class="tbar"></i><span class="hp">' + (d === 0 ? 'Last day today' : d === 1 ? '1 day left' : d + ' days left') + '</span><h2>' + esc(r.title) + '</h2><div class="hs">' + esc(r.org) + '</div><span class="hgo">See details <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a>';
+}
+function drawHome() {
+  var it = HOME.items[HOME.i];
+  $('hslot').innerHTML = homeCard(it);
+  Array.prototype.forEach.call(document.querySelectorAll('.hdots button'), function (b, k) { if (k === HOME.i) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current'); });
+}
+function renderHome() {
+  stopHome();
+  HOME.items = homeItems(); if (HOME.i >= HOME.items.length) HOME.i = 0;
+  $('app').innerHTML = '<div class="homew"><div class="hlab">Open today</div><div id="hslot"></div><div class="hdots">' + HOME.items.map(function (x, k) { return '<button type="button" data-k="' + k + '" aria-label="Show card ' + (k + 1) + '"><i></i></button>'; }).join('') + '</div></div>';
+  drawHome();
+  function go(k) { HOME.i = k; drawHome(); stopHome(); HOME.t = setInterval(next, 5500); }
+  function next() { go((HOME.i + 1) % HOME.items.length); }
+  Array.prototype.forEach.call(document.querySelectorAll('.hdots button'), function (b) { b.onclick = function () { go(+b.getAttribute('data-k')); }; });
+  if (HOME.items.length > 1) HOME.t = setInterval(next, 5500);
 }
 function sortG(a, b) {
   if (a.grp === 3 && b.grp === 3) { var fa = a.from ? a.from.getTime() : 9e15, fb = b.from ? b.from.getTime() : 9e15; return fa - fb; }
@@ -372,19 +427,19 @@ function renderExplore() {
   if (f.state) chips.push(f.state === 'other' ? 'Another state' : f.state);
   var hiddenN = all.filter(function (e) { return e.grp >= 2; }).length, allRecs = all;
   if (!SHOWALL) all = all.filter(function (e) { return e.grp < 2; });
-  var tabs = [['work', 'Start working early'], ['exp', 'With experience'], ['study', 'Study further'], ['scholar', 'Scholarships']];
+  var tabs = [['work', 'Jobs'], ['exp', 'With experience'], ['study', 'Study'], ['scholar', 'Scholarships']];
   tabs = tabs.filter(function (t) { return all.some(function (e) { return e.r.tab === t[0]; }); });
   if (!tabs.length && hiddenN && !SHOWALL) {
-    $('app').innerHTML = '<h2 class="h2">Opportunities for ' + esc(p.name) + '</h2><div class="chips" style="margin:8px 0 14px">' + chips.map(function (c) { return '<span class="chip">' + esc(c) + '</span>'; }).join('') + '</div><div class="card"><h3 class="h3">Nothing is open for you right now</h3><p class="note" style="margin-top:4px">' + hiddenN + (hiddenN === 1 ? ' record matches' : ' records match') + ' this profile but ' + (hiddenN === 1 ? 'is' : 'are') + ' closed, not open yet, or not eligible yet.</p><div class="row" style="margin-top:10px"><button class="btn" id="showAll" type="button">Show them</button></div></div>';
+    $('app').innerHTML = '<h2 class="h2">Open for you</h2><div class="chips" style="margin:8px 0 14px">' + chips.map(function (c) { return '<span class="chip">' + esc(c) + '</span>'; }).join('') + '</div><div class="card"><h3 class="h3">Nothing is open for you right now</h3><p class="note" style="margin-top:4px">' + hiddenN + (hiddenN === 1 ? ' record matches' : ' records match') + ' this profile but ' + (hiddenN === 1 ? 'is' : 'are') + ' closed, not open yet, or not eligible yet.</p><div class="row" style="margin-top:10px"><button class="btn" id="showAll" type="button">Show them</button></div></div>';
     $('showAll').onclick = function () { SHOWALL = true; renderExplore(); };
     return;
   }
   if (!tabs.length) {
-    $('app').innerHTML = '<h2 class="h2">Opportunities for ' + esc(p.name) + '</h2><div class="chips" style="margin:8px 0 14px">' + chips.map(function (c) { return '<span class="chip">' + esc(c) + '</span>'; }).join('') + '</div><div class="card"><h3 class="h3">Nothing to match yet</h3><p class="note" style="margin-top:4px">Results appear for the kinds of details a profile holds: Class 10 details, a driving licence or work experience. ' + (jobsOf(p).length || Object.keys(p.facts).length ? 'This profile has none of those that match the records available so far. More kinds of jobs are being added.' : 'Scan a document or add a detail on the Profile tab.') + '</p></div><p class="foot">Records so far cover Karnataka and central government posts open to Class 10 pass candidates, driver posts, and study and scholarship routes after Class 10.</p>';
+    $('app').innerHTML = '<h2 class="h2">Open for you</h2><div class="chips" style="margin:8px 0 14px">' + chips.map(function (c) { return '<span class="chip">' + esc(c) + '</span>'; }).join('') + '</div><div class="card"><h3 class="h3">Nothing to match yet</h3><p class="note" style="margin-top:4px">Results appear for the kinds of details a profile holds: Class 10 details, a driving licence or work experience. ' + (jobsOf(p).length || Object.keys(p.facts).length ? 'This profile has none of those that match the records available so far. More kinds of jobs are being added.' : 'Scan a document or add a detail on the Profile tab.') + '</p></div><p class="foot">Records so far cover Karnataka and central government posts open to Class 10 pass candidates, driver posts, and study and scholarship routes after Class 10.</p>';
     return;
   }
   if (!tabs.some(function (t) { return t[0] === TAB; })) TAB = tabs[0][0];
-  var tabsH = tabs.map(function (t) { var n = all.filter(function (e) { return e.r.tab === t[0] && e.grp < 2; }).length; return '<button role="tab" data-t="' + t[0] + '" aria-selected="' + (t[0] === TAB) + '">' + t[1] + '<span>' + n + ' open for you</span></button>'; }).join('');
+  var tabsH = tabs.map(function (t) { var n = all.filter(function (e) { return e.r.tab === t[0] && e.grp < 2; }).length; return '<button role="tab" class="tb" data-t="' + t[0] + '" aria-selected="' + (t[0] === TAB) + '">' + t[1] + ' <span>' + n + '</span></button>'; }).join('');
   var list = all.filter(function (e) { return e.r.tab === TAB; });
   var h = gapCard(p);
   var qs = questions(list, f);
@@ -405,11 +460,11 @@ function renderExplore() {
   [0, 1, 2, 3].forEach(function (g) { var items = list.filter(function (e) { return e.grp === g; }).sort(sortG); if (!items.length) return; any = true; h += '<section class="group"><h2>' + GROUPS[g][0] + ' <span class="note">(' + items.length + ')</span></h2><p class="gnote">' + GROUPS[g][1] + '</p><div class="recs">' + items.map(card).join('') + '</div></section>'; });
   var later = list.filter(function (e) { return e.grp === 4; });
   if (later.length) h += '<details class="later-toggle"><summary>' + GROUPS[4][0] + ' (' + later.length + ')</summary><p class="gnote" style="margin-top:4px">' + GROUPS[4][1] + '</p><div class="recs">' + later.map(card).join('') + '</div></details>';
-  $('app').innerHTML = '<div class="row" style="justify-content:space-between"><div><h2 class="h2">Opportunities for ' + esc(p.name) + '</h2><div class="chips" style="margin-top:8px">' + chips.map(function (c) { return '<span class="chip">' + esc(c) + '</span>'; }).join('') + '</div></div></div>'
-    + '<div class="sub" role="tablist">' + tabsH + '</div>' + h
+  $('app').innerHTML = '<div class="row" style="justify-content:space-between"><div><h2 class="h2">Open for you</h2><div class="chips" style="margin-top:8px">' + chips.map(function (c) { return '<span class="chip">' + esc(c) + '</span>'; }).join('') + '</div></div></div>'
+    + '<div class="tabs" role="tablist" aria-label="Kind of opportunity">' + tabsH + '</div>' + h
     + (hiddenN ? '<div class="row" style="margin-top:18px"><button class="btn" id="showAll" type="button">' + (SHOWALL ? 'Hide closed and not-open records' : 'Show ' + hiddenN + ' closed or not-yet-open ' + (hiddenN === 1 ? 'record' : 'records')) + '</button></div>' : '')
     + '<p class="foot">Records marked “Read from the official notice” were taken from the government’s own notice. The others come from news or listing pages read on ' + esc(DATA.readOn) + ' and have not been checked against an official notice, so open the official site first. Check dates, age limits and fees on the official website before you apply, and never pay an agent to apply. NTSE is not listed because it has not been held since 2021. Only records that match what is on this profile are shown.</p>';
-  Array.prototype.forEach.call(document.querySelectorAll('.sub button'), function (b) { b.onclick = function () { TAB = b.getAttribute('data-t'); try { sessionStorage.setItem('pa10.tab', TAB); } catch (e) {} renderExplore(); window.scrollTo(0, 0); }; });
+  Array.prototype.forEach.call(document.querySelectorAll('.tabs button'), function (b) { b.onclick = function () { TAB = b.getAttribute('data-t'); try { sessionStorage.setItem('pa10.tab', TAB); } catch (e) {} renderExplore(); window.scrollTo(0, 0); }; });
   wireGap(p);
   if ($('showAll')) $('showAll').onclick = function () { SHOWALL = !SHOWALL; renderExplore(); window.scrollTo(0, 0); };
   if ($('qd')) $('qd').ontoggle = function () { QOPEN = $('qd').open; };
@@ -417,7 +472,13 @@ function renderExplore() {
 }
 
 /* ================= sheets ================= */
-function sheet(html) { $('sheetin').innerHTML = html; $('sheet').hidden = false; document.body.style.overflow = 'hidden'; }
+function sheet(html) { var si = $('sheetin'); si.style.transform = ''; si.innerHTML = '<div class="grab" aria-hidden="true"></div>' + html; $('sheet').hidden = false; document.body.style.overflow = 'hidden'; }
+(function () {
+  var y0 = null, dy = 0, si = $('sheetin');
+  si.addEventListener('touchstart', function (e) { y0 = si.scrollTop <= 0 ? e.touches[0].clientY : null; dy = 0; }, { passive: true });
+  si.addEventListener('touchmove', function (e) { if (y0 === null) return; dy = e.touches[0].clientY - y0; if (dy > 0) si.style.transform = 'translateY(' + dy + 'px)'; else { dy = 0; si.style.transform = ''; } }, { passive: true });
+  si.addEventListener('touchend', function () { if (y0 === null) return; if (dy > 110) closeSheet(); else si.style.transform = ''; y0 = null; dy = 0; });
+})();
 function closeSheet() { stopCam(); $('sheet').hidden = true; $('sheetin').innerHTML = ''; document.body.style.overflow = ''; }
 $('sheet').addEventListener('click', function (e) { if (e.target === $('sheet')) closeSheet(); });
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('sheet').hidden) closeSheet(); });
@@ -436,6 +497,25 @@ function editSheet(k) {
     if (k === 'dob') { var yy = parseInt(v.slice(0, 4), 10); if (!(yy >= 1930 && yy <= TODAY.getFullYear())) { toast('Check the year of birth.'); return; } } setFact(k, v, 'typed'); closeSheet(); render(); };
   if ($('edel')) $('edel').onclick = function () { setFact(k, '', ''); closeSheet(); render(); };
 }
+function initial(n) { return esc((n || '?').trim().charAt(0).toUpperCase() || '?'); }
+function deleteSheet(p) {
+  sheet('<h2>Delete ' + esc(p.name) + '’s profile?</h2><p class="note">This removes all their details from this phone. A backup file you saved earlier is not affected.</p><div class="row" style="margin-top:16px"><button class="btn danger" id="y" type="button">Delete</button><button class="btn" id="n" type="button">Keep</button></div>');
+  $('n').onclick = closeSheet; $('y').onclick = function () { DB.profiles = DB.profiles.filter(function (x) { return x.id !== p.id; }); DB.active = DB.profiles.length ? DB.profiles[0].id : null; save(); closeSheet(); render(); };
+}
+function peopleSheet() {
+  var p = prof(), l = costLog(), t30 = l.filter(function (x) { return x.at > Date.now() - 30 * 864e5; });
+  var rows = DB.profiles.map(function (pp) { var on = pp.id === DB.active, nf = Object.keys(pp.facts).length, nd = (pp.docs || []).length;
+    return '<button type="button" class="prow' + (on ? ' on' : '') + '" data-pid="' + pp.id + '"><span class="av">' + initial(pp.name) + '</span><span class="pn"><b>' + esc(pp.name) + '</b><small>' + nf + (nf === 1 ? ' detail' : ' details') + ' · ' + nd + (nd === 1 ? ' document' : ' documents') + '</small></span>' + (on ? '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : '') + '</button>'; }).join('');
+  sheet('<div class="sh">People on this phone</div>' + rows
+    + '<button type="button" class="prow add" id="pa"><span class="av dash">+</span><b>Add person</b></button><div class="sdiv"></div>'
+    + '<button type="button" class="mrow" id="pbk">Backup and restore<span>' + '›' + '</span></button>'
+    + '<button type="button" class="mrow" id="pco">Reading cost<span>' + (l.length ? inr(t30.reduce(function (s, x) { return s + x.usd; }, 0) * rate()) + ' in 30 days · ' + t30.length + (t30.length === 1 ? ' scan' : ' scans') : 'No scans yet') + '</span></button>'
+    + '<button type="button" class="mrow" id="pky">Claude key<span>' + (CFG.readerUrl ? 'Server set up' : userKey() ? 'Saved on this phone' : 'Not saved') + '</span></button>'
+    + (p ? '<div class="sdiv"></div><button type="button" class="mrow danger" id="pdel">Delete ' + esc(p.name) + '</button>' : ''));
+  Array.prototype.forEach.call(document.querySelectorAll('[data-pid]'), function (b) { b.onclick = function () { DB.active = b.getAttribute('data-pid'); save(); closeSheet(); render(); }; });
+  $('pa').onclick = addPersonSheet; $('pbk').onclick = menuSheet; $('pco').onclick = menuSheet; $('pky').onclick = menuSheet;
+  if ($('pdel')) $('pdel').onclick = function () { deleteSheet(p); };
+}
 function menuSheet() {
   sheet('<h2>Backup and people</h2><p class="note">Profiles live only on this phone. If the phone is lost or its data is cleared, they are gone, so save a backup file now and then.</p>'
     + '<div class="row" style="margin-top:14px"><button class="btn pri" id="bk" type="button">Save backup file</button><button class="btn" id="rs" type="button">Restore from file</button></div><input type="file" id="rsf" accept="application/json,.json" hidden>'
@@ -451,26 +531,24 @@ function menuSheet() {
   if ($('aks')) $('aks').onclick = function () { var v = $('ak').value.trim(); if (!/^sk-ant-/.test(v)) { toast('That does not look like an Anthropic key. It starts with sk-ant-'); return; } try { localStorage.setItem('pa10.key', v); } catch (e) { toast('Could not save the key on this phone.'); return; } closeSheet(); toast('Key saved on this phone.'); };
   if ($('akc')) $('akc').onclick = function () { try { localStorage.removeItem('pa10.key'); } catch (e) {} closeSheet(); toast('Key removed.'); };
   $('bk').onclick = function () {
-    var blob = new Blob([JSON.stringify({ app: 'path-after-10th', saved: new Date().toISOString(), db: DB }, null, 1)], { type: 'application/json' });
-    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'path-after-10th-backup-' + TODAY.toISOString().slice(0, 10) + '.json'; document.body.appendChild(a); a.click(); a.remove(); toast('Backup file saved to your downloads.');
+    var blob = new Blob([JSON.stringify({ app: 'avakasha', saved: new Date().toISOString(), db: DB }, null, 1)], { type: 'application/json' });
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'avakasha-backup-' + TODAY.toISOString().slice(0, 10) + '.json'; document.body.appendChild(a); a.click(); a.remove(); toast('Backup file saved to your downloads.');
   };
   $('rs').onclick = function () { $('rsf').click(); };
   $('rsf').onchange = function () {
     var fl = $('rsf').files[0]; if (!fl) return; var rd = new FileReader();
-    rd.onload = function () { try { var o = JSON.parse(rd.result); var db = o.db || o; if (!db.profiles) throw 0; var ids = {}; DB.profiles.forEach(function (p) { ids[p.id] = 1; }); var n = 0; db.profiles.forEach(function (p) { if (!ids[p.id]) { DB.profiles.push(p); n++; } }); if (!DB.active && DB.profiles.length) DB.active = DB.profiles[0].id; save(); closeSheet(); render(); toast(n + ' profile' + (n === 1 ? '' : 's') + ' restored.'); } catch (e) { toast('That file is not a Path After 10th backup.'); } };
+    rd.onload = function () { try { var o = JSON.parse(rd.result); var db = o.db || o; if (!db.profiles) throw 0; var ids = {}; DB.profiles.forEach(function (p) { ids[p.id] = 1; }); var n = 0; db.profiles.forEach(function (p) { if (!ids[p.id]) { DB.profiles.push(p); n++; } }); if (!DB.active && DB.profiles.length) DB.active = DB.profiles[0].id; save(); closeSheet(); render(); toast(n + ' profile' + (n === 1 ? '' : 's') + ' restored.'); } catch (e) { toast('That file is not an Avakasha backup.'); } };
     rd.readAsText(fl);
   };
-  if ($('dp')) $('dp').onclick = function () {
-    var p = prof(); sheet('<h2>Delete ' + esc(p.name) + '’s profile?</h2><p class="note">This removes all their details from this phone. A backup file you saved earlier is not affected.</p><div class="row" style="margin-top:16px"><button class="btn danger" id="y" type="button">Delete</button><button class="btn" id="n" type="button">Keep</button></div>');
-    $('n').onclick = closeSheet; $('y').onclick = function () { DB.profiles = DB.profiles.filter(function (x) { return x.id !== p.id; }); DB.active = DB.profiles.length ? DB.profiles[0].id : null; save(); closeSheet(); render(); };
-  };
+  if ($('dp')) $('dp').onclick = function () { deleteSheet(prof()); };
 }
 
 /* ================= scan ================= */
 var stream = null;
-function stopCam() { if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; } }
+function stopCam() { if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; } var c = $('camv'); if (c) { c.hidden = true; try { $('vid').srcObject = null; } catch (e) {} if ($('sheet').hidden) document.body.style.overflow = ''; } }
 var DOCTYPES = [['m10', 'Class 10 marksheet'], ['birth', 'Birth certificate'], ['cat', 'Category (caste) certificate'], ['inc', 'Income certificate'], ['exp', 'Work experience letter'], ['dl', 'Driving licence'], ['m12', 'Class 12 marksheet']];
 var scan = { type: 'auto', canvas: null };
+function scanFlow() { scan = { type: 'auto', canvas: null, local: false }; if (!$('sheet').hidden) closeSheet(); openCamera(); }
 function scanSheet() {
   scan = { type: 'auto', canvas: null, local: false };
   sheet('<h2>Scan a document</h2><p class="note">Photograph it flat, in good light, with the whole page in the frame. The photo is not saved.</p>'
@@ -482,30 +560,38 @@ function scanSheet() {
   $('gf').onchange = function () { var fl = $('gf').files[0]; if (fl) loadFile(fl); };
   $('cam').onclick = openCamera;
 }
+function camFail(msg) { scanSheet(); $('sm').innerHTML = '<div class="status warn">' + msg + '</div>'; }
 async function openCamera() {
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { $('sm').innerHTML = '<div class="status warn">The camera is not available here. Choose from gallery instead.</div>'; return; }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { camFail('The camera is not available here. Choose from gallery instead.'); return; }
   try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1440 } }, audio: false }); }
-  catch (e) { $('sm').innerHTML = '<div class="status warn">The camera is blocked or not found. Allow camera access for this app in the browser, or choose from gallery.</div>'; return; }
-  sheet('<h2>Frame the document</h2><div class="cam"><video id="vid" autoplay playsinline muted></video></div><div class="row" style="margin-top:14px"><button class="btn pri big" id="snap" type="button">Take photo</button><button class="btn" id="cx" type="button">Cancel</button></div>');
-  var v = $('vid'); v.srcObject = stream;
-  $('cx').onclick = scanSheet;
+  catch (e) { camFail('The camera is blocked or not found. Allow camera access for this app in the browser, or choose from gallery.'); return; }
+  if (!$('sheet').hidden) closeSheet();
+  $('vid').srcObject = stream; $('camv').hidden = false; document.body.style.overflow = 'hidden';
+  var fl = $('cfl'); fl.classList.remove('on'); fl.hidden = true;
+  try { var tr = stream.getVideoTracks()[0], caps = tr.getCapabilities ? tr.getCapabilities() : {}; if (caps.torch) fl.hidden = false; } catch (e) {}
+}
+function wireCamera() {
+  $('cx').onclick = stopCam;
+  $('cfl').onclick = function () { try { var tr = stream.getVideoTracks()[0], on = !$('cfl').classList.contains('on'); tr.applyConstraints({ advanced: [{ torch: on }] }); $('cfl').classList.toggle('on', on); } catch (e) {} };
+  $('cgal').onclick = function () { $('gfile').click(); };
+  $('gfile').onchange = function () { var fl = $('gfile').files[0]; $('gfile').value = ''; if (fl) { stopCam(); loadFile(fl); } };
   $('snap').onclick = function () {
-    var c = document.createElement('canvas'); c.width = v.videoWidth || 1280; c.height = v.videoHeight || 960; c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+    var v = $('vid'), c = document.createElement('canvas'); c.width = v.videoWidth || 1280; c.height = v.videoHeight || 960; c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
     stopCam(); scan.canvas = c; review();
   };
 }
 function loadFile(fl) {
   var img = new Image(), u = URL.createObjectURL(fl);
   img.onload = function () { var c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight; c.getContext('2d').drawImage(img, 0, 0); URL.revokeObjectURL(u); scan.canvas = c; review(); };
-  img.onerror = function () { $('sm').innerHTML = '<div class="status err">That file could not be opened as an image.</div>'; };
+  img.onerror = function () { if ($('sm')) $('sm').innerHTML = '<div class="status err">That file could not be opened as an image.</div>'; else toast('That file could not be opened as an image.'); };
   img.src = u;
 }
 function review() {
   var url = scan.canvas.toDataURL('image/jpeg', 0.6);
   sheet('<h2>Check the photo</h2><img class="prev" alt="Your photo" src="' + url + '"><p class="note" style="margin-top:8px">Is the text sharp and the whole page visible? If not, retake it.</p>'
     + '<div class="row" style="margin-top:14px"><button class="btn pri big" id="rd" type="button">Read this document</button><button class="btn" id="rt" type="button">Retake</button></div><div id="sm"></div>');
-  $('rt').onclick = scanSheet;
+  $('rt').onclick = scanFlow;
   $('rd').onclick = readIt;
 }
 function prepCanvas(src) {
@@ -820,21 +906,31 @@ function confirmSheet(props, text, notes) {
 }
 
 /* ================= shell ================= */
-function renderWho() {
-  var s = $('whoSel');
-  s.innerHTML = DB.profiles.length ? DB.profiles.map(function (p) { return '<option value="' + p.id + '"' + (p.id === DB.active ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('') : '<option>No one yet</option>';
-  s.disabled = !DB.profiles.length;
+var CHEVD = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+function route() { var h = location.hash.replace('#', ''); if (h.indexOf('job/') === 0) return { r: 'job', id: decodeURIComponent(h.slice(4)) }; if (h === 'explore' || h === 'profile') return { r: h }; return { r: 'home' }; }
+function renderTop(r) {
+  var p = prof(), b = $('avatar');
+  if (r === 'profile' && p) { b.className = 'avatar pill'; b.setAttribute('aria-label', 'Switch person or open menu'); b.innerHTML = '<span class="av">' + initial(p.name) + '</span><span class="an">' + esc(p.name) + '</span>' + CHEVD; b.onclick = peopleSheet; }
+  else if (r === 'profile') { b.className = 'avatar pill'; b.setAttribute('aria-label', 'Menu'); b.innerHTML = '<span class="an" style="padding-left:8px">Menu</span>' + CHEVD; b.onclick = menuSheet; }
+  else { b.className = 'avatar'; b.setAttribute('aria-label', 'Open profile'); b.innerHTML = '<span class="av">' + (p ? initial(p.name) : '<svg viewBox="0 0 24 24" aria-hidden="true" style="stroke:#fff;width:20px;height:20px"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>') + '</span>'; b.onclick = function () { location.hash = '#profile'; }; }
 }
 function render() {
-  var h = location.hash.replace('#', '') === 'explore' ? 'explore' : 'profile';
-  $('nav-profile').setAttribute('aria-current', h === 'profile' ? 'page' : 'false'); $('nav-explore').setAttribute('aria-current', h === 'explore' ? 'page' : 'false');
-  renderWho();
-  if (h === 'explore') renderExplore(); else renderProfile();
+  var rt = route(), h = rt.r;
+  stopHome();
+  document.body.classList.toggle('is-detail', h === 'job');
+  $('nav-home').setAttribute('aria-current', h === 'home' ? 'page' : 'false'); $('nav-explore').setAttribute('aria-current', h === 'explore' ? 'page' : 'false');
+  renderTop(h);
+  if (!DATA) return;
+  if (h === 'job') renderDetail(rt.id); else if (h === 'explore') renderExplore(); else if (h === 'profile') renderProfile(); else renderHome();
 }
 window.addEventListener('hashchange', function () { render(); window.scrollTo(0, 0); });
-$('whoSel').onchange = function () { DB.active = $('whoSel').value; save(); render(); };
-$('addPerson').onclick = addPersonSheet;
-$('menuBtn').onclick = menuSheet;
+$('nav-scan').onclick = function () { if (!prof()) { toast('Add a person first.'); location.hash = '#profile'; return; } scanFlow(); };
+wireCamera();
+(function () {
+  var sp = $('splash'), seen = false; try { seen = sessionStorage.getItem('pa10.splash') === '1'; sessionStorage.setItem('pa10.splash', '1'); } catch (e) {}
+  if (seen) { sp.remove(); return; }
+  setTimeout(function () { sp.classList.add('out'); setTimeout(function () { sp.remove(); }, 400); }, 1500);
+})();
 
 load();
 try { TAB = sessionStorage.getItem('pa10.tab') || 'work'; } catch (e) {}

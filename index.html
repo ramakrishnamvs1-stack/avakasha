@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Path After 10th</title>
+<title>Avakasha</title>
 <meta name="theme-color" content="#0d6e6e">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
@@ -11,23 +11,37 @@
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
-<header class="top">
+<div id="splash" class="splash" role="status" aria-label="Avakasha">
+  <img src="icons/icon-192.png" alt="" width="112" height="112">
+  <div class="sn">Avakasha</div>
+  <div class="ss">Welcome. Let's find your next step.</div>
+</div>
+<header class="top" id="top">
   <div class="topin">
-    <div class="who">
-      <label class="eyebrow" for="whoSel">Profile</label>
-      <select id="whoSel" aria-label="Choose person"></select>
-    </div>
-    <div class="topbtns">
-      <button class="btn sm" id="addPerson" type="button">Add person</button>
-      <button class="btn sm" id="menuBtn" type="button" aria-haspopup="dialog">Backup</button>
-    </div>
+    <a class="brand" href="#home">Avakasha</a>
+    <button class="avatar" id="avatar" type="button" aria-label="Open profile"></button>
   </div>
 </header>
 <main id="app" class="main"></main>
-<nav class="bnav" aria-label="Main">
-  <a href="#profile" id="nav-profile">Profile</a>
-  <a href="#explore" id="nav-explore">Explore</a>
+<nav class="bnav" id="bnav" aria-label="Main">
+  <a href="#home" id="nav-home"><span class="ni"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/></svg></span><span class="nl">Home</span></a>
+  <button type="button" id="nav-scan" class="scanfab" aria-label="Scan a document"><span class="fab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span><span class="nl">Scan</span></button>
+  <a href="#explore" id="nav-explore"><span class="ni"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg></span><span class="nl">Explore</span></a>
 </nav>
+<div id="camv" class="camv" hidden role="dialog" aria-label="Camera">
+  <video id="vid" autoplay playsinline muted></video>
+  <button class="cbtn cclose" id="cx" type="button" aria-label="Close camera"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  <button class="cbtn cflash" id="cfl" type="button" aria-label="Flash" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3L5 14h6l-1 7 8-11h-6z"/></svg></button>
+  <div class="chint">Fit the whole page inside the frame</div>
+  <div class="cframe"><i></i><i></i><i></i><i></i></div>
+  <div class="cpriv">The photo is not saved on this phone.</div>
+  <div class="cbar">
+    <button class="cgal" id="cgal" type="button" aria-label="Choose from gallery"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="M4 18l5-5 4 4 3-3 4 4"/></svg></button>
+    <button class="shutter" id="snap" type="button" aria-label="Take photo"><span></span></button>
+    <span class="cgal sp"></span>
+  </div>
+  <input type="file" id="gfile" accept="image/*" hidden>
+</div>
 <div id="sheet" class="sheet" hidden role="dialog" aria-modal="true" aria-label="Dialog"><div class="sheetin" id="sheetin"></div></div>
 <div id="toast" class="toast" hidden role="status"></div>
 <script src="vendor/tesseract/tesseract.min.js"></script>
