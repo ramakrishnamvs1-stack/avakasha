@@ -39,6 +39,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
+var APPVER = '3';
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
 function load() { try { var r = localStorage.getItem(KEY); if (r) { var o = JSON.parse(r); if (o && o.profiles) DB = o; } } catch (e) {} }
@@ -182,7 +183,7 @@ function questions(list, f) {
 }
 function ctl(x, val, id) {
   if (x.type === 'select') return '<select id="' + id + '"><option value="">Select</option>' + x.o.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (String(val) === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>';
-  if (x.type === 'date') return '<input id="' + id + '" type="date" value="' + esc(val || '') + '" min="1940-01-01" max="' + TODAY.getFullYear() + '-12-31">';
+  if (x.type === 'date') return '<input id="' + id + '" type="date" value="' + esc(val || '') + '">';
   return '<input id="' + id + '" type="number" inputmode="decimal" value="' + esc(val || '') + '"' + (x.step ? ' step="' + x.step + '"' : '') + (x.min !== undefined ? ' min="' + x.min + '"' : '') + (x.max !== undefined ? ' max="' + x.max + '"' : '') + '>';
 }
 function renderExplore() {
@@ -239,14 +240,15 @@ function editSheet(k) {
   var x = FD[k], p = prof(), cur = p.facts[k] ? p.facts[k].v : '';
   sheet('<h2>' + x.l + '</h2>' + (x.why ? '<p class="note">Used for ' + x.why + '.</p>' : '') + '<label class="field">' + x.l + ctl(x, cur, 'ev') + '</label><div class="row" style="margin-top:16px"><button class="btn pri" id="eok" type="button">Save</button>' + (p.facts[k] ? '<button class="btn danger" id="edel" type="button">Clear</button>' : '') + '<button class="btn" id="eno" type="button">Cancel</button></div>');
   $('eno').onclick = closeSheet;
-  $('eok').onclick = function () { var v = $('ev').value; if (v === '' ) { toast('Choose or type a value first.'); return; } setFact(k, v, 'typed'); closeSheet(); render(); };
+  $('eok').onclick = function () { var v = $('ev').value; if (v === '' ) { toast('Choose or type a value first.'); return; }
+    if (k === 'dob') { var yy = parseInt(v.slice(0, 4), 10); if (!(yy >= 1930 && yy <= TODAY.getFullYear())) { toast('Check the year of birth.'); return; } } setFact(k, v, 'typed'); closeSheet(); render(); };
   if ($('edel')) $('edel').onclick = function () { setFact(k, '', ''); closeSheet(); render(); };
 }
 function menuSheet() {
   sheet('<h2>Backup and people</h2><p class="note">Profiles live only on this phone. If the phone is lost or its data is cleared, they are gone, so save a backup file now and then.</p>'
     + '<div class="row" style="margin-top:14px"><button class="btn pri" id="bk" type="button">Save backup file</button><button class="btn" id="rs" type="button">Restore from file</button></div><input type="file" id="rsf" accept="application/json,.json" hidden>'
     + (prof() ? '<hr style="border:0;border-top:1px solid var(--line);margin:18px 0"><button class="btn danger" id="dp" type="button">Delete ' + esc(prof().name) + '’s profile</button>' : '')
-    + '<div class="row" style="margin-top:18px"><button class="btn" id="mc" type="button">Close</button></div>');
+    + '<p class="note" style="margin-top:16px">App version ' + APPVER + '. Records dated ' + esc(DATA ? DATA.version : '') + '.</p><div class="row" style="margin-top:10px"><button class="btn" id="mc" type="button">Close</button></div>');
   $('mc').onclick = closeSheet;
   $('bk').onclick = function () {
     var blob = new Blob([JSON.stringify({ app: 'path-after-10th', saved: new Date().toISOString(), db: DB }, null, 1)], { type: 'application/json' });
@@ -432,6 +434,10 @@ load();
 try { TAB = sessionStorage.getItem('pa10.tab') || 'work'; } catch (e) {}
 if (!DB.active && DB.profiles.length) DB.active = DB.profiles[0].id;
 fetch('data/records.json').then(function (r) { return r.json(); }).then(function (d) { DATA = d; render(); }).catch(function () { $('app').innerHTML = '<div class="card empty"><h2 class="h2">Could not load the records</h2><p>Connect to the internet once and reopen the app.</p></div>'; });
-if ('serviceWorker' in navigator && location.protocol !== 'file:') { navigator.serviceWorker.register('sw.js').catch(function () {}); }
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  var hadSW = !!navigator.serviceWorker.controller, reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', function () { if (hadSW && !reloaded) { reloaded = true; location.reload(); } });
+  navigator.serviceWorker.register('sw.js').then(function (r) { r.update(); }).catch(function () {});
+}
 window.__app = { DB: function () { return DB; }, parse: parse, findDob: findDob };
 })();

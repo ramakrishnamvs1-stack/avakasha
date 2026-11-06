@@ -1,5 +1,5 @@
 /* Offline cache. Bump VERSION whenever any file changes so phones pick up the update. */
-var VERSION = 'pa10-v2';
+var VERSION = 'pa10-v3';
 var SHELL = [
   './', './index.html', './app.css', './app.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png',
@@ -27,5 +27,12 @@ self.addEventListener('fetch', function (e) {
     }).catch(function () { return caches.match(req); }));
     return;
   }
-  e.respondWith(caches.match(req, { ignoreSearch: true }).then(function (hit) { return hit || fetch(req); }));
+  /* Big files that never change: cache first. App code and pages: network first, so fixes arrive at once; cached copy when offline. */
+  if (url.pathname.indexOf('/vendor/') !== -1 || url.pathname.indexOf('/icons/') !== -1) {
+    e.respondWith(caches.match(req).then(function (hit) { return hit || fetch(req); }));
+    return;
+  }
+  e.respondWith(fetch(req).then(function (r) {
+    var copy = r.clone(); caches.open(VERSION).then(function (c) { c.put(req, copy); }); return r;
+  }).catch(function () { return caches.match(req, { ignoreSearch: true }); }));
 });
