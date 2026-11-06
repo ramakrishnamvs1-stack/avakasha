@@ -48,7 +48,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '19';
+var APPVER = '20';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -483,11 +483,11 @@ function closeSheet() { stopCam(); $('sheet').hidden = true; $('sheetin').innerH
 $('sheet').addEventListener('click', function (e) { if (e.target === $('sheet')) closeSheet(); });
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('sheet').hidden) closeSheet(); });
 
-function addPersonSheet(first) {
+function addPersonSheet(first, after) {
   first = first === true;
   sheet('<h2>' + (first ? 'Who is this for?' : 'Add a person') + '</h2><p class="note">A first name or nickname is enough. It stays on this phone.</p><label class="field">Name<input id="pn" type="text" maxlength="40" autocomplete="off" placeholder="e.g. Asha"></label><div class="row" style="margin-top:16px"><button class="btn pri" id="pok" type="button">' + (first ? 'Continue' : 'Add') + '</button><button class="btn" id="pno" type="button">' + (first ? 'Later' : 'Cancel') + '</button></div>');
   $('pno').onclick = closeSheet;
-  $('pok').onclick = function () { var n = $('pn').value.trim(); if (!n) { $('pn').focus(); return; } var p = { id: uid(), name: n, created: Date.now(), facts: {}, docs: [] }; DB.profiles.push(p); DB.active = p.id; save(); closeSheet(); location.hash = first ? '#home' : '#profile'; render(); };
+  $('pok').onclick = function () { var n = $('pn').value.trim(); if (!n) { $('pn').focus(); return; } var p = { id: uid(), name: n, created: Date.now(), facts: {}, docs: [] }; DB.profiles.push(p); DB.active = p.id; save(); closeSheet(); location.hash = first ? '#home' : '#profile'; render(); if (typeof after === 'function') after(); };
   setTimeout(function () { var e = $('pn'); if (e) e.focus(); }, 50);
 }
 function editSheet(k) {
@@ -938,7 +938,7 @@ function showIntro(done) {
   el.ontouchend = function (e) { if (x0 === null) return; var dx = e.changedTouches[0].clientX - x0; x0 = null; if (dx < -60 && i < INTRO.length - 1) { i++; draw(); } else if (dx > 60 && i > 0) { i--; draw(); } };
   draw();
 }
-function firstRun() { if (!prof()) addPersonSheet(true); }
+function firstRun() { if (!prof() && $('sheet').hidden) addPersonSheet(true); }
 var CHEVD = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
 function route() { var h = location.hash.replace('#', ''); if (h.indexOf('job/') === 0) return { r: 'job', id: decodeURIComponent(h.slice(4)) }; if (h === 'explore' || h === 'profile') return { r: h }; return { r: 'home' }; }
 function renderTop(r) {
@@ -957,7 +957,7 @@ function render() {
   if (h === 'job') renderDetail(rt.id); else if (h === 'explore') renderExplore(); else if (h === 'profile') renderProfile(); else renderHome();
 }
 window.addEventListener('hashchange', function () { render(); window.scrollTo(0, 0); });
-$('nav-scan').onclick = function () { if (!prof()) { toast('Add a person first.'); location.hash = '#profile'; return; } scanFlow(); };
+$('nav-scan').onclick = function () { if (!prof()) { addPersonSheet(true, scanFlow); return; } scanFlow(); };
 wireCamera();
 (function () {
   var sp = $('splash'), seen = false; try { seen = sessionStorage.getItem('pa10.splash') === '1'; sessionStorage.setItem('pa10.splash', '1'); } catch (e) {}
@@ -970,7 +970,7 @@ try { TAB = sessionStorage.getItem('pa10.tab') || 'work'; } catch (e) {}
 if (!DB.active && DB.profiles.length) DB.active = DB.profiles[0].id;
 if (DB.profiles.length && !introSeen()) { try { localStorage.setItem('pa10.intro', '1'); } catch (e) {} }
 if (!introSeen()) showIntro(firstRun);
-fetch('data/records.json').then(function (r) { return r.json(); }).then(function (d) { DATA = d; render(); }).catch(function () { $('app').innerHTML = '<div class="card empty"><h2 class="h2">Could not load the records</h2><p>Connect to the internet once and reopen the app.</p></div>'; });
+fetch('data/records.json').then(function (r) { return r.json(); }).then(function (d) { DATA = d; render(); if (introSeen()) firstRun(); }).catch(function () { $('app').innerHTML = '<div class="card empty"><h2 class="h2">Could not load the records</h2><p>Connect to the internet once and reopen the app.</p></div>'; });
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   var hadSW = !!navigator.serviceWorker.controller, reloaded = false;
   navigator.serviceWorker.addEventListener('controllerchange', function () { if (hadSW && !reloaded) { reloaded = true; location.reload(); } });
