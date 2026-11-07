@@ -1,0 +1,9 @@
+Copyright (c) 2026 Rama Krishna MVS. All rights reserved.
+
+This source code and the data in this repository are made visible so the Avakasha
+app can be served. No licence is granted to copy, modify, distribute, host or
+use them in any other product or service without the written permission of the
+copyright holder.
+
+The Tesseract.js files under vendor/tesseract are third-party software and remain
+under their own licence (Apache License 2.0).
