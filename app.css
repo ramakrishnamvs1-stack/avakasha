@@ -333,3 +333,12 @@ body.is-sub .main{padding-top:0}
 .tg{font-size:12px;font-weight:700;padding:4px 9px;border-radius:9px;background:var(--surface2);color:var(--muted)}
 .tg.w{background:var(--warn-bg);color:var(--warn)}
 .is-sub .recs{margin-top:14px}
+
+/* search strip */
+.sstrip{display:flex;align-items:center;gap:12px;justify-content:space-between;padding:12px 14px;margin:2px 0 14px;border-radius:16px;background:var(--accent-soft);font-size:14px;line-height:1.4}
+.sstrip.err{background:var(--bad-bg);color:var(--bad)}
+.sstrip .btn{flex:none}
+.sstrip a{font-weight:600}
+.spin{flex:none;width:22px;height:22px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--accent);animation:sp .9s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.tg.og{background:var(--good-bg);color:var(--good)}

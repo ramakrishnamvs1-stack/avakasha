@@ -48,7 +48,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '23';
+var APPVER = '24';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -370,6 +370,7 @@ var HICONS = [
   ['Pvt Jobs', 'ic-v', '#pvt', '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/>'],
   ['Upcoming exams', 'ic-e', '#exams', '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M9 15.5l2 2 4-4"/>']
 ];
+function foundNew(list, have) { var h = have.map(function (t) { return t.toLowerCase(); }); return list.filter(function (x) { return h.indexOf(x.title.toLowerCase()) < 0; }); }
 function upExams() { return (EXTRA.exams || []).filter(function (x) { return pd(x.d) >= TODAY; }).sort(function (a, b) { return pd(a.d) - pd(b.d); }); }
 function dayTxt(x) { if (x.tent) return 'Expected ' + x.when; var n = daysBetween(TODAY, pd(x.d)); return n === 0 ? 'Today' : n === 1 ? '1 day to go' : n + ' days to go'; }
 function stopHome() { if (HOME.t) { clearInterval(HOME.t); HOME.t = null; } }
@@ -420,6 +421,7 @@ function renderExams() {
   var l = upExams();
   $('app').innerHTML = subHead('Upcoming exams', 'Sorted by date. Check each date on the official site.')
     + (l.length ? '<div class="xl">' + l.map(function (x) { return xcard(x, 'exam'); }).join('') + '</div>' : '<div class="card"><p class="note">No upcoming exams are listed right now.</p></div>')
+    + foundBlock(foundNew(FOUND.exams, l.map(function (x) { return x.title; })).sort(function (a, b) { return (a.date || '9') < (b.date || '9') ? -1 : 1; }), 'exam', 'Found by search')
     + '<p class="foot">Dates were read on ' + esc(EXTRA.readOn || '') + ' from news reports of the official calendars, and are tentative. Open the official site before you plan.</p>';
   wireBack('#home');
 }
@@ -432,6 +434,7 @@ function renderGovt() {
     + (open.length ? '<div class="recs">' + open.map(card).join('') + '</div>' : '<div class="card"><p class="note">Nothing is open for you right now.</p></div>')
     + (rest.length ? '<div class="row" style="margin-top:16px"><button class="btn xbtn" id="showCl" type="button">' + (SHOWCL ? 'Hide closed ones' : 'Show closed ones') + '</button></div>' : '')
     + (SHOWCL && rest.length ? '<div class="recs">' + rest.map(card).join('') + '</div>' : '')
+    + foundBlock(foundNew(FOUND.govt, ev.map(function (e) { return e.r.title; })), 'govt', 'Found by search')
     + '<p class="foot">Records marked “Read from the official notice” were taken from the government’s own notice. Check dates, age limits and fees on the official website before you apply, and never pay an agent to apply.</p>';
   wireBack('#home');
   if ($('showCl')) $('showCl').onclick = function () { SHOWCL = !SHOWCL; renderGovt(); };
@@ -439,8 +442,8 @@ function renderGovt() {
 function renderPvt() {
   var l = EXTRA.pvt || [];
   $('app').innerHTML = subHead('Pvt Jobs', 'Private openings near you.')
-    + '<div class="banner" style="margin-top:12px"><b>Sample listings.</b> We are still finding a trusted source for private jobs, so these are examples of what will appear here. They are not real openings.</div>'
-    + '<div class="xl">' + l.map(function (x) { return xcard(x, 'pvt'); }).join('') + '</div>';
+    + foundBlock(FOUND.pvt, 'pvt', 'Found by search')
+    + (FOUND.pvt.length ? '<p class="note" style="margin:10px 4px 0">These come from web pages and have not been checked. Never pay to get a job.</p>' : '<div class="banner" style="margin-top:12px"><b>Sample listings.</b> Tap Explore to search online for real openings. Until then these are examples of what will appear here. They are not real openings.</div><div class="xl">' + l.map(function (x) { return xcard(x, 'pvt'); }).join('') + '</div>');
   wireBack('#home');
 }
 function renderX(id) {
@@ -482,7 +485,77 @@ function relevant(r, f, p) {
   if (r.tab === 'work') return true;
   var m = ageM(f); return !!(f.stage || m === null || m <= 25 * 12);
 }
+/* ---- live search (Explore) ---- */
+var FOUND = { at: 0, govt: [], exams: [], pvt: [] }, SRCH = { busy: false, err: '', cost: null };
+function loadFound() { try { var o = JSON.parse(localStorage.getItem('pa10.found') || 'null'); if (o && o.at) FOUND = { at: o.at, govt: o.govt || [], exams: o.exams || [], pvt: o.pvt || [] }; } catch (e) {} }
+function saveFound() { try { localStorage.setItem('pa10.found', JSON.stringify(FOUND)); } catch (e) {} }
+function searchProfile() {
+  var f = F(), m = ageM(f), s = {};
+  s.level = has12(f) && f.passed12 === 'yes' ? 'Class 12 pass' : has10(f) ? 'Class 10 pass' : 'Class 10 (not stated)';
+  if (f.stream12) s.stream = String(f.stream12);
+  s.state = f.state && f.state !== 'other' ? f.state : 'Karnataka';
+  if (m !== null) s.age = Math.floor(m / 12);
+  if (f.lmv || f.hmv) s.licence = 'yes';
+  return s;
+}
+function searchOk() { try { return localStorage.getItem('pa10.searchok') === '1'; } catch (e) { return false; } }
+function searchStale() { return !FOUND.at || Date.now() - FOUND.at > 6 * 36e5; }
+function searchConsent(go) {
+  var pf = searchProfile(), what = [pf.level].concat(pf.stream ? [pf.stream] : [], [pf.state], pf.age ? ['age ' + pf.age] : [], pf.licence ? ['has a driving licence'] : []).join(', ');
+  sheet('<h2 class="h2">Search online for you?</h2><p class="note" style="margin-top:8px">Avakasha will send only this to find current openings: <b>' + esc(what) + '</b>. No name, no photos, no document details. A search takes about 20 to 60 seconds and costs about ₹5 to ₹15 of the reading budget. The finds are added to the Govt Jobs, Pvt Jobs and Upcoming exams pages.</p><div class="row" style="margin-top:14px"><button class="btn pri" id="so" type="button">Search</button><button class="btn" id="sn" type="button">Not now</button></div>');
+  $('so').onclick = function () { try { localStorage.setItem('pa10.searchok', '1'); } catch (e) {} closeSheet(); go(); };
+  $('sn').onclick = closeSheet;
+}
+async function runSearch() {
+  if (SRCH.busy || !CFG.readerUrl) return;
+  SRCH.busy = true; SRCH.err = ''; SRCH.cost = null; if (route().r === 'explore') renderExplore();
+  var ctlr = new AbortController(), timer = setTimeout(function () { ctlr.abort(); }, 110000);
+  try {
+    var res = await fetch(CFG.readerUrl, { method: 'POST', signal: ctlr.signal, headers: { 'Content-Type': 'application/json', 'X-App-Key': CFG.appKey || '' }, body: JSON.stringify({ search: searchProfile() }) });
+    var j = null; try { j = await res.json(); } catch (e) {}
+    clearTimeout(timer);
+    if (j && j.usage) SRCH.cost = recordCost(j.usage);
+    if (!res.ok || !j || !j.ok) { var er = new Error((j && j.error) || 'upstream'); er.code = (j && j.error) || 'upstream'; throw er; }
+    FOUND = { at: Date.now(), govt: j.found.govt || [], exams: j.found.exams || [], pvt: j.found.pvt || [] }; saveFound();
+  } catch (e) {
+    clearTimeout(timer);
+    SRCH.err = e && e.name === 'AbortError' ? 'The search took too long.' : (SERR[e && e.code] || 'Could not reach the search server. Check your internet.');
+  }
+  SRCH.busy = false; var r = route().r; if (r === 'explore' || r === 'govt' || r === 'pvt' || r === 'exams') render();
+}
+function startSearch() { if (!prof() || SRCH.busy) return; if (!searchOk()) searchConsent(runSearch); else runSearch(); }
+function searchStrip() {
+  var n = FOUND.govt.length + FOUND.exams.length + FOUND.pvt.length, h;
+  if (SRCH.busy) h = '<div class="sstrip"><span class="spin" aria-hidden="true"></span><span><b>Searching for you…</b><br><span class="note">This takes up to a minute. You can keep using the app.</span></span></div>';
+  else if (SRCH.err) h = '<div class="sstrip err"><span><b>' + esc(SRCH.err) + '</b></span><button class="btn sm" id="sagain" type="button">Try again</button></div>';
+  else if (FOUND.at) h = '<div class="sstrip ok"><span><b>' + (n ? 'Found ' + n + ' from the search' : 'The search found nothing new') + '</b><br><span class="note">' + (n ? 'Added to <a href="#govt">Govt Jobs</a>, <a href="#pvt">Pvt Jobs</a> and <a href="#exams">Upcoming exams</a>. ' : '') + 'Searched ' + fmtAgo(FOUND.at) + '.' + (SRCH.cost ? ' This search cost about ' + inr(SRCH.cost.inr) + '.' : '') + '</span></span><button class="btn sm" id="sagain" type="button">Search again</button></div>';
+  else h = '<div class="sstrip"><span><b>Find more openings</b><br><span class="note">Search online for jobs and exams that suit this profile.</span></span><button class="btn sm pri" id="sagain" type="button">Search</button></div>';
+  return h;
+}
+function fmtAgo(t) { var m = Math.round((Date.now() - t) / 6e4); return m < 2 ? 'just now' : m < 60 ? m + ' minutes ago' : m < 1440 ? Math.round(m / 60) + ' hours ago' : Math.round(m / 1440) + ' days ago'; }
 function renderExplore() {
+  renderExplore0();
+  if (!prof()) return;
+  var a = $('app'); a.insertAdjacentHTML('afterbegin', searchStrip());
+  var b = $('sagain'); if (b) b.onclick = startSearch;
+}
+function fcard(x, kind) {
+  var left, tags = '';
+  if (kind === 'exam') {
+    var d = x.date ? pd(x.date) : null;
+    left = d ? '<div class="xd g-biz"><b>' + d.getDate() + '</b><small>' + MON[d.getMonth()] + '</small></div>' : '<div class="xd g-biz"><b>?</b><small>Date</small></div>';
+    tags = '<span class="tg w">' + (d ? esc(dayTxt({ d: x.date })) : 'Date not found') + '</span>';
+  } else left = '<div class="xi">' + BRIEF + '</div>';
+  if (kind === 'govt') tags = '<span class="tg w">' + (x.closes ? 'Closes ' + fmt(pd(x.closes)) : 'Closing date not found') + '</span>';
+  if (kind === 'pvt' && x.place) tags = '<span class="tg">' + esc(x.place) + '</span>';
+  tags += '<span class="tg ' + (x.off ? 'og' : '') + '">' + (x.off ? 'Official site' : 'Not checked on the official site') + '</span>';
+  return '<a class="xc" href="' + esc(x.url) + '" target="_blank" rel="noopener">' + left + '<div class="xb"><h3>' + esc(x.title) + '</h3><div class="org">' + esc(x.org) + (x.line ? ' · ' + esc(x.line) : '') + '</div><div class="xt">' + tags + '</div></div></a>';
+}
+function foundBlock(list, kind, title) {
+  if (!list.length) return '';
+  return '<div class="dh">' + esc(title) + ' <span class="note">· searched ' + esc(fmtAgo(FOUND.at)) + '</span></div><div class="xl" style="margin-top:0">' + list.map(function (x) { return fcard(x, kind); }).join('') + '</div>';
+}
+function renderExplore0() {
   var p = prof();
   if (!p) { renderProfile(); return; }
   var f = F(), all = DATA.records.filter(function (r) { return relevant(r, f, p); }).map(function (r) { return evaluate(r, f); });
@@ -591,7 +664,7 @@ function menuSheet() {
     + '<hr style="border:0;border-top:1px solid var(--line);margin:18px 0"><h3 class="h3">Claude key for testing</h3><p class="note" style="margin-top:4px">Lets this phone read documents with Claude without a server. The key is saved only on this phone and is never put in the app files. Use a key that has a spend limit, and delete it in the Anthropic console if you lose the phone.</p>'
     + (CFG.readerUrl ? '<p class="note" style="margin-top:6px">A reading server is set up, so no key is needed.</p>' : '<p class="note" style="margin-top:6px">' + (userKey() ? 'A key is saved on this phone.' : 'No key saved yet.') + '</p><label class="field">Paste key<input id="ak" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="sk-ant-..."></label><div class="row" style="margin-top:10px"><button class="btn pri" id="aks" type="button">Save key</button>' + (userKey() ? '<button class="btn danger" id="akc" type="button">Remove key</button>' : '') + '</div>')
     + (function () { var l = costLog(), tot = l.reduce(function (s, x) { return s + x.usd; }, 0), t30 = l.filter(function (x) { return x.at > Date.now() - 30 * 864e5; }).reduce(function (s, x) { return s + x.usd; }, 0);
-        return '<hr style="border:0;border-top:1px solid var(--line);margin:18px 0"><h3 class="h3">Reading cost</h3><p class="note" style="margin-top:4px">' + (l.length ? l.length + (l.length === 1 ? ' scan' : ' scans') + ' read with Claude on this phone: about <b>' + inr(tot * rate()) + '</b> in all, <b>' + inr(t30 * rate()) + '</b> in the last 30 days. Average ' + inr(tot / l.length * rate()) + ' a scan.' : 'No scans read with Claude yet.') + ' Estimated from the token counts Claude returns and the list price of $' + PRICE_IN + ' in and $' + PRICE_OUT + ' out per million tokens. The Anthropic console shows the real bill. Exploring and reading on the phone cost nothing.</p><label class="field">Rupees per US dollar<input id="rt" type="number" inputmode="decimal" step="0.1" min="1" value="' + rate() + '"></label><div class="row" style="margin-top:8px"><button class="btn" id="rts" type="button">Save rate</button>' + (l.length ? '<button class="btn" id="cc" type="button">Clear this count</button>' : '') + '</div>'; })()
+        return '<hr style="border:0;border-top:1px solid var(--line);margin:18px 0"><h3 class="h3">Reading cost</h3><p class="note" style="margin-top:4px">' + (l.length ? l.length + (l.length === 1 ? ' scan' : ' scans') + ' read with Claude on this phone: about <b>' + inr(tot * rate()) + '</b> in all, <b>' + inr(t30 * rate()) + '</b> in the last 30 days. Average ' + inr(tot / l.length * rate()) + ' a scan.' : 'No scans read with Claude yet.') + ' Estimated from the token counts Claude returns and the list price of $' + PRICE_IN + ' in and $' + PRICE_OUT + ' out per million tokens. The Anthropic console shows the real bill. Browsing and reading on the phone cost nothing. Each online search costs a little more than a scan.</p><label class="field">Rupees per US dollar<input id="rt" type="number" inputmode="decimal" step="0.1" min="1" value="' + rate() + '"></label><div class="row" style="margin-top:8px"><button class="btn" id="rts" type="button">Save rate</button>' + (l.length ? '<button class="btn" id="cc" type="button">Clear this count</button>' : '') + '</div>'; })()
     + (prof() ? '<hr style="border:0;border-top:1px solid var(--line);margin:18px 0"><button class="btn danger" id="dp" type="button">Delete ' + esc(prof().name) + '’s profile</button>' : '')
     + '<p class="note" style="margin-top:16px">App version ' + APPVER + '. Records dated ' + esc(DATA ? DATA.version : '') + '.</p><div class="row" style="margin-top:10px"><button class="btn" id="mc" type="button">Close</button></div>');
   $('mc').onclick = closeSheet;
@@ -711,7 +784,7 @@ function costLog() { try { var l = JSON.parse(localStorage.getItem('pa10.cost') 
 function inr(x) { return '₹' + (x < 10 ? x.toFixed(2) : x < 100 ? x.toFixed(1) : Math.round(x).toLocaleString('en-IN')); }
 function recordCost(u) {
   if (!u || typeof u.input_tokens !== 'number') return null;
-  var usd = (u.input_tokens * PRICE_IN + (u.output_tokens || 0) * PRICE_OUT) / 1e6, l = costLog();
+  var usd = (u.input_tokens * PRICE_IN + (u.output_tokens || 0) * PRICE_OUT) / 1e6 + (u.searches || 0) * 0.01, l = costLog();
   l.push({ at: Date.now(), usd: usd, i: u.input_tokens, o: u.output_tokens || 0 }); if (l.length > 500) l = l.slice(-500);
   try { localStorage.setItem('pa10.cost', JSON.stringify(l)); } catch (e) {}
   return { usd: usd, inr: usd * rate(), i: u.input_tokens, o: u.output_tokens || 0 };
@@ -1026,6 +1099,7 @@ function render() {
   if (h === 'job') renderDetail(rt.id); else if (h === 'x') renderX(rt.id); else if (h === 'exams') renderExams(); else if (h === 'govt') renderGovt(); else if (h === 'pvt') renderPvt(); else if (h === 'explore') renderExplore(); else if (h === 'profile') renderProfile(); else renderHome();
 }
 window.addEventListener('hashchange', function () { render(); window.scrollTo(0, 0); });
+$('nav-explore').addEventListener('click', function () { if (prof() && !SRCH.busy && searchStale() && searchOk()) setTimeout(runSearch, 50); else if (prof() && !SRCH.busy && !searchOk() && !FOUND.at) setTimeout(startSearch, 50); });
 $('nav-scan').onclick = function () { if (!prof()) { addPersonSheet(true, scanFlow); return; } scanFlow(); };
 wireCamera();
 (function () {
@@ -1034,7 +1108,7 @@ wireCamera();
   setTimeout(function () { sp.classList.add('out'); setTimeout(function () { sp.remove(); }, 400); }, 1500);
 })();
 
-load();
+load(); loadFound();
 try { if (location.hash) history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
 try { TAB = sessionStorage.getItem('pa10.tab') || 'work'; } catch (e) {}
 if (!DB.active && DB.profiles.length) DB.active = DB.profiles[0].id;
