@@ -48,7 +48,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '24';
+var APPVER = '25';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -487,7 +487,7 @@ function relevant(r, f, p) {
 }
 /* ---- live search (Explore) ---- */
 var FOUND = { at: 0, govt: [], exams: [], pvt: [] }, SRCH = { busy: false, err: '', cost: null };
-function loadFound() { try { var o = JSON.parse(localStorage.getItem('pa10.found') || 'null'); if (o && o.at) FOUND = { at: o.at, govt: o.govt || [], exams: o.exams || [], pvt: o.pvt || [] }; } catch (e) {} }
+function loadFound() { try { var o = JSON.parse(localStorage.getItem('pa10.found') || 'null'); if (o && o.at) FOUND = { at: o.at, sig: o.sig, govt: o.govt || [], exams: o.exams || [], pvt: o.pvt || [] }; } catch (e) {} }
 function saveFound() { try { localStorage.setItem('pa10.found', JSON.stringify(FOUND)); } catch (e) {} }
 function searchProfile() {
   var f = F(), m = ageM(f), s = {};
@@ -499,7 +499,8 @@ function searchProfile() {
   return s;
 }
 function searchOk() { try { return localStorage.getItem('pa10.searchok') === '1'; } catch (e) { return false; } }
-function searchStale() { return !FOUND.at || Date.now() - FOUND.at > 6 * 36e5; }
+function searchSig() { return JSON.stringify(searchProfile()); }
+function searchStale() { return !FOUND.at || FOUND.sig !== searchSig() || Date.now() - FOUND.at > 24 * 36e5; }
 function searchConsent(go) {
   var pf = searchProfile(), what = [pf.level].concat(pf.stream ? [pf.stream] : [], [pf.state], pf.age ? ['age ' + pf.age] : [], pf.licence ? ['has a driving licence'] : []).join(', ');
   sheet('<h2 class="h2">Search online for you?</h2><p class="note" style="margin-top:8px">Avakasha will send only this to find current openings: <b>' + esc(what) + '</b>. No name, no photos, no document details. A search takes about 20 to 60 seconds and costs about ₹5 to ₹15 of the reading budget. The finds are added to the Govt Jobs, Pvt Jobs and Upcoming exams pages.</p><div class="row" style="margin-top:14px"><button class="btn pri" id="so" type="button">Search</button><button class="btn" id="sn" type="button">Not now</button></div>');
@@ -509,14 +510,14 @@ function searchConsent(go) {
 async function runSearch() {
   if (SRCH.busy || !CFG.readerUrl) return;
   SRCH.busy = true; SRCH.err = ''; SRCH.cost = null; if (route().r === 'explore') renderExplore();
-  var ctlr = new AbortController(), timer = setTimeout(function () { ctlr.abort(); }, 110000);
+  var sig = searchSig(), ctlr = new AbortController(), timer = setTimeout(function () { ctlr.abort(); }, 110000);
   try {
     var res = await fetch(CFG.readerUrl, { method: 'POST', signal: ctlr.signal, headers: { 'Content-Type': 'application/json', 'X-App-Key': CFG.appKey || '' }, body: JSON.stringify({ search: searchProfile() }) });
     var j = null; try { j = await res.json(); } catch (e) {}
     clearTimeout(timer);
     if (j && j.usage) SRCH.cost = recordCost(j.usage);
     if (!res.ok || !j || !j.ok) { var er = new Error((j && j.error) || 'upstream'); er.code = (j && j.error) || 'upstream'; throw er; }
-    FOUND = { at: Date.now(), govt: j.found.govt || [], exams: j.found.exams || [], pvt: j.found.pvt || [] }; saveFound();
+    FOUND = { at: Date.now(), sig: sig, govt: j.found.govt || [], exams: j.found.exams || [], pvt: j.found.pvt || [] }; saveFound();
   } catch (e) {
     clearTimeout(timer);
     SRCH.err = e && e.name === 'AbortError' ? 'The search took too long.' : (SERR[e && e.code] || 'Could not reach the search server. Check your internet.');
@@ -1099,7 +1100,7 @@ function render() {
   if (h === 'job') renderDetail(rt.id); else if (h === 'x') renderX(rt.id); else if (h === 'exams') renderExams(); else if (h === 'govt') renderGovt(); else if (h === 'pvt') renderPvt(); else if (h === 'explore') renderExplore(); else if (h === 'profile') renderProfile(); else renderHome();
 }
 window.addEventListener('hashchange', function () { render(); window.scrollTo(0, 0); });
-$('nav-explore').addEventListener('click', function () { if (prof() && !SRCH.busy && searchStale() && searchOk()) setTimeout(runSearch, 50); else if (prof() && !SRCH.busy && !searchOk() && !FOUND.at) setTimeout(startSearch, 50); });
+$('nav-explore').addEventListener('click', function () { if (prof() && !SRCH.busy && searchStale() && Object.keys(prof().facts).length) setTimeout(startSearch, 50); });
 $('nav-scan').onclick = function () { if (!prof()) { addPersonSheet(true, scanFlow); return; } scanFlow(); };
 wireCamera();
 (function () {

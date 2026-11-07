@@ -50,7 +50,7 @@ async function doSearch(s, request, env, origin) {
   if (await overLimit(request, env, 's', '3', '60')) return json({ error: 'daily_limit' }, 429, origin);
   var today = new Date().toISOString().slice(0, 10);
   var prof = ['Education: ' + cleanS(s.level, 80), s.stream ? 'Stream: ' + cleanS(s.stream, 40) : '', 'State: ' + (cleanS(s.state, 40) || 'Karnataka'), s.age ? 'Age: ' + (parseInt(s.age, 10) || '') : '', s.licence ? 'Has a driving licence: ' + cleanS(s.licence, 20) : ''].filter(Boolean).join('. ');
-  var prompt = 'Today is ' + today + '. You help a job seeker in India. Profile: ' + prof + '.\nUse web search to find: (1) government jobs that are open to apply for right now and suit this profile, (2) government and entrance exams coming in the next 8 months that suit this profile, (3) private jobs in or near the profile\'s state that suit this education level. Prefer official sites (gov.in, nic.in, ibps.in and similar).\nRules: list only what you saw on a page in the search results, and use that page\'s own address as url. Never invent a date: use null if it is not on the page. Skip anything already closed. Up to 5 items in each list.\nReply with only this JSON: {"govt":[{"title":"","org":"","closes":"YYYY-MM-DD or null","line":"one short sentence","url":""}],"exams":[{"title":"","org":"","date":"YYYY-MM-DD or null","line":"","url":""}],"pvt":[{"title":"","org":"","place":"","line":"","url":""}]}';
+  var prompt = 'Today is ' + today + '. You help a job seeker in India. Profile: ' + prof + '.\nUse web search to find: (1) government jobs that are open to apply for right now and suit this profile, (2) government and entrance exams coming in the next 8 months that suit this profile, (3) private jobs in or near the profile\'s state that suit this education level. Prefer official sites (gov.in, nic.in, ibps.in and similar).\nRules: list only what you saw on a page in the search results, and use that page\'s own address as url. Never invent a date: use null if it is not on the page. Skip anything already closed. Up to 8 items in each list.\nReply with only this JSON: {"govt":[{"title":"","org":"","closes":"YYYY-MM-DD or null","line":"one short sentence","url":""}],"exams":[{"title":"","org":"","date":"YYYY-MM-DD or null","line":"","url":""}],"pvt":[{"title":"","org":"","place":"","line":"","url":""}]}';
   var msgs = [{ role: 'user', content: prompt }], seen = {}, text = '', u = { input_tokens: 0, output_tokens: 0, searches: 0 };
   var ctl = new AbortController(), timer = setTimeout(function () { ctl.abort(); }, 100000);
   try {
@@ -58,7 +58,7 @@ async function doSearch(s, request, env, origin) {
       var up = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST', signal: ctl.signal,
         headers: { 'content-type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: env.MODEL || DEFAULT_MODEL, max_tokens: 3000, tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }], messages: msgs })
+        body: JSON.stringify({ model: env.MODEL || DEFAULT_MODEL, max_tokens: 4000, tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }], messages: msgs })
       });
       if (up.status === 429) { clearTimeout(timer); return json({ error: 'rate_limited' }, 429, origin); }
       if (!up.ok) { clearTimeout(timer); return json({ error: 'upstream', status: up.status }, 502, origin); }
@@ -86,7 +86,7 @@ async function doSearch(s, request, env, origin) {
       if (kind === 'exams') { it.date = okDate(x.date); if (it.date && it.date < today) return null; }
       if (kind === 'pvt') { it.place = cleanS(x.place, 60); it.off = false; }
       return it;
-    }).filter(Boolean).slice(0, 5);
+    }).filter(Boolean).slice(0, 8);
   }
   return json({ ok: true, found: { govt: keep(o.govt, 'govt'), exams: keep(o.exams, 'exams'), pvt: keep(o.pvt, 'pvt') }, usage: u }, 200, origin);
 }
