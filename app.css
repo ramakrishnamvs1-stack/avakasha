@@ -352,3 +352,6 @@ body.is-home .homew{padding-top:0}
 .hx::after{width:120px;height:120px;right:22px;top:110px}
 .hx .hbtn{left:18px;bottom:18px;height:38px;padding:0 16px;font-size:14px}
 .hics{padding-top:22px}
+
+.hx .hs{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35}
+.hcard.hx{min-height:278px}
