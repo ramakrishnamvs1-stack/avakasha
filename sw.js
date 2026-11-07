@@ -1,5 +1,5 @@
 /* Offline cache. Bump VERSION whenever any file changes so phones pick up the update. */
-var VERSION = 'pa10-v22';
+var VERSION = 'pa10-v23';
 var SHELL = [
   './', './index.html', './app.css', './app.js', './config.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png',
@@ -21,7 +21,7 @@ self.addEventListener('fetch', function (e) {
   var url = new URL(req.url);
   if (url.origin !== location.origin) return;
   /* Records: network first so new deadlines show up, cached copy when offline. */
-  if (url.pathname.endsWith('/data/records.json')) {
+  if (url.pathname.endsWith('/data/records.json') || url.pathname.endsWith('/data/extra.json')) {
     e.respondWith(fetch(req).then(function (r) {
       var copy = r.clone(); caches.open('pa10-data').then(function (c) { c.put(req, copy); }); return r;
     }).catch(function () { return caches.match(req); }));
