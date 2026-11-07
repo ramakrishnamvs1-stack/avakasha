@@ -110,21 +110,22 @@ function cleanExam(x, seen, today) {
   return { id: 'dx-' + hash(url), k: 'exam', art: 'biz', d: d, when: d, title: title, short: title, sub: cleanS(x.org, 80), org: cleanS(x.org, 80), line: cleanS(x.line, 200), facts: facts, src: [cleanS(x.srcName, 80) || host, url], note: 'Found by the daily search and checked by Avakasha. Confirm the date on the official site.', official: off };
 }
 async function kget(env, k) { try { var v = await env.LIMITS.get(k); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
-/* Daily job: one search for everyone. Results go to a draft; nothing reaches users until it is approved on the review page. */
-async function runDaily(env) {
-  if (!env.LIMITS || !env.ANTHROPIC_API_KEY) return { error: 'not_configured' };
-  var today = new Date().toISOString().slice(0, 10);
-  var prompt = 'Today is ' + today + '. You help job seekers in India (Karnataka first, then central government).\nUse web search to find (1) government job recruitments that are open to apply for right now, in Karnataka or central government, at any qualification level: Class 10, Class 12, ITI or diploma, and degree, and (2) government and entrance exams coming in the next 8 months. Prefer official sites (gov.in, nic.in, ibps.in and similar) and official notices.\nRules: list only what you saw on a page in the search results, and use that page\'s own address as url. Never invent a date or a number: leave it out if it is not on the page. Skip anything already closed. Up to 10 jobs and 6 exams. Keep every field short.\nFor each job, give the eligibility rules as a list using only these kinds: {"t":"age","min":18,"max":27,"maxByCat":{"OBC":30,"SC":32,"ST":32}} (ages as on the notice), {"t":"passed"} (Class 10 pass needed), {"t":"passed12"} (Class 12 pass needed), {"t":"pct12","min":50} (minimum Class 12 marks), {"t":"pctmin","min":50} (minimum Class 10 marks), {"t":"exp","min":2} (years of experience), {"t":"static","title":"short name","detail":"one sentence"} for anything else, such as a degree, a trade, a licence or a language test. Set "lvl":12 when Class 12 is needed.\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[{"title":"","org":"","line":"one short sentence","closes":"YYYY-MM-DD or null","cyc":"the application dates in one sentence","lvl":10,"facts":[["Age","..."],["Qualification","..."],["Pay","..."]],"rules":[],"srcName":"notice name","url":""}],"exams":[{"title":"","org":"","date":"YYYY-MM-DD","line":"","facts":[["Exam","..."],["Qualification","..."]],"srcName":"","url":""}]}</json>';
+var OFFICIAL_DOMAINS = ['gov.in', 'nic.in', 'ibps.in', 'ac.in', 'edu.in'];
+var RULES_TEXT = 'For each job, give the eligibility rules as a list using only these kinds: {"t":"age","min":18,"max":27,"maxByCat":{"OBC":30,"SC":32,"ST":32}} (ages as on the notice), {"t":"passed"} (Class 10 pass needed), {"t":"passed12"} (Class 12 pass needed), {"t":"pct12","min":50} (minimum Class 12 marks), {"t":"pctmin","min":50} (minimum Class 10 marks), {"t":"exp","min":2} (years of experience), {"t":"static","title":"short name","detail":"one sentence"} for anything else, such as a degree, a diploma, a trade, a licence or a language test. Be careful: give a Class 10 or Class 12 rule only when the notice itself asks for exactly that. For diploma, ITI or degree posts use a static rule and no Class 10 or 12 rule. Set "lvl":12 when Class 12 is needed. If the age limit or qualification is not on the page, leave that rule out.';
+var JOB_SHAPE = '{"title":"","org":"","line":"one short sentence","closes":"YYYY-MM-DD or null","cyc":"the application dates in one sentence","lvl":10,"facts":[["Age","..."],["Qualification","..."],["Pay","..."]],"rules":[],"srcName":"notice name","url":""}';
+/* One search pass. domains limits where Claude may search; null means anywhere. */
+async function searchPass(env, prompt, domains, maxUses) {
   var msgs = [{ role: 'user', content: prompt }], seen = {}, text = '', u = { input_tokens: 0, output_tokens: 0, searches: 0 }, stop = '';
-  var ctl = new AbortController(), timer = setTimeout(function () { ctl.abort(); }, 240000);
+  var tool = { type: 'web_search_20250305', name: 'web_search', max_uses: maxUses }; if (domains) tool.allowed_domains = domains;
+  var ctl = new AbortController(), timer = setTimeout(function () { ctl.abort(); }, 280000);
   try {
     for (var turn = 0; turn < 4; turn++) {
       var up = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST', signal: ctl.signal,
         headers: { 'content-type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: env.MODEL || DEFAULT_MODEL, max_tokens: 12000, tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 8 }], messages: msgs })
+        body: JSON.stringify({ model: env.MODEL || DEFAULT_MODEL, max_tokens: 12000, tools: [tool], messages: msgs })
       });
-      if (!up.ok) { clearTimeout(timer); return { error: 'upstream', status: up.status }; }
+      if (!up.ok) { clearTimeout(timer); var et = ''; try { et = (await up.text()).slice(0, 200); } catch (e) {} return { error: 'upstream', status: up.status, tail: et, u: u }; }
       var d = await up.json();
       if (d.usage) { u.input_tokens += d.usage.input_tokens || 0; u.output_tokens += d.usage.output_tokens || 0; u.searches += (d.usage.server_tool_use && d.usage.server_tool_use.web_search_requests) || 0; }
       text = ''; stop = d.stop_reason || '';
@@ -135,19 +136,42 @@ async function runDaily(env) {
       if (d.stop_reason === 'pause_turn') { msgs.push({ role: 'assistant', content: d.content }); continue; }
       break;
     }
-  } catch (e) { clearTimeout(timer); return { error: 'upstream' }; }
+  } catch (e) { clearTimeout(timer); return { error: 'upstream', u: u }; }
   clearTimeout(timer);
   var o = findJson(text);
-  if (!o) return { error: 'unreadable', usage: u, stop: stop, len: text.length, tail: text.slice(-240) };
+  if (!o) return { error: 'unreadable', u: u, stop: stop, len: text.length, tail: text.slice(-240) };
+  return { ok: true, o: o, seen: seen, u: u };
+}
+function nkey(t) { return String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40); }
+function sameTitle(a, b) { return a && b && Math.min(a.length, b.length) >= 10 && (a.indexOf(b) === 0 || b.indexOf(a) === 0); }
+/* Daily job: one search for everyone. Pass A searches official sites only. Pass B looks anywhere for posts pass A missed; those are "leads" that need an official notice link before they can be approved. Results go to a draft and nothing reaches users until it is approved. */
+async function runDaily(env) {
+  if (!env.LIMITS || !env.ANTHROPIC_API_KEY) return { error: 'not_configured' };
+  var today = todayStr(), rules = RULES_TEXT;
+  var pa = 'Today is ' + today + '. You help job seekers in India (Karnataka first, then central government).\nUse web search, which is limited to official government sites, to find (1) government job recruitments that are open to apply for right now, in Karnataka or central government, at any qualification level (Class 10, Class 12, ITI or diploma, degree), and (2) government and entrance exams coming in the next 8 months. Check these official sites by name: KEA (cetonline.karnataka.gov.in), KPSC (kpsc.kar.nic.in), Karnataka School Education Department, Karnataka Forest Department, Staff Selection Commission (ssc.gov.in), UPSC (upsc.gov.in), IBPS (ibps.in), the Railway Recruitment Boards, India Post (indiapost.gov.in), ISRO and BEL.\nRules: list only what you saw on a page in the search results, and use that page\'s own address as url. Never invent a date or a number. Skip anything already closed. Up to 12 jobs and 6 exams. Keep every field short.\n' + rules + '\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[' + JOB_SHAPE + '],"exams":[{"title":"","org":"","date":"YYYY-MM-DD","line":"","facts":[["Exam","..."],["Qualification","..."]],"srcName":"","url":""}]}</json>';
+  var A = await searchPass(env, pa, OFFICIAL_DOMAINS, 8);
+  var pb = 'Today is ' + today + '. You help job seekers in India (Karnataka first, then central government).\nUse web search on any site to find government job recruitments that are open to apply for right now, in Karnataka or central government, at any qualification level. Up to 10 jobs. List only what you saw on a page in the search results, with that page\'s own address as url. Never invent a date or a number. Skip anything already closed. Keep every field short.\n' + rules + '\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[' + JOB_SHAPE + ']}</json>';
+  var B = await searchPass(env, pb, null, 5);
+  var u = { input_tokens: 0, output_tokens: 0, searches: 0 };
+  [A, B].forEach(function (p) { if (p && p.u) { u.input_tokens += p.u.input_tokens; u.output_tokens += p.u.output_tokens; u.searches += p.u.searches; } });
+  if (!A.ok && !B.ok) { var e = A.error ? A : B; return { error: e.error, stop: e.stop, len: e.len, tail: e.tail, status: e.status, usage: u }; }
   var live = (await kget(env, 'live')) || { records: [], exams: [] };
   var known = {}; live.records.concat(live.exams).forEach(function (x) { known[x.id] = 1; });
-  var items = [].concat((Array.isArray(o.jobs) ? o.jobs : []).map(function (x) { return cleanRecord(x, seen, today); }), (Array.isArray(o.exams) ? o.exams : []).map(function (x) { return cleanExam(x, seen, today); })).filter(function (x) { return x && !known[x.id]; });
-  var draft = { at: Date.now(), items: items, usage: u };
+  var items = [], keys = {}, titles = [];
+  function add(x) { if (!x || known[x.id] || keys[x.id]) return; var nk = nkey(x.title); if (titles.some(function (t) { return sameTitle(t, nk); })) return; keys[x.id] = 1; titles.push(nk); items.push(x); }
+  if (A.ok) {
+    (Array.isArray(A.o.jobs) ? A.o.jobs : []).forEach(function (x) { add(cleanRecord(x, A.seen, today)); });
+    (Array.isArray(A.o.exams) ? A.o.exams : []).forEach(function (x) { add(cleanExam(x, A.seen, today)); });
+  }
+  if (B.ok) {
+    (Array.isArray(B.o.jobs) ? B.o.jobs : []).forEach(function (x) { var c = cleanRecord(x, B.seen, today); if (c && !c.official) c.lead = true; add(c); });
+  }
+  var draft = { at: Date.now(), items: items, usage: u, passA: A.ok ? 'ok' : A.error, passB: B.ok ? 'ok' : B.error };
   await env.LIMITS.put('draft', JSON.stringify(draft));
-  return { ok: true, n: items.length, usage: u };
+  return { ok: true, n: items.length, leads: items.filter(function (x) { return x.lead; }).length, usage: u };
 }
 function todayStr() { return new Date().toISOString().slice(0, 10); }
-async function adminDo(b, request, env, origin) {
+async function adminDo(b, request, env, origin, ctx) {
   if (!env.ADMIN_KEY || !env.LIMITS) return json({ error: 'not_configured' }, 500, origin);
   var ip = request.headers.get('CF-Connecting-IP') || 'x', kf = 'fail:' + todayStr() + ':' + ip, nf = parseInt((await env.LIMITS.get(kf)) || '0', 10);
   if (nf >= 10) return json({ error: 'locked' }, 429, origin);
@@ -155,13 +179,21 @@ async function adminDo(b, request, env, origin) {
   var today = todayStr(), live = (await kget(env, 'live')) || { at: 0, records: [], exams: [] }, draft = (await kget(env, 'draft')) || { at: 0, items: [] };
   if (b.action === 'run') {
     var last = await env.LIMITS.get('lastrun'); if (last && Date.now() - parseInt(last, 10) < 36e5) return json({ error: 'too_soon' }, 429, origin);
-    var r = await runDaily(env); if (r.ok) await env.LIMITS.put('lastrun', String(Date.now())); return json(r.ok ? { ok: true, n: r.n, usage: r.usage } : { error: r.error || 'upstream', stop: r.stop, len: r.len, tail: r.tail, status: r.status }, r.ok ? 200 : 502, origin);
+    var running = await env.LIMITS.get('running'); if (running && Date.now() - parseInt(running, 10) < 6e5) return json({ error: 'already_running' }, 429, origin);
+    await env.LIMITS.put('running', String(Date.now()));
+    ctx.waitUntil((async function () {
+      var r; try { r = await runDaily(env); } catch (e) { r = { error: 'upstream' }; }
+      await env.LIMITS.put('lastresult', JSON.stringify({ at: Date.now(), ok: !!r.ok, n: r.n, leads: r.leads, error: r.error, stop: r.stop, len: r.len, tail: r.tail, status: r.status, usage: r.usage }));
+      await env.LIMITS.delete('running'); if (r.ok) await env.LIMITS.put('lastrun', String(Date.now()));
+    })());
+    return json({ ok: true, started: true }, 200, origin);
   }
   if (b.action === 'approve') {
     var ids = {};
     (Array.isArray(b.items) ? b.items : []).slice(0, 40).forEach(function (x) {
       if (!x || !Array.isArray(x.src)) return; x.url = x.src[1]; x.srcName = x.src[0]; x.date = x.d;
       var c = x.k === 'exam' ? cleanExam(x, null, today) : cleanRecord(x, null, today); if (!c) return;
+      if (x.lead && !c.official) return;
       var list = c.k === 'exam' ? live.exams : live.records; var i = list.map(function (y) { return y.id; }).indexOf(c.id);
       if (i >= 0) list[i] = c; else list.push(c); ids[c.id] = 1;
     });
@@ -175,7 +207,8 @@ async function adminDo(b, request, env, origin) {
     live.records = live.records.filter(function (x) { return !rm[x.id]; }); live.exams = live.exams.filter(function (x) { return !rm[x.id]; });
     live.at = Date.now(); await env.LIMITS.put('live', JSON.stringify(live));
   }
-  return json({ ok: true, draft: draft, live: { at: live.at, records: live.records.map(function (x) { return { id: x.id, title: x.title, closes: x.closes }; }), exams: live.exams.map(function (x) { return { id: x.id, title: x.title, d: x.d }; }) } }, 200, origin);
+  var lastres = await kget(env, 'lastresult'), runv = await env.LIMITS.get('running');
+  return json({ ok: true, draft: draft, last: lastres, running: !!(runv && Date.now() - parseInt(runv, 10) < 6e5), live: { at: live.at, records: live.records.map(function (x) { return { id: x.id, title: x.title, closes: x.closes }; }), exams: live.exams.map(function (x) { return { id: x.id, title: x.title, d: x.d }; }) } }, 200, origin);
 }
 async function liveGet(env, origin) {
   var today = todayStr(), live = (await kget(env, 'live')) || { at: 0, records: [], exams: [] };
@@ -183,7 +216,7 @@ async function liveGet(env, origin) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     var origin = env.ALLOWED_ORIGIN || DEFAULT_ORIGIN;
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(origin) });
     var reqOrigin = request.headers.get('Origin');
@@ -192,7 +225,7 @@ export default {
     if (request.method !== 'POST') return json({ error: 'bad_request' }, 405, origin);
     var body;
     try { body = await request.json(); } catch (e) { return json({ error: 'bad_request' }, 400, origin); }
-    if (body && body.admin) return adminDo(body.admin, request, env, origin);
+    if (body && body.admin) return adminDo(body.admin, request, env, origin, ctx);
     if (env.APP_KEY && request.headers.get('X-App-Key') !== env.APP_KEY) return json({ error: 'forbidden' }, 403, origin);
     if (!env.ANTHROPIC_API_KEY) return json({ error: 'not_configured' }, 500, origin);
     var type = body && body.type, image = body && body.image, mt = (body && body.mediaType) || 'image/jpeg';
@@ -223,5 +256,5 @@ export default {
     out.__usage = data.usage || null;
     return json({ ok: true, type: type, data: out }, 200, origin);
   },
-  async scheduled(event, env, ctx) { ctx.waitUntil(runDaily(env)); }
+  async scheduled(event, env, ctx) { ctx.waitUntil((async function () { var r; try { r = await runDaily(env); } catch (e) { r = { error: 'upstream' }; } await env.LIMITS.put('lastresult', JSON.stringify({ at: Date.now(), ok: !!r.ok, n: r.n, leads: r.leads, error: r.error, stop: r.stop, len: r.len, tail: r.tail, status: r.status, usage: r.usage })); })()); }
 };

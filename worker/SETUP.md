@@ -18,7 +18,7 @@ The key never goes in `config.js` or in the repository. The worker only accepts 
 
 One search a day finds government jobs and exams for everyone and writes each job's eligibility rules (age, qualification, marks). Results wait in a draft until you approve them on the review page. Each phone then checks the approved list against its own profile, for free.
 
-1. **Anthropic console:** make sure web search is enabled for your organization. Each search is billed per search on top of the tokens. A daily run costs roughly ₹20 to ₹30.
+1. **Anthropic console:** make sure web search is enabled for your organization. Each search is billed per search on top of the tokens. A daily run costs roughly ₹40 to ₹50 (two search passes).
 2. **Redeploy** `worker/worker.js` (paste the whole file and Deploy).
 3. **Add a secret** `ADMIN_KEY` in the worker's Settings, Variables and Secrets: a long random text only you know. It opens the review page. Never put it in the repository.
 4. **KV:** the daily search and the approved list use the same `LIMITS` KV binding you already made. Nothing new to create.
@@ -26,3 +26,7 @@ One search a day finds government jobs and exams for everyone and writes each jo
 6. **Review:** open `https://ramakrishnamvs1-stack.github.io/avakasha/review.html`, enter the admin key, and approve or reject each find. You can fix the closing date and age limits before approving. **Search now** runs the search at once (at most once an hour). Approved items reach phones the next time the app opens.
 
 Nothing is public until you approve it. Items that came from a site that is not gov.in, nic.in, ibps.in, ac.in or edu.in are flagged on the review page.
+
+### How the daily run searches
+
+Pass A searches official government sites only (gov.in, nic.in, ibps.in, ac.in, edu.in) and names the main ones (KEA, KPSC, SSC, UPSC, IBPS, RRB, India Post, ISRO, BEL). Pass B searches anywhere for posts pass A missed. Those show on the review page under **Leads**. A lead can be approved only after you paste its official notice link, and the Worker rejects an approval without a link on an official domain.

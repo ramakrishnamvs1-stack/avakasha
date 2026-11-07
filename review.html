@@ -38,7 +38,8 @@ async function api(a){var r=await fetch(URLW,{method:'POST',headers:{'Content-Ty
 var DRAFT=[];
 function ruleText(r){if(r.t==='age')return null;if(r.t==='passed')return 'Class 10 pass';if(r.t==='passed12')return 'Class 12 pass';if(r.t==='pct12')return 'At least '+r.min+'% in Class 12';if(r.t==='pctmin')return 'At least '+r.min+'% in Class 10';if(r.t==='exp')return r.min+' years of experience';if(r.t==='static')return r.title+': '+r.detail;return r.t}
 function card(x,i){
-  var h='<div class="c" data-i="'+i+'"><h3>'+esc(x.title)+'</h3><div class="mu">'+esc(x.org)+'</div><div class="row"><span class="t '+(x.official?'':'w')+'">'+(x.official?'Official site':'Not an official site')+'</span><span class="t">'+(x.k==='exam'?'Exam':'Job')+'</span></div><p>'+esc(x.line)+'</p>';
+  var h='<div class="c" data-i="'+i+'"><h3>'+esc(x.title)+'</h3><div class="mu">'+esc(x.org)+'</div><div class="row"><span class="t '+(x.official?'':'w')+'">'+(x.lead?'Lead: official notice not found':x.official?'Official site':'Not an official site')+'</span><span class="t">'+(x.k==='exam'?'Exam':'Job')+'</span></div><p>'+esc(x.line)+'</p>';
+  if(x.lead)h+='<label>Official notice link (gov.in, nic.in, ibps.in, ac.in or edu.in)<input class="w" data-f="olink" type="url" placeholder="https://..."></label>';
   if(x.k==='exam'){h+='<div class="row"><label>Exam date<input data-f="d" type="date" value="'+esc(x.d)+'"></label></div>'}
   else{
     var age=(x.rules||[]).filter(function(r){return r.t==='age'})[0]||{};
@@ -46,11 +47,12 @@ function card(x,i){
     h+='<ul>'+(x.rules||[]).map(ruleText).filter(Boolean).map(function(t){return '<li>'+esc(t)+'</li>'}).join('')+'</ul>';
   }
   h+='<ul>'+(x.facts||[]).map(function(f){return '<li><b>'+esc(f[0])+':</b> '+esc(f[1])+'</li>'}).join('')+'</ul>';
-  h+='<p class="mu">'+esc(x.cyc||'')+'</p><p><a href="'+esc(x.src[1])+'" target="_blank" rel="noopener">Open the notice: '+esc(x.src[0])+'</a></p><div class="row"><button class="p" data-a="ok">Approve</button><button class="d" data-a="no">Reject</button></div></div>';
+  h+='<p class="mu">'+esc(x.cyc||'')+'</p><p><a href="'+esc(x.src[1])+'" target="_blank" rel="noopener">'+(x.lead?'Where it was seen: ':'Open the notice: ')+esc(x.src[0])+'</a></p><div class="row"><button class="p" data-a="ok">Approve</button><button class="d" data-a="no">Reject</button></div></div>';
   return h}
 function collect(i){
   var x=JSON.parse(JSON.stringify(DRAFT[i])),el=document.querySelector('[data-i="'+i+'"]');
   function v(f){var e=el.querySelector('[data-f="'+f+'"]');return e?e.value:''}
+  if(x.lead){var ol=v('olink').trim();if(!/^https:\/\/([a-z0-9-]+\.)*(gov\.in|nic\.in|ibps\.in|ac\.in|edu\.in)(\/|$)/i.test(ol)){alert('Paste the official notice link first (it must be on gov.in, nic.in, ibps.in, ac.in or edu.in).');return null}x.src=['Official notice',ol]}
   if(x.k==='exam'){x.d=v('d');x.when=x.d;return x}
   x.closes=v('closes')||null;if(!x.closes){x.stat={k:'unk',t:'Dates not confirmed'}}else{delete x.stat}
   var age=x.rules.filter(function(r){return r.t==='age'})[0];
@@ -61,16 +63,18 @@ function collect(i){
 function draw(j){
   DRAFT=(j.draft&&j.draft.items)||[];
   $('info').textContent=j.draft&&j.draft.at?'Last search '+new Date(j.draft.at).toLocaleString():'No search yet';
-  $('list').innerHTML=DRAFT.length?DRAFT.map(card).join(''):'<div class="c mu">Nothing waiting.</div>';
+  var main=[],leads=[];DRAFT.forEach(function(x,i){(x.lead?leads:main).push(card(x,i))});
+  $('list').innerHTML=(main.length?main.join(''):'<div class="c mu">Nothing waiting.</div>')+(leads.length?'<h1 style="margin-top:24px">Leads</h1><p class="mu">Seen on other sites, but no official notice was found. Find the notice on the official site and paste its link to approve, or reject.</p>'+leads.join(''):'');
+  var L=j.last;$('msg').innerHTML=L?(L.ok?'Last run: '+L.n+' finds ('+(L.leads||0)+' leads).':'<span class="err">Last run failed: '+esc(L.error||'')+'</span> <span class="mu">'+esc(JSON.stringify({stop:L.stop,status:L.status,tail:L.tail}))+'</span>')+' <span class="mu">'+new Date(L.at).toLocaleString()+'</span>':'';
   var l=j.live||{records:[],exams:[]};
   $('live').innerHTML=(l.records.concat(l.exams).map(function(x){return '<div class="c"><b>'+esc(x.title)+'</b> <span class="mu">'+esc(x.closes||x.d||'')+'</span><div class="row"><button class="d" data-rm="'+esc(x.id)+'">Remove</button></div></div>'}).join(''))||'<div class="c mu">Nothing live yet.</div>';
 }
 async function load(a){$('msg').textContent='Working…';try{var j=await api(a||{action:'list'});draw(j);$('msg').textContent=''}catch(e){$('msg').innerHTML='<span class="err">'+esc(e.message)+'</span>'}}
 $('go').onclick=async function(){KEY=$('key').value;try{var j=await api({action:'list'});try{sessionStorage.setItem('ak',KEY)}catch(e){}$('login').hidden=true;$('main').hidden=false;draw(j)}catch(e){$('lerr').textContent=e.message==='forbidden'?'Wrong key.':e.message}};
 $('reload').onclick=function(){load()};
-$('run').onclick=async function(){if(!confirm('Run the search now? It costs about ₹20 to ₹30.'))return;$('msg').textContent='Searching. This can take a few minutes…';try{var r=await api({action:'run'});await load()}catch(e){$('msg').innerHTML='<span class="err">'+esc(e.message)+'</span> <span class="mu">'+esc(e.detail||'')+'</span>'}};
+$('run').onclick=async function(){if(!confirm('Run the search now? It costs about ₹40 to ₹50.'))return;$('msg').textContent='Searching. This takes 2 to 4 minutes. You can leave this page open…';try{await api({action:'run'});var t0=Date.now();(function poll(){setTimeout(async function(){try{var j=await api({action:'list'});if(j.running&&Date.now()-t0<9e5){$('msg').textContent='Still searching… ('+Math.round((Date.now()-t0)/1000)+' s)';poll()}else draw(j)}catch(e){$('msg').innerHTML='<span class="err">'+esc(e.message)+'</span>'}},10000)})()}catch(e){$('msg').innerHTML='<span class="err">'+esc(e.message)+'</span> <span class="mu">'+esc(e.detail||'')+'</span>'}};
 document.addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;var c=b.closest('[data-i]');
-  if(b.dataset.a&&c){var i=+c.dataset.i;if(b.dataset.a==='ok')load({action:'approve',items:[collect(i)]});else load({action:'reject',ids:[DRAFT[i].id]})}
+  if(b.dataset.a&&c){var i=+c.dataset.i;if(b.dataset.a==='ok'){var it=collect(i);if(it)load({action:'approve',items:[it]})}elseload({action:'reject',ids:[DRAFT[i].id]})}
   if(b.dataset.rm&&confirm('Remove from live?'))load({action:'remove',ids:[b.dataset.rm]})});
 try{var k=sessionStorage.getItem('ak');if(k){$('key').value=k}}catch(e){}
 </script>
