@@ -48,7 +48,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '25';
+var APPVER = '26';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -359,6 +359,23 @@ var NOTES = [
   ['Scan once, use it everywhere.', 'Your details stay on this phone. Photos are not saved.']
 ];
 var EXTRA = { exams: [], pvt: [] }, SHOWCL = false;
+/* Shared list: a daily search done once for everyone and approved before it reaches phones. Fetched in the background; the last copy is kept for offline use. */
+function getLive() {
+  if (!CFG.readerUrl) return Promise.resolve(null);
+  var ctl = new AbortController(), t = setTimeout(function () { ctl.abort(); }, 8000);
+  return fetch(CFG.readerUrl, { signal: ctl.signal }).then(function (r) { clearTimeout(t); return r.ok ? r.json() : null; }).then(function (j) {
+    if (j && Array.isArray(j.records)) { try { localStorage.setItem('pa10.live', JSON.stringify(j)); } catch (e) {} return j; }
+    return lastLive();
+  }).catch(function () { clearTimeout(t); return lastLive(); });
+}
+function lastLive() { try { return JSON.parse(localStorage.getItem('pa10.live') || 'null'); } catch (e) { return null; } }
+function mergeLive(j) {
+  if (!j || !DATA) return;
+  var tl = {}; DATA.records.forEach(function (r) { tl[r.title.toLowerCase()] = 1; });
+  (j.records || []).forEach(function (r) { if (r && r.id && r.title && !tl[r.title.toLowerCase()]) { DATA.records.push(r); tl[r.title.toLowerCase()] = 1; } });
+  var te = {}; (EXTRA.exams || []).forEach(function (x) { te[x.title.toLowerCase()] = 1; });
+  (j.exams || []).forEach(function (x) { if (x && x.id && x.title && !te[x.title.toLowerCase()]) { (EXTRA.exams = EXTRA.exams || []).push(x); te[x.title.toLowerCase()] = 1; } });
+}
 var ARTS = {
   med: '<svg viewBox="0 0 190 300" aria-hidden="true"><path d="M10 300V252Q10 205 55 195L95 185L135 195Q180 205 180 252V300Z" fill="#fff"/><path d="M70 188L95 232L120 188" fill="none" stroke="#dfe5ea" stroke-width="3"/><path d="M80 190L95 226L110 190Z" fill="#0d6e6e"/><rect x="85" y="165" width="20" height="28" fill="#d99a6c"/><ellipse cx="95" cy="135" rx="34" ry="40" fill="#e9b58a"/><path d="M60 130Q60 86 95 88Q130 86 130 130Q118 106 95 108Q72 106 60 130Z" fill="#2b2118"/><circle cx="82" cy="138" r="2.6" fill="#2b2118"/><circle cx="108" cy="138" r="2.6" fill="#2b2118"/><path d="M85 153Q95 160 105 153" fill="none" stroke="#8a4b2a" stroke-width="2.4" stroke-linecap="round"/><path d="M68 194Q58 228 76 248Q96 262 112 240" fill="none" stroke="#17323f" stroke-width="4" stroke-linecap="round"/><circle cx="112" cy="238" r="8" fill="#17323f"/><circle cx="112" cy="238" r="3.5" fill="#f6b73c"/><path d="M146 222v22M135 233h22" stroke="#0d6e6e" stroke-width="6" stroke-linecap="round"/></svg>',
   def: '<svg viewBox="0 0 190 300" aria-hidden="true"><path d="M10 300V252Q10 205 55 195L135 195Q180 205 180 252V300Z" fill="#55693f"/><path d="M62 196L142 300" stroke="#37462a" stroke-width="14" opacity=".55"/><rect x="26" y="236" width="34" height="26" rx="4" fill="#44562f"/><rect x="130" y="226" width="36" height="9" rx="2" fill="#f6b73c"/><rect x="130" y="240" width="36" height="9" rx="2" fill="#f6b73c" opacity=".7"/><rect x="85" y="165" width="20" height="28" fill="#b98258"/><ellipse cx="95" cy="138" rx="33" ry="38" fill="#c98f64"/><path d="M52 126Q52 70 95 68Q138 70 138 126L138 132Q95 116 52 132Z" fill="#667d4b"/><path d="M52 126Q95 112 138 126" fill="none" stroke="#3f5030" stroke-width="5"/><path d="M62 134L66 170M128 134L124 170" stroke="#3f5030" stroke-width="3"/><circle cx="82" cy="142" r="2.6" fill="#2b2118"/><circle cx="108" cy="142" r="2.6" fill="#2b2118"/><path d="M86 158H104" stroke="#7a4527" stroke-width="2.6" stroke-linecap="round"/></svg>',
@@ -370,7 +387,6 @@ var HICONS = [
   ['Pvt Jobs', 'ic-v', '#pvt', '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/>'],
   ['Upcoming exams', 'ic-e', '#exams', '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M9 15.5l2 2 4-4"/>']
 ];
-function foundNew(list, have) { var h = have.map(function (t) { return t.toLowerCase(); }); return list.filter(function (x) { return h.indexOf(x.title.toLowerCase()) < 0; }); }
 function upExams() { return (EXTRA.exams || []).filter(function (x) { return pd(x.d) >= TODAY; }).sort(function (a, b) { return pd(a.d) - pd(b.d); }); }
 function dayTxt(x) { if (x.tent) return 'Expected ' + x.when; var n = daysBetween(TODAY, pd(x.d)); return n === 0 ? 'Today' : n === 1 ? '1 day to go' : n + ' days to go'; }
 function stopHome() { if (HOME.t) { clearInterval(HOME.t); HOME.t = null; } }
@@ -421,7 +437,6 @@ function renderExams() {
   var l = upExams();
   $('app').innerHTML = subHead('Upcoming exams', 'Sorted by date. Check each date on the official site.')
     + (l.length ? '<div class="xl">' + l.map(function (x) { return xcard(x, 'exam'); }).join('') + '</div>' : '<div class="card"><p class="note">No upcoming exams are listed right now.</p></div>')
-    + foundBlock(foundNew(FOUND.exams, l.map(function (x) { return x.title; })).sort(function (a, b) { return (a.date || '9') < (b.date || '9') ? -1 : 1; }), 'exam', 'Found by search')
     + '<p class="foot">Dates were read on ' + esc(EXTRA.readOn || '') + ' from news reports of the official calendars, and are tentative. Open the official site before you plan.</p>';
   wireBack('#home');
 }
@@ -434,7 +449,6 @@ function renderGovt() {
     + (open.length ? '<div class="recs">' + open.map(card).join('') + '</div>' : '<div class="card"><p class="note">Nothing is open for you right now.</p></div>')
     + (rest.length ? '<div class="row" style="margin-top:16px"><button class="btn xbtn" id="showCl" type="button">' + (SHOWCL ? 'Hide closed ones' : 'Show closed ones') + '</button></div>' : '')
     + (SHOWCL && rest.length ? '<div class="recs">' + rest.map(card).join('') + '</div>' : '')
-    + foundBlock(foundNew(FOUND.govt, ev.map(function (e) { return e.r.title; })), 'govt', 'Found by search')
     + '<p class="foot">Records marked “Read from the official notice” were taken from the government’s own notice. Check dates, age limits and fees on the official website before you apply, and never pay an agent to apply.</p>';
   wireBack('#home');
   if ($('showCl')) $('showCl').onclick = function () { SHOWCL = !SHOWCL; renderGovt(); };
@@ -442,8 +456,7 @@ function renderGovt() {
 function renderPvt() {
   var l = EXTRA.pvt || [];
   $('app').innerHTML = subHead('Pvt Jobs', 'Private openings near you.')
-    + foundBlock(FOUND.pvt, 'pvt', 'Found by search')
-    + (FOUND.pvt.length ? '<p class="note" style="margin:10px 4px 0">These come from web pages and have not been checked. Never pay to get a job.</p>' : '<div class="banner" style="margin-top:12px"><b>Sample listings.</b> Tap Explore to search online for real openings. Until then these are examples of what will appear here. They are not real openings.</div><div class="xl">' + l.map(function (x) { return xcard(x, 'pvt'); }).join('') + '</div>');
+    + '<div class="banner" style="margin-top:12px"><b>Sample listings.</b> We are still finding a trusted source for private jobs, so these are examples of what will appear here. They are not real openings.</div><div class="xl">' + l.map(function (x) { return xcard(x, 'pvt'); }).join('') + '</div>';
   wireBack('#home');
 }
 function renderX(id) {
@@ -485,78 +498,7 @@ function relevant(r, f, p) {
   if (r.tab === 'work') return true;
   var m = ageM(f); return !!(f.stage || m === null || m <= 25 * 12);
 }
-/* ---- live search (Explore) ---- */
-var FOUND = { at: 0, govt: [], exams: [], pvt: [] }, SRCH = { busy: false, err: '', cost: null };
-function loadFound() { try { var o = JSON.parse(localStorage.getItem('pa10.found') || 'null'); if (o && o.at) FOUND = { at: o.at, sig: o.sig, govt: o.govt || [], exams: o.exams || [], pvt: o.pvt || [] }; } catch (e) {} }
-function saveFound() { try { localStorage.setItem('pa10.found', JSON.stringify(FOUND)); } catch (e) {} }
-function searchProfile() {
-  var f = F(), m = ageM(f), s = {};
-  s.level = has12(f) && f.passed12 === 'yes' ? 'Class 12 pass' : has10(f) ? 'Class 10 pass' : 'Class 10 (not stated)';
-  if (f.stream12) s.stream = String(f.stream12);
-  s.state = f.state && f.state !== 'other' ? f.state : 'Karnataka';
-  if (m !== null) s.age = Math.floor(m / 12);
-  if (f.lmv || f.hmv) s.licence = 'yes';
-  return s;
-}
-function searchOk() { try { return localStorage.getItem('pa10.searchok') === '1'; } catch (e) { return false; } }
-function searchSig() { return JSON.stringify(searchProfile()); }
-function searchStale() { return !FOUND.at || FOUND.sig !== searchSig() || Date.now() - FOUND.at > 24 * 36e5; }
-function searchConsent(go) {
-  var pf = searchProfile(), what = [pf.level].concat(pf.stream ? [pf.stream] : [], [pf.state], pf.age ? ['age ' + pf.age] : [], pf.licence ? ['has a driving licence'] : []).join(', ');
-  sheet('<h2 class="h2">Search online for you?</h2><p class="note" style="margin-top:8px">Avakasha will send only this to find current openings: <b>' + esc(what) + '</b>. No name, no photos, no document details. A search takes about 20 to 60 seconds and costs about ₹5 to ₹15 of the reading budget. The finds are added to the Govt Jobs, Pvt Jobs and Upcoming exams pages.</p><div class="row" style="margin-top:14px"><button class="btn pri" id="so" type="button">Search</button><button class="btn" id="sn" type="button">Not now</button></div>');
-  $('so').onclick = function () { try { localStorage.setItem('pa10.searchok', '1'); } catch (e) {} closeSheet(); go(); };
-  $('sn').onclick = closeSheet;
-}
-async function runSearch() {
-  if (SRCH.busy || !CFG.readerUrl) return;
-  SRCH.busy = true; SRCH.err = ''; SRCH.cost = null; if (route().r === 'explore') renderExplore();
-  var sig = searchSig(), ctlr = new AbortController(), timer = setTimeout(function () { ctlr.abort(); }, 110000);
-  try {
-    var res = await fetch(CFG.readerUrl, { method: 'POST', signal: ctlr.signal, headers: { 'Content-Type': 'application/json', 'X-App-Key': CFG.appKey || '' }, body: JSON.stringify({ search: searchProfile() }) });
-    var j = null; try { j = await res.json(); } catch (e) {}
-    clearTimeout(timer);
-    if (j && j.usage) SRCH.cost = recordCost(j.usage);
-    if (!res.ok || !j || !j.ok) { var er = new Error((j && j.error) || 'upstream'); er.code = (j && j.error) || 'upstream'; throw er; }
-    FOUND = { at: Date.now(), sig: sig, govt: j.found.govt || [], exams: j.found.exams || [], pvt: j.found.pvt || [] }; saveFound();
-  } catch (e) {
-    clearTimeout(timer);
-    SRCH.err = e && e.name === 'AbortError' ? 'The search took too long.' : (SERR[e && e.code] || 'Could not reach the search server. Check your internet.');
-  }
-  SRCH.busy = false; var r = route().r; if (r === 'explore' || r === 'govt' || r === 'pvt' || r === 'exams') render();
-}
-function startSearch() { if (!prof() || SRCH.busy) return; if (!searchOk()) searchConsent(runSearch); else runSearch(); }
-function searchStrip() {
-  var n = FOUND.govt.length + FOUND.exams.length + FOUND.pvt.length, h;
-  if (SRCH.busy) h = '<div class="sstrip"><span class="spin" aria-hidden="true"></span><span><b>Searching for you…</b><br><span class="note">This takes up to a minute. You can keep using the app.</span></span></div>';
-  else if (SRCH.err) h = '<div class="sstrip err"><span><b>' + esc(SRCH.err) + '</b></span><button class="btn sm" id="sagain" type="button">Try again</button></div>';
-  else if (FOUND.at) h = '<div class="sstrip ok"><span><b>' + (n ? 'Found ' + n + ' from the search' : 'The search found nothing new') + '</b><br><span class="note">' + (n ? 'Added to <a href="#govt">Govt Jobs</a>, <a href="#pvt">Pvt Jobs</a> and <a href="#exams">Upcoming exams</a>. ' : '') + 'Searched ' + fmtAgo(FOUND.at) + '.' + (SRCH.cost ? ' This search cost about ' + inr(SRCH.cost.inr) + '.' : '') + '</span></span><button class="btn sm" id="sagain" type="button">Search again</button></div>';
-  else h = '<div class="sstrip"><span><b>Find more openings</b><br><span class="note">Search online for jobs and exams that suit this profile.</span></span><button class="btn sm pri" id="sagain" type="button">Search</button></div>';
-  return h;
-}
-function fmtAgo(t) { var m = Math.round((Date.now() - t) / 6e4); return m < 2 ? 'just now' : m < 60 ? m + ' minutes ago' : m < 1440 ? Math.round(m / 60) + ' hours ago' : Math.round(m / 1440) + ' days ago'; }
 function renderExplore() {
-  renderExplore0();
-  if (!prof()) return;
-  var a = $('app'); a.insertAdjacentHTML('afterbegin', searchStrip());
-  var b = $('sagain'); if (b) b.onclick = startSearch;
-}
-function fcard(x, kind) {
-  var left, tags = '';
-  if (kind === 'exam') {
-    var d = x.date ? pd(x.date) : null;
-    left = d ? '<div class="xd g-biz"><b>' + d.getDate() + '</b><small>' + MON[d.getMonth()] + '</small></div>' : '<div class="xd g-biz"><b>?</b><small>Date</small></div>';
-    tags = '<span class="tg w">' + (d ? esc(dayTxt({ d: x.date })) : 'Date not found') + '</span>';
-  } else left = '<div class="xi">' + BRIEF + '</div>';
-  if (kind === 'govt') tags = '<span class="tg w">' + (x.closes ? 'Closes ' + fmt(pd(x.closes)) : 'Closing date not found') + '</span>';
-  if (kind === 'pvt' && x.place) tags = '<span class="tg">' + esc(x.place) + '</span>';
-  tags += '<span class="tg ' + (x.off ? 'og' : '') + '">' + (x.off ? 'Official site' : 'Not checked on the official site') + '</span>';
-  return '<a class="xc" href="' + esc(x.url) + '" target="_blank" rel="noopener">' + left + '<div class="xb"><h3>' + esc(x.title) + '</h3><div class="org">' + esc(x.org) + (x.line ? ' · ' + esc(x.line) : '') + '</div><div class="xt">' + tags + '</div></div></a>';
-}
-function foundBlock(list, kind, title) {
-  if (!list.length) return '';
-  return '<div class="dh">' + esc(title) + ' <span class="note">· searched ' + esc(fmtAgo(FOUND.at)) + '</span></div><div class="xl" style="margin-top:0">' + list.map(function (x) { return fcard(x, kind); }).join('') + '</div>';
-}
-function renderExplore0() {
   var p = prof();
   if (!p) { renderProfile(); return; }
   var f = F(), all = DATA.records.filter(function (r) { return relevant(r, f, p); }).map(function (r) { return evaluate(r, f); });
@@ -1100,7 +1042,6 @@ function render() {
   if (h === 'job') renderDetail(rt.id); else if (h === 'x') renderX(rt.id); else if (h === 'exams') renderExams(); else if (h === 'govt') renderGovt(); else if (h === 'pvt') renderPvt(); else if (h === 'explore') renderExplore(); else if (h === 'profile') renderProfile(); else renderHome();
 }
 window.addEventListener('hashchange', function () { render(); window.scrollTo(0, 0); });
-$('nav-explore').addEventListener('click', function () { if (prof() && !SRCH.busy && searchStale() && Object.keys(prof().facts).length) setTimeout(startSearch, 50); });
 $('nav-scan').onclick = function () { if (!prof()) { addPersonSheet(true, scanFlow); return; } scanFlow(); };
 wireCamera();
 (function () {
@@ -1109,13 +1050,13 @@ wireCamera();
   setTimeout(function () { sp.classList.add('out'); setTimeout(function () { sp.remove(); }, 400); }, 1500);
 })();
 
-load(); loadFound();
+load();
 try { if (location.hash) history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
 try { TAB = sessionStorage.getItem('pa10.tab') || 'work'; } catch (e) {}
 if (!DB.active && DB.profiles.length) DB.active = DB.profiles[0].id;
 if (DB.profiles.length && !introSeen()) { try { localStorage.setItem('pa10.intro', '1'); } catch (e) {} }
 if (!introSeen() || !DB.profiles.length) showIntro(firstRun);
-Promise.all([fetch('data/records.json').then(function (r) { return r.json(); }), fetch('data/extra.json').then(function (r) { return r.json(); }).catch(function () { return null; })]).then(function (a) { DATA = a[0]; if (a[1]) EXTRA = a[1]; render(); }).catch(function () { $('app').innerHTML = '<div class="card empty"><h2 class="h2">Could not load the records</h2><p>Connect to the internet once and reopen the app.</p></div>'; });
+Promise.all([fetch('data/records.json').then(function (r) { return r.json(); }), fetch('data/extra.json').then(function (r) { return r.json(); }).catch(function () { return null; }), getLive()]).then(function (a) { DATA = a[0]; if (a[1]) EXTRA = a[1]; mergeLive(a[2]); render(); }).catch(function () { $('app').innerHTML = '<div class="card empty"><h2 class="h2">Could not load the records</h2><p>Connect to the internet once and reopen the app.</p></div>'; });
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   var hadSW = !!navigator.serviceWorker.controller, reloaded = false;
   navigator.serviceWorker.addEventListener('controllerchange', function () { if (hadSW && !reloaded) { reloaded = true; location.reload(); } });

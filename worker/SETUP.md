@@ -14,11 +14,15 @@ You need: a free Cloudflare account and an Anthropic API key (console.anthropic.
 
 The key never goes in `config.js` or in the repository. The worker only accepts requests from the app's own address (`ALLOWED_ORIGIN`, which defaults to your GitHub Pages site). If you move to a custom domain, set `ALLOWED_ORIGIN` to it.
 
-## Online search (Explore tab)
+## Daily shared search and review
 
-The Explore tab can search the web for current jobs and exams through this same worker. Two things to do:
+One search a day finds government jobs and exams for everyone and writes each job's eligibility rules (age, qualification, marks). Results wait in a draft until you approve them on the review page. Each phone then checks the approved list against its own profile, for free.
 
-1. In the Anthropic console, make sure **web search** is enabled for your organization (Settings, then Privacy or Tools). Each search is billed per search on top of the tokens.
-2. Redeploy `worker/worker.js` (paste the whole file again and Deploy). Optional variables: `SEARCH_PER_DAY` (default 3 searches a day for each phone address) and `SEARCH_GLOBAL_DAY` (default 60 in all). These use the same `LIMITS` KV binding.
+1. **Anthropic console:** make sure web search is enabled for your organization. Each search is billed per search on top of the tokens. A daily run costs roughly ₹20 to ₹30.
+2. **Redeploy** `worker/worker.js` (paste the whole file and Deploy).
+3. **Add a secret** `ADMIN_KEY` in the worker's Settings, Variables and Secrets: a long random text only you know. It opens the review page. Never put it in the repository.
+4. **KV:** the daily search and the approved list use the same `LIMITS` KV binding you already made. Nothing new to create.
+5. **Schedule:** in the worker's Settings, open **Triggers**, add a **Cron Trigger** with `0 2 * * *` (once a day, 7:30 am India time).
+6. **Review:** open `https://ramakrishnamvs1-stack.github.io/avakasha/review.html`, enter the admin key, and approve or reject each find. You can fix the closing date and age limits before approving. **Search now** runs the search at once (at most once an hour). Approved items reach phones the next time the app opens.
 
-The app sends only education level, stream, state, age in years and whether a licence is held. The worker keeps only results whose link appeared in the search results, and marks a result "Official site" only when its address ends in gov.in, nic.in, ibps.in, ac.in or edu.in.
+Nothing is public until you approve it. Items that came from a site that is not gov.in, nic.in, ibps.in, ac.in or edu.in are flagged on the review page.
