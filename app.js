@@ -48,7 +48,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '29';
+var APPVER = '30';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -362,13 +362,15 @@ var EXTRA = { exams: [], pvt: [] }, SHOWCL = false;
 /* Shared list: a daily search done once for everyone and approved before it reaches phones. Fetched in the background; the last copy is kept for offline use. */
 function getLive() {
   if (!CFG.readerUrl) return Promise.resolve(null);
+  var old = lastLive();
+  if (old && old.t && Date.now() - old.t < 15 * 6e4) return Promise.resolve(old.j);
   var ctl = new AbortController(), t = setTimeout(function () { ctl.abort(); }, 8000);
-  return fetch(CFG.readerUrl, { signal: ctl.signal }).then(function (r) { clearTimeout(t); return r.ok ? r.json() : null; }).then(function (j) {
-    if (j && Array.isArray(j.records)) { try { localStorage.setItem('pa10.live', JSON.stringify(j)); } catch (e) {} return j; }
-    return lastLive();
-  }).catch(function () { clearTimeout(t); return lastLive(); });
+  return fetch(CFG.readerUrl, { signal: ctl.signal, headers: { 'X-App-Key': CFG.appKey || '' } }).then(function (r) { clearTimeout(t); return r.ok ? r.json() : null; }).then(function (j) {
+    if (j && Array.isArray(j.records)) { try { localStorage.setItem('pa10.live', JSON.stringify({ t: Date.now(), j: j })); } catch (e) {} return j; }
+    return old ? old.j : null;
+  }).catch(function () { clearTimeout(t); return old ? old.j : null; });
 }
-function lastLive() { try { return JSON.parse(localStorage.getItem('pa10.live') || 'null'); } catch (e) { return null; } }
+function lastLive() { try { var o = JSON.parse(localStorage.getItem('pa10.live') || 'null'); return o && o.j ? o : null; } catch (e) { return null; } }
 function mergeLive(j) {
   if (!j || !DATA) return;
   var tl = {}; DATA.records.forEach(function (r) { tl[r.title.toLowerCase()] = 1; });

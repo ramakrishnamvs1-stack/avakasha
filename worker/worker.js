@@ -230,7 +230,10 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(origin) });
     var reqOrigin = request.headers.get('Origin');
     if (reqOrigin && reqOrigin !== origin) return json({ error: 'forbidden' }, 403, origin);
-    if (request.method === 'GET') return liveGet(env, origin);
+    if (request.method === 'GET') {
+      if (env.APP_KEY && request.headers.get('X-App-Key') !== env.APP_KEY) return json({ error: 'forbidden' }, 403, origin);
+      var lr = await liveGet(env, origin); lr.headers.set('Cache-Control', 'private, max-age=300'); return lr;
+    }
     if (request.method !== 'POST') return json({ error: 'bad_request' }, 405, origin);
     var body;
     try { body = await request.json(); } catch (e) { return json({ error: 'bad_request' }, 400, origin); }
