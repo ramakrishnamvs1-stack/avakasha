@@ -48,7 +48,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '27';
+var APPVER = '28';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -1036,6 +1036,7 @@ function render() {
   stopHome();
   document.body.classList.toggle('is-detail', h === 'job' || h === 'x');
   document.body.classList.toggle('is-sub', h === 'exams' || h === 'govt' || h === 'pvt');
+  document.body.classList.toggle('is-home', h === 'home');
   $('nav-home').setAttribute('aria-current', h === 'home' ? 'page' : 'false'); $('nav-explore').setAttribute('aria-current', h === 'explore' ? 'page' : 'false');
   renderTop(h);
   if (!DATA) return;

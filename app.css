@@ -334,3 +334,21 @@ body.is-sub .main{padding-top:0}
 .tg.w{background:var(--warn-bg);color:var(--warn)}
 .is-sub .recs{margin-top:14px}
 .tg.og{background:var(--good-bg);color:var(--good)}
+
+/* home v28: no top bar, a shorter banner placed higher */
+body.is-home .top{display:none}
+body.is-home .main{padding-top:calc(14px + env(safe-area-inset-top,0))}
+body.is-home .homew{padding-top:0}
+.hcard.hx{min-height:262px;padding:18px}
+.hx .hp{font-size:11px;padding:4px 9px}
+.hx h2{font-size:23px;margin-top:12px;max-width:58%}
+.hx .hs{font-size:13.5px;margin-top:6px;max-width:58%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hx .hdl{display:none}
+.hx .hdd,.hx .hleft{display:inline-block;max-width:none;vertical-align:baseline}
+.hx .hdd{font-size:20px;margin-top:12px}
+.hx .hleft{font-size:13px;margin:0 0 0 10px}
+.hx .hart svg{width:150px;height:236px}
+.hx::before{width:200px;height:200px;right:-50px;top:-60px}
+.hx::after{width:120px;height:120px;right:22px;top:110px}
+.hx .hbtn{left:18px;bottom:18px;height:38px;padding:0 16px;font-size:14px}
+.hics{padding-top:22px}
