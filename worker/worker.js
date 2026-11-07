@@ -36,6 +36,23 @@ async function overLimit(request, env, pre, perDef, allDef) {
   await env.LIMITS.put(kg, String(ng + 1), { expirationTtl: 172800 });
   return false;
 }
+/* Finds the JSON the model was asked for, even when it also wrote other words, or ran out of room before the end. */
+function findJson(text) {
+  var m = text.match(/<json>([\s\S]*?)<\/json>/);
+  if (m) { try { return JSON.parse(m[1]); } catch (e) {} }
+  var i = text.indexOf('{"jobs"');
+  if (i < 0) i = text.indexOf('{');
+  while (i >= 0) {
+    var depth = 0, inStr = false, esc = false;
+    for (var k = i; k < text.length; k++) {
+      var c = text[k];
+      if (inStr) { if (esc) esc = false; else if (c === '\\') esc = true; else if (c === '"') inStr = false; continue; }
+      if (c === '"') inStr = true; else if (c === '{') depth++; else if (c === '}') { depth--; if (depth === 0) { try { return JSON.parse(text.slice(i, k + 1)); } catch (e) { break; } } }
+    }
+    i = text.indexOf('{', i + 1);
+  }
+  return null;
+}
 function extractJson(text) {
   var a = text.indexOf('{'), b = text.lastIndexOf('}');
   if (a < 0 || b < a) return null;
@@ -97,20 +114,20 @@ async function kget(env, k) { try { var v = await env.LIMITS.get(k); return v ? 
 async function runDaily(env) {
   if (!env.LIMITS || !env.ANTHROPIC_API_KEY) return { error: 'not_configured' };
   var today = new Date().toISOString().slice(0, 10);
-  var prompt = 'Today is ' + today + '. You help job seekers in India (Karnataka first, then central government).\nUse web search to find (1) government job recruitments that are open to apply for right now, in Karnataka or central government, at any qualification level: Class 10, Class 12, ITI or diploma, and degree, and (2) government and entrance exams coming in the next 8 months. Prefer official sites (gov.in, nic.in, ibps.in and similar) and official notices.\nRules: list only what you saw on a page in the search results, and use that page\'s own address as url. Never invent a date or a number: leave it out if it is not on the page. Skip anything already closed. Up to 12 jobs and 8 exams.\nFor each job, give the eligibility rules as a list using only these kinds: {"t":"age","min":18,"max":27,"maxByCat":{"OBC":30,"SC":32,"ST":32}} (ages as on the notice), {"t":"passed"} (Class 10 pass needed), {"t":"passed12"} (Class 12 pass needed), {"t":"pct12","min":50} (minimum Class 12 marks), {"t":"pctmin","min":50} (minimum Class 10 marks), {"t":"exp","min":2} (years of experience), {"t":"static","title":"short name","detail":"one sentence"} for anything else, such as a degree, a trade, a licence or a language test. Set "lvl":12 when Class 12 is needed.\nReply with only this JSON: {"jobs":[{"title":"","org":"","line":"one short sentence","closes":"YYYY-MM-DD or null","cyc":"the application dates in one sentence","lvl":10,"facts":[["Age","..."],["Qualification","..."],["Pay","..."]],"rules":[],"srcName":"notice name","url":""}],"exams":[{"title":"","org":"","date":"YYYY-MM-DD","line":"","facts":[["Exam","..."],["Qualification","..."]],"srcName":"","url":""}]}';
-  var msgs = [{ role: 'user', content: prompt }], seen = {}, text = '', u = { input_tokens: 0, output_tokens: 0, searches: 0 };
+  var prompt = 'Today is ' + today + '. You help job seekers in India (Karnataka first, then central government).\nUse web search to find (1) government job recruitments that are open to apply for right now, in Karnataka or central government, at any qualification level: Class 10, Class 12, ITI or diploma, and degree, and (2) government and entrance exams coming in the next 8 months. Prefer official sites (gov.in, nic.in, ibps.in and similar) and official notices.\nRules: list only what you saw on a page in the search results, and use that page\'s own address as url. Never invent a date or a number: leave it out if it is not on the page. Skip anything already closed. Up to 10 jobs and 6 exams. Keep every field short.\nFor each job, give the eligibility rules as a list using only these kinds: {"t":"age","min":18,"max":27,"maxByCat":{"OBC":30,"SC":32,"ST":32}} (ages as on the notice), {"t":"passed"} (Class 10 pass needed), {"t":"passed12"} (Class 12 pass needed), {"t":"pct12","min":50} (minimum Class 12 marks), {"t":"pctmin","min":50} (minimum Class 10 marks), {"t":"exp","min":2} (years of experience), {"t":"static","title":"short name","detail":"one sentence"} for anything else, such as a degree, a trade, a licence or a language test. Set "lvl":12 when Class 12 is needed.\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[{"title":"","org":"","line":"one short sentence","closes":"YYYY-MM-DD or null","cyc":"the application dates in one sentence","lvl":10,"facts":[["Age","..."],["Qualification","..."],["Pay","..."]],"rules":[],"srcName":"notice name","url":""}],"exams":[{"title":"","org":"","date":"YYYY-MM-DD","line":"","facts":[["Exam","..."],["Qualification","..."]],"srcName":"","url":""}]}</json>';
+  var msgs = [{ role: 'user', content: prompt }], seen = {}, text = '', u = { input_tokens: 0, output_tokens: 0, searches: 0 }, stop = '';
   var ctl = new AbortController(), timer = setTimeout(function () { ctl.abort(); }, 240000);
   try {
     for (var turn = 0; turn < 4; turn++) {
       var up = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST', signal: ctl.signal,
         headers: { 'content-type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: env.MODEL || DEFAULT_MODEL, max_tokens: 8000, tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 8 }], messages: msgs })
+        body: JSON.stringify({ model: env.MODEL || DEFAULT_MODEL, max_tokens: 12000, tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 8 }], messages: msgs })
       });
       if (!up.ok) { clearTimeout(timer); return { error: 'upstream', status: up.status }; }
       var d = await up.json();
       if (d.usage) { u.input_tokens += d.usage.input_tokens || 0; u.output_tokens += d.usage.output_tokens || 0; u.searches += (d.usage.server_tool_use && d.usage.server_tool_use.web_search_requests) || 0; }
-      text = '';
+      text = ''; stop = d.stop_reason || '';
       (d.content || []).forEach(function (c) {
         if (c.type === 'web_search_tool_result' && Array.isArray(c.content)) c.content.forEach(function (r) { if (r && r.url) seen[r.url.split('#')[0]] = 1; });
         if (c.type === 'text') text += c.text;
@@ -120,8 +137,8 @@ async function runDaily(env) {
     }
   } catch (e) { clearTimeout(timer); return { error: 'upstream' }; }
   clearTimeout(timer);
-  var o = extractJson(text);
-  if (!o) return { error: 'unreadable', usage: u };
+  var o = findJson(text);
+  if (!o) return { error: 'unreadable', usage: u, stop: stop, len: text.length, tail: text.slice(-240) };
   var live = (await kget(env, 'live')) || { records: [], exams: [] };
   var known = {}; live.records.concat(live.exams).forEach(function (x) { known[x.id] = 1; });
   var items = [].concat((Array.isArray(o.jobs) ? o.jobs : []).map(function (x) { return cleanRecord(x, seen, today); }), (Array.isArray(o.exams) ? o.exams : []).map(function (x) { return cleanExam(x, seen, today); })).filter(function (x) { return x && !known[x.id]; });
@@ -138,8 +155,7 @@ async function adminDo(b, request, env, origin) {
   var today = todayStr(), live = (await kget(env, 'live')) || { at: 0, records: [], exams: [] }, draft = (await kget(env, 'draft')) || { at: 0, items: [] };
   if (b.action === 'run') {
     var last = await env.LIMITS.get('lastrun'); if (last && Date.now() - parseInt(last, 10) < 36e5) return json({ error: 'too_soon' }, 429, origin);
-    await env.LIMITS.put('lastrun', String(Date.now()));
-    var r = await runDaily(env); return json(r.ok ? { ok: true, n: r.n, usage: r.usage } : { error: r.error || 'upstream' }, r.ok ? 200 : 502, origin);
+    var r = await runDaily(env); if (r.ok) await env.LIMITS.put('lastrun', String(Date.now())); return json(r.ok ? { ok: true, n: r.n, usage: r.usage } : { error: r.error || 'upstream', stop: r.stop, len: r.len, tail: r.tail, status: r.status }, r.ok ? 200 : 502, origin);
   }
   if (b.action === 'approve') {
     var ids = {};

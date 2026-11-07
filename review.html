@@ -34,7 +34,7 @@ ul{margin:8px 0 0;padding-left:18px}li{margin:2px 0}a{color:var(--ac)}
 var URLW='https://avakasha-reader.ramakrishnamvs1.workers.dev/', KEY='';
 function $(i){return document.getElementById(i)}
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
-async function api(a){var r=await fetch(URLW,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({admin:Object.assign({key:KEY},a)})});var j=null;try{j=await r.json()}catch(e){}if(!r.ok||!j)throw new Error((j&&j.error)||'failed');return j}
+async function api(a){var r=await fetch(URLW,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({admin:Object.assign({key:KEY},a)})});var j=null;try{j=await r.json()}catch(e){}if(!r.ok||!j){var er=new Error((j&&j.error)||'failed');er.detail=j&&(j.stop||j.status||j.tail)?JSON.stringify({stop:j.stop,status:j.status,len:j.len,tail:j.tail}):'';throw er}return j}
 var DRAFT=[];
 function ruleText(r){if(r.t==='age')return null;if(r.t==='passed')return 'Class 10 pass';if(r.t==='passed12')return 'Class 12 pass';if(r.t==='pct12')return 'At least '+r.min+'% in Class 12';if(r.t==='pctmin')return 'At least '+r.min+'% in Class 10';if(r.t==='exp')return r.min+' years of experience';if(r.t==='static')return r.title+': '+r.detail;return r.t}
 function card(x,i){
@@ -68,7 +68,7 @@ function draw(j){
 async function load(a){$('msg').textContent='Working…';try{var j=await api(a||{action:'list'});draw(j);$('msg').textContent=''}catch(e){$('msg').innerHTML='<span class="err">'+esc(e.message)+'</span>'}}
 $('go').onclick=async function(){KEY=$('key').value;try{var j=await api({action:'list'});try{sessionStorage.setItem('ak',KEY)}catch(e){}$('login').hidden=true;$('main').hidden=false;draw(j)}catch(e){$('lerr').textContent=e.message==='forbidden'?'Wrong key.':e.message}};
 $('reload').onclick=function(){load()};
-$('run').onclick=async function(){if(!confirm('Run the search now? It costs about ₹20 to ₹30.'))return;$('msg').textContent='Searching. This can take a few minutes…';try{var r=await api({action:'run'});await load()}catch(e){$('msg').innerHTML='<span class="err">'+esc(e.message)+'</span>'}};
+$('run').onclick=async function(){if(!confirm('Run the search now? It costs about ₹20 to ₹30.'))return;$('msg').textContent='Searching. This can take a few minutes…';try{var r=await api({action:'run'});await load()}catch(e){$('msg').innerHTML='<span class="err">'+esc(e.message)+'</span> <span class="mu">'+esc(e.detail||'')+'</span>'}};
 document.addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;var c=b.closest('[data-i]');
   if(b.dataset.a&&c){var i=+c.dataset.i;if(b.dataset.a==='ok')load({action:'approve',items:[collect(i)]});else load({action:'reject',ids:[DRAFT[i].id]})}
   if(b.dataset.rm&&confirm('Remove from live?'))load({action:'remove',ids:[b.dataset.rm]})});
