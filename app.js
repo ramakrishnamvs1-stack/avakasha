@@ -48,7 +48,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '26';
+var APPVER = '27';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -1051,7 +1051,8 @@ wireCamera();
 })();
 
 load();
-try { if (location.hash) history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+/* A fresh launch opens on Home; a refresh (pull down) stays on the page you are on. */
+try { var navT = (performance.getEntriesByType('navigation')[0] || {}).type; if (location.hash && navT !== 'reload') history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
 try { TAB = sessionStorage.getItem('pa10.tab') || 'work'; } catch (e) {}
 if (!DB.active && DB.profiles.length) DB.active = DB.profiles[0].id;
 if (DB.profiles.length && !introSeen()) { try { localStorage.setItem('pa10.intro', '1'); } catch (e) {} }
