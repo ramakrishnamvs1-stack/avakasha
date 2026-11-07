@@ -72,7 +72,12 @@ function draw(j){
 async function load(a){$('msg').textContent='Working…';try{var j=await api(a||{action:'list'});draw(j);$('msg').textContent=''}catch(e){$('msg').innerHTML='<span class="err">'+esc(e.message)+'</span>'}}
 $('go').onclick=async function(){KEY=$('key').value;try{var j=await api({action:'list'});try{sessionStorage.setItem('ak',KEY)}catch(e){}$('login').hidden=true;$('main').hidden=false;draw(j)}catch(e){$('lerr').textContent=e.message==='forbidden'?'Wrong key.':e.message}};
 $('reload').onclick=function(){load()};
-$('run').onclick=async function(){if(!confirm('Run the search now? It costs about ₹40 to ₹50.'))return;$('msg').textContent='Searching. This takes 2 to 4 minutes. You can leave this page open…';try{await api({action:'run'});var t0=Date.now();(function poll(){setTimeout(async function(){try{var j=await api({action:'list'});if(j.running&&Date.now()-t0<9e5){$('msg').textContent='Still searching… ('+Math.round((Date.now()-t0)/1000)+' s)';poll()}else draw(j)}catch(e){$('msg').innerHTML='<span class="err">'+esc(e.message)+'</span>'}},10000)})()}catch(e){$('msg').innerHTML='<span class="err">'+esc(e.message)+'</span> <span class="mu">'+esc(e.detail||'')+'</span>'}};
+$('run').onclick=async function(){if(!confirm('Run the search now? It costs about ₹40 to ₹50 and takes 2 to 4 minutes. Keep this page open.'))return;
+  var t0=Date.now(),tick=setInterval(function(){var s=$('msg').getAttribute('data-s')||'';$('msg').textContent=s+' ('+Math.round((Date.now()-t0)/1000)+' s)'},1000);
+  function st(t){$('msg').setAttribute('data-s',t);$('msg').textContent=t}
+  try{st('Step 1 of 2: searching official sites…');await api({action:'run'});st('Step 2 of 2: looking for other posts…');await api({action:'run2'})}
+  catch(e){clearInterval(tick);$('msg').innerHTML='<span class="err">'+esc(e.message)+'</span> <span class="mu">'+esc(e.detail||'')+'</span>';try{draw(await api({action:'list'}))}catch(x){}return}
+  clearInterval(tick);load()};
 document.addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;var c=b.closest('[data-i]');
   if(b.dataset.a&&c){var i=+c.dataset.i;if(b.dataset.a==='ok'){var it=collect(i);if(it)load({action:'approve',items:[it]})}elseload({action:'reject',ids:[DRAFT[i].id]})}
   if(b.dataset.rm&&confirm('Remove from live?'))load({action:'remove',ids:[b.dataset.rm]})});
