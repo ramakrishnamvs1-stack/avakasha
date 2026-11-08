@@ -484,27 +484,39 @@
   },
   {
    "id": "t-iti",
-   "title": "ITI courses in Karnataka",
+   "title": "ITI trade courses in Karnataka",
    "org": "Dept. of Industrial Training and Employment, Karnataka",
-   "line": "Trade courses at government, aided and private ITIs approved by NCVT. The department lists the institutes by division.",
+   "line": "One-year trade courses at ITIs, run under the Karnataka Department of Industrial Training and Employment. The department lists each trade with its entry qualification.",
    "minEdu": 1,
-   "off": false,
+   "off": true,
    "facts": [
     [
-     "Run by",
-     "Dept. of Industrial Training and Employment, Karnataka"
+     "Entry",
+     "10th pass, for the trades listed first on the department's list"
+    ],
+    [
+     "Length",
+     "1 year for the trades shown"
+    ],
+    [
+     "Trades include",
+     "Computer hardware and network maintenance, COPA (computer operator and programming assistant), secretarial practice (English), fashion design and technology, fire technology and industrial safety, foundryman"
+    ],
+    [
+     "Also listed",
+     "Each trade shows its sector, batch size (24 in these rows) and NSQF level"
     ],
     [
      "Institutes",
-     "Listed by division, such as Bengaluru and Hubli"
+     "ITIs are listed by division, such as Bengaluru and Hubli"
     ]
    ],
    "src": [
-    "NCVT-affiliated ITIs, Bengaluru division",
-    "https://itiemp.karnataka.gov.in/page/AFFILIATION+INFO/NCVT%20Affiliated%20industrial%20Training%20Institutes%20(Govt%20GIA%20and%20Private)/Bengaluru+Division/en"
+    "Regular trades, Dept. of Industrial Training and Employment",
+    "https://itiemp.karnataka.gov.in/39/trades/en"
    ],
-   "go": "https://itiemp.karnataka.gov.in/",
-   "note": "The official site blocks automated reading, so the details were not checked. Open it to see courses, eligibility and fees."
+   "go": "https://itiemp.karnataka.gov.in/39/trades/en",
+   "note": "Read from the department's list of regular trades. Only the first rows were checked, so other trades may have different entry rules and lengths. Check the trade you want, and when admissions open, on the site."
   }
  ]
 }
