@@ -207,43 +207,45 @@ async function runStep(env, step) {
     (Array.isArray(A.o.jobs) ? A.o.jobs : []).forEach(function (x) { addA(cleanRecord(x, A.seen, today)); });
     (Array.isArray(A.o.exams) ? A.o.exams : []).forEach(function (x) { addA(cleanExam(x, A.seen, today)); });
     await env.LIMITS.put('draft', JSON.stringify({ at: Date.now(), items: items, usage: A.u, passA: 'ok' }));
-    return { ok: true, n: items.length, leads: 0, usage: A.u };
+    var rawA = (Array.isArray(A.o.jobs) ? A.o.jobs.length : 0) + (Array.isArray(A.o.exams) ? A.o.exams.length : 0);
+    return { ok: true, n: items.length, leads: 0, usage: A.u, stats: { raw: rawA, added: items.length } };
   }
   if (step === 'C') {
     var dc = (await kget(env, 'draft')) || { items: [] }, idc = {}, tc = []; dc.items.forEach(function (x) { idc[x.id] = 1; if (x.k === 'pvt') tc.push(nkey(x.org + x.title)); });
     (live.pvt || []).forEach(function (x) { idc[x.id] = 1; });
     var C = await searchPass(env, promptC(today), null, 5, env.PVT_MODEL || DEFAULT_PVT_MODEL);
     if (!C.ok) return { error: C.error, stop: C.stop, len: C.len, tail: C.tail, status: C.status, usage: C.u };
-    var addc = 0;
+    var addc = 0, rawc = 0, badc = 0, dupc = 0;
     (Array.isArray(C.o.jobs) ? C.o.jobs : []).slice(0, PVT_MAX).forEach(function (x) {
-      var c = cleanPvt(x, C.seen, today); if (!c || idc[c.id]) return;
-      var nk = nkey(c.org + c.title); if (tc.indexOf(nk) >= 0) return; tc.push(nk); idc[c.id] = 1; dc.items.push(c); addc++;
+      rawc++; var c = cleanPvt(x, C.seen, today); if (!c) { badc++; return; } if (idc[c.id]) { dupc++; return; }
+      var nk = nkey(c.org + c.title); if (tc.indexOf(nk) >= 0) { dupc++; return; } tc.push(nk); idc[c.id] = 1; dc.items.push(c); addc++;
     });
     dc.usage = addUsage(dc.usage || {}, C.u); dc.passC = 'ok'; dc.at = Date.now();
     await env.LIMITS.put('draft', JSON.stringify(dc));
-    return { ok: true, n: dc.items.length, leads: dc.items.filter(function (x) { return x.lead; }).length, pvt: addc, usage: C.u };
+    return { ok: true, n: dc.items.length, leads: dc.items.filter(function (x) { return x.lead; }).length, pvt: addc, usage: C.u, stats: { raw: rawc, added: addc, dup: dupc, bad: badc } };
   }
   var d = (await kget(env, 'draft')) || { items: [] }, titles2 = d.items.map(function (x) { return nkey(x.title); }), ids = {}; d.items.forEach(function (x) { ids[x.id] = 1; });
   var B = await searchPass(env, promptB(today), null, 5);
   if (!B.ok) return { error: B.error, stop: B.stop, len: B.len, tail: B.tail, status: B.status, usage: B.u };
-  var added = 0;
+  var added = 0, rawb = 0, badb = 0, dupb = 0;
   (Array.isArray(B.o.jobs) ? B.o.jobs : []).forEach(function (x) {
-    var c = cleanRecord(x, B.seen, today); if (!c || known[c.id] || ids[c.id]) return;
-    var nk = nkey(c.title); if (titles2.some(function (t) { return sameTitle(t, nk); })) return;
+    rawb++; var c = cleanRecord(x, B.seen, today); if (!c) { badb++; return; } if (known[c.id] || ids[c.id]) { dupb++; return; }
+    var nk = nkey(c.title); if (titles2.some(function (t) { return sameTitle(t, nk); })) { dupb++; return; }
     if (!c.official) c.lead = true;
     titles2.push(nk); ids[c.id] = 1; d.items.push(c); added++;
   });
   d.usage = addUsage(d.usage || {}, B.u); d.passB = 'ok'; d.at = Date.now();
   await env.LIMITS.put('draft', JSON.stringify(d));
-  return { ok: true, n: d.items.length, leads: d.items.filter(function (x) { return x.lead; }).length, usage: B.u };
+  return { ok: true, n: d.items.length, leads: d.items.filter(function (x) { return x.lead; }).length, usage: B.u, stats: { raw: rawb, added: added, dup: dupb, bad: badb } };
 }
 /* Runs a step and adds its estimated cost to this month's total (spend:YYYY-MM in KV). */
-async function runLogged(env, step) {
+async function runLogged(env, step, src) {
   var r = await runStep(env, step), inr = r && r.usage && r.usage.inr || 0;
+  if (env.LIMITS) { try { var lg = (await kget(env, 'runlog')) || []; lg.unshift({ at: Date.now(), step: step, src: src || 'manual', ok: !!r.ok, error: r.ok ? null : (r.error || 'upstream'), raw: r.stats && r.stats.raw, added: r.stats && r.stats.added, dup: r.stats && r.stats.dup, bad: r.stats && r.stats.bad, inr: Math.round(inr * 10) / 10, model: r.usage && r.usage.model, fellBack: !!(r.usage && r.usage.fellBack) }); await env.LIMITS.put('runlog', JSON.stringify(lg.slice(0, 45))); } catch (e) {} }
   if (inr > 0 && env.LIMITS) { try { var k = 'spend:' + todayStr().slice(0, 7), v = parseFloat((await env.LIMITS.get(k)) || '0') || 0; await env.LIMITS.put(k, String(v + inr), { expirationTtl: 7776000 }); } catch (e) {} }
   return r;
 }
-async function runDaily(env) { var a = await runLogged(env, 'A'); if (!a.ok) return a; var b = await runLogged(env, 'B'); if (!b.ok) return b; var c = await runLogged(env, 'C'); return c.ok ? { ok: true, n: c.n, leads: c.leads, usage: addUsage(addUsage(a.usage, b.usage), c.usage) } : c; }
+async function runDaily(env) { var a = await runLogged(env, 'A', 'daily'); if (!a.ok) return a; var b = await runLogged(env, 'B', 'daily'); if (!b.ok) return b; var c = await runLogged(env, 'C', 'daily'); return c.ok ? { ok: true, n: c.n, leads: c.leads, usage: addUsage(addUsage(a.usage, b.usage), c.usage) } : c; }
 function cutoff(days) { return new Date(Date.now() - days * 864e5).toISOString().slice(0, 10); }
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 async function adminDo(b, request, env, origin) {
@@ -281,7 +283,8 @@ async function adminDo(b, request, env, origin) {
     live.at = Date.now(); await env.LIMITS.put('live', JSON.stringify(live));
   }
   var lastres = await kget(env, 'lastresult'), spend = parseFloat((await env.LIMITS.get('spend:' + todayStr().slice(0, 7))) || '0') || 0;
-  return json({ ok: true, draft: draft, last: lastres, spend: Math.round(spend), live: { at: live.at, records: live.records.map(function (x) { return { id: x.id, title: x.title, closes: x.closes }; }), exams: live.exams.map(function (x) { return { id: x.id, title: x.title, d: x.d }; }), pvt: live.pvt.map(function (x) { return { id: x.id, title: x.title + ' · ' + x.org, closes: x.closes, d: x.found }; }) } }, 200, origin);
+  var runlog = (await kget(env, 'runlog')) || [];
+  return json({ ok: true, draft: draft, last: lastres, spend: Math.round(spend), runlog: runlog, live: { at: live.at, records: live.records.map(function (x) { return { id: x.id, title: x.title, closes: x.closes }; }), exams: live.exams.map(function (x) { return { id: x.id, title: x.title, d: x.d }; }), pvt: live.pvt.map(function (x) { return { id: x.id, title: x.title + ' · ' + x.org, closes: x.closes, d: x.found }; }) } }, 200, origin);
 }
 async function liveGet(env, origin) {
   var today = todayStr(), live = (await kget(env, 'live')) || { at: 0, records: [], exams: [] };

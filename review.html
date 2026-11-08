@@ -69,12 +69,13 @@ function draw(j){
   $('info').textContent=j.draft&&j.draft.at?'Last search '+new Date(j.draft.at).toLocaleString():'No search yet';
   var main=[],leads=[],pv=[];DRAFT.forEach(function(x,i){(x.k==='pvt'?pv:x.lead?leads:main).push(card(x,i))});
   var l=j.live||{records:[],exams:[]},lv=l.records.concat(l.exams).concat(l.pvt||[]);
-  var TABS=[['g','Govt and exams',main.length],['l','Leads',leads.length],['p','Private jobs',pv.length],['n','Live now',lv.length]];
+  var TABS=[['g','Govt and exams',main.length],['l','Leads',leads.length],['p','Private jobs',pv.length],['n','Live now',lv.length],['h','Run history',(j.runlog||[]).length]];
   if(!TABS.some(function(t){return t[0]===TAB}))TAB='g';
   $('tabs').innerHTML=TABS.map(function(t){return '<button type="button" class="tb'+(t[0]===TAB?' on':'')+'" data-tab="'+t[0]+'">'+t[1]+' ('+t[2]+')</button>'}).join('');
   var body='';
   if(TAB==='g')body=main.length?'<p class="mu">Finds from official government sites. Check each against its notice, fix any number, then approve or reject.</p>'+main.join(''):'<div class="c mu">Nothing waiting.</div>';
   else if(TAB==='l')body=leads.length?'<p class="mu">Seen on other sites, but no official notice was found. Find the notice on the official site and paste its link to approve, or reject.</p>'+leads.join(''):'<div class="c mu">No leads waiting.</div>';
+  else if(TAB==='h'){var SN={A:'Official sites',B:'Other govt posts',C:'Private jobs'};body=(j.runlog||[]).length?'<p class="mu">Every search, newest first. Found is what the search returned; Added is what reached the waiting list; the rest were duplicates or dropped (fee, no link, closed). Cost is an estimate.</p>'+(j.runlog||[]).map(function(r){var d=new Date(r.at);return '<div class="c"><b>'+esc(SN[r.step]||r.step)+'</b> <span class="mu">'+d.toLocaleDateString()+' '+d.toLocaleTimeString()+' · '+(r.src==='daily'?'7:30 am auto run':'manual')+'</span><div class="mu">'+(r.ok?'Found '+(r.raw==null?'?':r.raw)+' · Added '+(r.added==null?'?':r.added)+' · Duplicates '+(r.dup||0)+' · Dropped '+(r.bad||0):'<span class="err">Failed: '+esc(r.error||'')+'</span>')+' · about ₹'+Math.round(r.inr||0)+(r.model?' · '+esc(r.model)+(r.fellBack?' (fell back)':''):'')+'</div></div>'}).join(''):'<div class="c mu">No runs recorded yet. Runs from now on will appear here.</div>'}
   else if(TAB==='p')body=pv.length?'<p class="mu">Found on job sites. Open each listing, check the employer is real and nothing asks for a fee, fix the qualification and years, then approve.</p>'+pv.join(''):'<div class="c mu">No private jobs waiting.</div>';
   else body=(lv.map(function(x){return '<div class="c"><b>'+esc(x.title)+'</b> <span class="mu">'+esc(x.closes||x.d||'')+'</span><div class="row"><button class="d" data-rm="'+esc(x.id)+'">Remove</button></div></div>'}).join(''))||'<div class="c mu">Nothing live yet.</div>';
   $('list').innerHTML=body;
