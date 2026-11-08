@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '56';
+var APPVER = '57';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -491,18 +491,18 @@ var HICONS = [
 function upExams() { return (EXTRA.exams || []).filter(function (x) { return pd(x.d) >= TODAY; }).sort(function (a, b) { return pd(a.d) - pd(b.d); }); }
 function dayTxt(x) { if (x.tent) return 'Expected ' + x.when; var n = daysBetween(TODAY, pd(x.d)); return n === 0 ? 'Today' : n === 1 ? '1 day to go' : n + ' days to go'; }
 function stopHome() { if (HOME.t) { clearInterval(HOME.t); HOME.t = null; } }
-function nextInfo() {
-  var p = prof(), f = F(); if (!p || !Object.keys(p.facts).length) return '';
-  var r = eduRank(f), c = r >= 3 ? ['After your degree', 'Government jobs open for graduates, and options for further study.', '#govt', 'See jobs'] : r === 2 ? ['After Class 12', 'Entrance exams and degree courses that fit your stream and marks.', '#study', 'See what next'] : r === 1 ? ['After Class 10', 'PUC, diploma or ITI: see which courses fit your marks.', '#study', 'See what next'] : null;
-  return c;
+function nextCards() {
+  var C = { 10: ['After Class 10', 'PUC, diploma or ITI: see which courses fit your marks.', '#study/10', 'See what next'], 12: ['After Class 12', 'Entrance exams and degree courses that fit your stream and marks.', '#study/12', 'See what next'], g: ['After graduation', 'Government jobs open for graduates, and options for further study.', '#govt', 'See jobs'] };
+  var p = prof(), r = p && Object.keys(p.facts).length ? eduRank(F()) : 0, own = r >= 3 ? 'g' : r === 2 ? '12' : '10';
+  return [own].concat(['10', '12', 'g'].filter(function (k) { return k !== own; })).map(function (k) { return C[k]; });
 }
 function homeTop() {
   var p = prof(), n = savedList().length;
   return '<div class="htop"><span class="hhi">' + (p ? 'Hi, ' + esc(p.name) : 'Avakasha') + '</span>' + (p && n ? '<a class="hsv" href="#saved" aria-label="Saved, ' + n + '">' + HEART + '<b>' + n + '</b></a>' : '') + '<a class="hav" href="#profile" aria-label="Open profile">' + (p ? initial(p.name) : '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>') + '</a></div>';
 }
 function homeItems() {
-  var out = upExams().filter(function (x) { return x.hero; }).slice(0, 3).map(function (x) { return { exam: x }; }), nx = nextInfo();
-  if (nx) out.unshift({ next: nx });
+  var out = upExams().filter(function (x) { return x.hero; }).slice(0, 3).map(function (x) { return { exam: x }; }), nx = nextCards();
+  out = nx.map(function (c) { return { next: c }; }).concat(out);
   if (!out.length) out.push({ note: NOTES[(Math.floor(TODAY.getTime() / 864e5)) % NOTES.length] });
   return out;
 }
@@ -584,12 +584,14 @@ function renderSummary() {
   $('sumShare').onclick = function () { if (navigator.share) navigator.share({ text: t }).catch(function () {}); else window.open('https://wa.me/?text=' + encodeURIComponent(t), '_blank', 'noopener'); };
   $('sumCopy').onclick = function () { (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { toast('Copied.'); }, function () { toast('Could not copy. Use Share instead.'); }); };
 }
-function renderPaths(tab) {
+function renderPaths(tab, stage) {
   var f = F(), p = prof(), hasFacts = p && Object.keys(p.facts).length, isS = tab === 'scholar';
-  var ev = DATA.records.filter(function (r) { return r.tab === tab; }).filter(function (r) { return hasFacts ? relevant(r, f, p) : !r.later; }).map(function (r) { return evaluate(r, f); }).filter(function (e) { return isS ? (SHOWALL || e.grp < 2) : e.grp < 3; }).sort(sortG);
+  var STG = { 10: ['puc', 'dip', 'iti'], 12: ['kcet', 'neet', 'cuet', 'jee', 'bscot'] }, ids = !isS && STG[stage];
+  var ev = DATA.records.filter(function (r) { return r.tab === tab; }).filter(function (r) { return ids ? ids.indexOf(r.id) >= 0 : (hasFacts ? relevant(r, f, p) : !r.later); }).map(function (r) { return evaluate(r, f); }).filter(function (e) { return ids ? true : isS ? (SHOWALL || e.grp < 2) : e.grp < 3; }).sort(sortG);
   var intro = isS ? 'Scholarships you may be eligible for. Apply on the official portals only.' : (hasFacts ? 'Courses and entrance exams that fit what you have studied.' : 'Scan your marksheet to see which of these fit you.');
   var groups = [0, 1, 2, 3].map(function (g) { var it = ev.filter(function (e) { return e.grp === g; }); return it.length ? '<section class="group"><h2>' + (isS || g < 2 ? GROUPS[g][0] : 'Plan ahead: next admission') + ' <span class="n">' + it.length + '</span></h2><p class="gnote">' + (isS || g < 2 ? GROUPS[g][1] : 'Applications are not open right now. The next intake is shown on each card.') + '</p><div class="recs">' + it.map(card).join('') + '</div></section>' : ''; }).join('');
-  $('app').innerHTML = subHead(isS ? 'Scholarships' : 'Study paths', intro)
+  if (ids) { groups = '<div class="recs">' + ev.map(card).join('') + '</div>'; intro = stage === '10' ? 'Courses you can join after Class 10. The tag on each card shows whether you fit now.' : 'Entrance exams and degree courses after Class 12. The tag on each card shows whether you fit now.'; }
+  $('app').innerHTML = subHead(isS ? 'Scholarships' : ids ? (stage === '10' ? 'After Class 10' : 'After Class 12') : 'Study paths', intro)
     + (groups || '<div class="card"><p class="note">Nothing to show yet. Scan a marksheet and Avakasha will match these to you.</p></div>')
     + (isS ? '' : '<p class="foot">Admission dates change every year. Check the college or board website before you apply.</p>');
   wireBack('#home');
@@ -1455,7 +1457,7 @@ document.addEventListener('click', function (e) {
   el.classList.toggle('on', on); el.setAttribute('aria-pressed', String(on)); el.setAttribute('aria-label', on ? 'Remove from saved' : 'Save');
   toast(on ? 'Saved.' : 'Removed from saved.'); renderTop(route().r); if (route().r === 'saved') renderSaved();
 }, true);
-function route() { var h = location.hash.replace('#', ''); if (h.indexOf('job/') === 0) return { r: 'job', id: decodeURIComponent(h.slice(4)) }; if (h.indexOf('x/') === 0) return { r: 'x', id: decodeURIComponent(h.slice(2)) }; if (h.indexOf('t/') === 0) return { r: 't', id: decodeURIComponent(h.slice(2)) }; if (h === 'train') return { r: 'train' }; if (h === 'saved') return { r: 'saved' }; if (h === 'study' || h === 'scholar' || h === 'summary') return { r: h }; if (h === 'explore' || h === 'profile' || h === 'exams' || h === 'govt' || h === 'pvt') return { r: h }; return { r: 'home' }; }
+function route() { var h = location.hash.replace('#', ''); if (h.indexOf('job/') === 0) return { r: 'job', id: decodeURIComponent(h.slice(4)) }; if (h.indexOf('x/') === 0) return { r: 'x', id: decodeURIComponent(h.slice(2)) }; if (h.indexOf('t/') === 0) return { r: 't', id: decodeURIComponent(h.slice(2)) }; if (h === 'train') return { r: 'train' }; if (h === 'saved') return { r: 'saved' }; if (h.indexOf('study/') === 0) return { r: 'study', st: h.slice(6) }; if (h === 'study' || h === 'scholar' || h === 'summary') return { r: h }; if (h === 'explore' || h === 'profile' || h === 'exams' || h === 'govt' || h === 'pvt') return { r: h }; return { r: 'home' }; }
 function renderTop(r) {
   var p = prof(), b = $('avatar'), br = document.querySelector('.brand'), sb = $('savedBtn');
   if (sb) { var sn = savedList().length; sb.hidden = r === 'profile' || !p; sb.innerHTML = HEART + (sn ? '<span class="cnt">' + sn + '</span>' : ''); sb.setAttribute('aria-label', 'Saved, ' + sn + (sn === 1 ? ' item' : ' items')); sb.onclick = function () { location.hash = '#saved'; }; }
@@ -1481,7 +1483,7 @@ function render() {
   renderTop(h);
   if (!DATA) return;
   if (h === 'explore') refreshLive();
-  if (h === 'job') renderDetail(rt.id); else if (h === 'x') renderX(rt.id); else if (h === 't') renderT(rt.id); else if (h === 'train') renderTrain(); else if (h === 'saved') renderSaved(); else if (h === 'summary') renderSummary(); else if (h === 'study') renderPaths('study'); else if (h === 'scholar') renderPaths('scholar'); else if (h === 'exams') renderExams(); else if (h === 'govt') renderGovt(); else if (h === 'pvt') renderPvt(); else if (h === 'explore') renderExplore(); else if (h === 'profile') renderProfile(); else renderHome();
+  if (h === 'job') renderDetail(rt.id); else if (h === 'x') renderX(rt.id); else if (h === 't') renderT(rt.id); else if (h === 'train') renderTrain(); else if (h === 'saved') renderSaved(); else if (h === 'summary') renderSummary(); else if (h === 'study') renderPaths('study', rt.st); else if (h === 'scholar') renderPaths('scholar'); else if (h === 'exams') renderExams(); else if (h === 'govt') renderGovt(); else if (h === 'pvt') renderPvt(); else if (h === 'explore') renderExplore(); else if (h === 'profile') renderProfile(); else renderHome();
 }
 window.addEventListener('hashchange', function () { render(); window.scrollTo(0, 0); });
 $('nav-scan').onclick = function () { if (!prof()) { addPersonSheet(true, scanFlow); return; } scanFlow(); };
