@@ -10,8 +10,8 @@ var DEFAULT_MODEL = 'claude-sonnet-5-5';
 /* Private job search uses a cheaper model (PVT_MODEL in Cloudflare overrides it). If that model cannot be used, the search falls back to the main model. */
 var DEFAULT_PVT_MODEL = 'claude-haiku-5-5';
 var PVT_MAX = 10;
-/* Rough prices in US dollars per million tokens, and per web search. These are estimates for the review page, not a bill. Override with PRICE_IN_<name>, PRICE_OUT_<name> if they change. */
-var RATES = { haiku: { i: 1, o: 5 }, sonnet: { i: 3, o: 15 }, opus: { i: 5, o: 25 } };
+/* Rough prices in US dollars per million tokens, and per web search. Sonnet 5.5 is $2 in and $10 out. Haiku uses Haiku 4.5 prices ($1 and $5) because the 5.5 price was not confirmed, so the Haiku figure may be too high. These are estimates for the review page, not a bill. */
+var RATES = { haiku: { i: 1, o: 5 }, sonnet: { i: 2, o: 10 }, opus: { i: 5, o: 25 } };
 function rateFor(model) { var m = String(model || '').toLowerCase(); return m.indexOf('haiku') >= 0 ? RATES.haiku : m.indexOf('opus') >= 0 ? RATES.opus : RATES.sonnet; }
 function costInr(env, model, usage) {
   var r = rateFor(model), fx = parseFloat(env.USD_INR || '90') || 90;
