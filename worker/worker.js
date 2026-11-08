@@ -195,7 +195,7 @@ function promptC(today) {
 }
 function addUsage(a, b) { return { input_tokens: (a.input_tokens || 0) + (b.input_tokens || 0), output_tokens: (a.output_tokens || 0) + (b.output_tokens || 0), searches: (a.searches || 0) + (b.searches || 0), inr: (a.inr || 0) + (b.inr || 0), fellBack: !!(a.fellBack || b.fellBack) }; }
 /* The daily job has two steps so each fits in one request. Step A searches official government sites only and starts a fresh draft. Step B searches anywhere for posts step A missed; those are "leads" that need an official notice link before they can be approved. Nothing reaches users until it is approved. */
-async function runStep(env, step) {
+async function runStep(env, step, runId) {
   if (!env.LIMITS || !env.ANTHROPIC_API_KEY) return { error: 'not_configured' };
   var today = todayStr(), live = (await kget(env, 'live')) || { records: [], exams: [] };
   var known = {}; live.records.concat(live.exams).forEach(function (x) { known[x.id] = 1; });
@@ -203,7 +203,7 @@ async function runStep(env, step) {
     var A = await searchPass(env, promptA(today), OFFICIAL_DOMAINS, 8);
     if (!A.ok) return { error: A.error, stop: A.stop, len: A.len, tail: A.tail, status: A.status, usage: A.u };
     var items = [], titles = [];
-    function addA(x) { if (!x || known[x.id]) return; var nk = nkey(x.title); if (titles.some(function (t) { return sameTitle(t, nk); })) return; titles.push(nk); items.push(x); }
+    function addA(x) { if (!x || known[x.id]) return; x.run = runId; var nk = nkey(x.title); if (titles.some(function (t) { return sameTitle(t, nk); })) return; titles.push(nk); items.push(x); }
     (Array.isArray(A.o.jobs) ? A.o.jobs : []).forEach(function (x) { addA(cleanRecord(x, A.seen, today)); });
     (Array.isArray(A.o.exams) ? A.o.exams : []).forEach(function (x) { addA(cleanExam(x, A.seen, today)); });
     await env.LIMITS.put('draft', JSON.stringify({ at: Date.now(), items: items, usage: A.u, passA: 'ok' }));
@@ -217,7 +217,7 @@ async function runStep(env, step) {
     if (!C.ok) return { error: C.error, stop: C.stop, len: C.len, tail: C.tail, status: C.status, usage: C.u };
     var addc = 0, rawc = 0, badc = 0, dupc = 0;
     (Array.isArray(C.o.jobs) ? C.o.jobs : []).slice(0, PVT_MAX).forEach(function (x) {
-      rawc++; var c = cleanPvt(x, C.seen, today); if (!c) { badc++; return; } if (idc[c.id]) { dupc++; return; }
+      rawc++; var c = cleanPvt(x, C.seen, today); if (!c) { badc++; return; } c.run = runId; if (idc[c.id]) { dupc++; return; }
       var nk = nkey(c.org + c.title); if (tc.indexOf(nk) >= 0) { dupc++; return; } tc.push(nk); idc[c.id] = 1; dc.items.push(c); addc++;
     });
     dc.usage = addUsage(dc.usage || {}, C.u); dc.passC = 'ok'; dc.at = Date.now();
@@ -229,7 +229,7 @@ async function runStep(env, step) {
   if (!B.ok) return { error: B.error, stop: B.stop, len: B.len, tail: B.tail, status: B.status, usage: B.u };
   var added = 0, rawb = 0, badb = 0, dupb = 0;
   (Array.isArray(B.o.jobs) ? B.o.jobs : []).forEach(function (x) {
-    rawb++; var c = cleanRecord(x, B.seen, today); if (!c) { badb++; return; } if (known[c.id] || ids[c.id]) { dupb++; return; }
+    rawb++; var c = cleanRecord(x, B.seen, today); if (!c) { badb++; return; } c.run = runId; if (known[c.id] || ids[c.id]) { dupb++; return; }
     var nk = nkey(c.title); if (titles2.some(function (t) { return sameTitle(t, nk); })) { dupb++; return; }
     if (!c.official) c.lead = true;
     titles2.push(nk); ids[c.id] = 1; d.items.push(c); added++;
@@ -238,10 +238,15 @@ async function runStep(env, step) {
   await env.LIMITS.put('draft', JSON.stringify(d));
   return { ok: true, n: d.items.length, leads: d.items.filter(function (x) { return x.lead; }).length, usage: B.u, stats: { raw: rawb, added: added, dup: dupb, bad: badb } };
 }
+/* Adds approved or rejected counts to the matching entries of the run history. */
+async function bumpRuns(env, counts, field) {
+  var keys = Object.keys(counts); if (!keys.length) return;
+  try { var lg = (await kget(env, 'runlog')) || [], ch = false; lg.forEach(function (e) { if (counts[e.id]) { e[field] = (e[field] || 0) + counts[e.id]; ch = true; } }); if (ch) await env.LIMITS.put('runlog', JSON.stringify(lg)); } catch (e) {}
+}
 /* Runs a step and adds its estimated cost to this month's total (spend:YYYY-MM in KV). */
 async function runLogged(env, step, src) {
-  var r = await runStep(env, step), inr = r && r.usage && r.usage.inr || 0;
-  if (env.LIMITS) { try { var lg = (await kget(env, 'runlog')) || []; lg.unshift({ at: Date.now(), step: step, src: src || 'manual', ok: !!r.ok, error: r.ok ? null : (r.error || 'upstream'), raw: r.stats && r.stats.raw, added: r.stats && r.stats.added, dup: r.stats && r.stats.dup, bad: r.stats && r.stats.bad, inr: Math.round(inr * 10) / 10, model: r.usage && r.usage.model, fellBack: !!(r.usage && r.usage.fellBack) }); await env.LIMITS.put('runlog', JSON.stringify(lg.slice(0, 45))); } catch (e) {} }
+  var runId = Date.now(), r = await runStep(env, step, runId), inr = r && r.usage && r.usage.inr || 0;
+  if (env.LIMITS) { try { var lg = (await kget(env, 'runlog')) || []; lg.unshift({ id: runId, at: runId, live: 0, rej: 0, step: step, src: src || 'manual', ok: !!r.ok, error: r.ok ? null : (r.error || 'upstream'), raw: r.stats && r.stats.raw, added: r.stats && r.stats.added, dup: r.stats && r.stats.dup, bad: r.stats && r.stats.bad, inr: Math.round(inr * 10) / 10, model: r.usage && r.usage.model, fellBack: !!(r.usage && r.usage.fellBack) }); await env.LIMITS.put('runlog', JSON.stringify(lg.slice(0, 45))); } catch (e) {} }
   if (inr > 0 && env.LIMITS) { try { var k = 'spend:' + todayStr().slice(0, 7), v = parseFloat((await env.LIMITS.get(k)) || '0') || 0; await env.LIMITS.put(k, String(v + inr), { expirationTtl: 7776000 }); } catch (e) {} }
   return r;
 }
@@ -273,9 +278,11 @@ async function adminDo(b, request, env, origin) {
       if (i >= 0) list[i] = c; else list.push(c); ids[c.id] = 1;
     });
     live.at = Date.now(); await env.LIMITS.put('live', JSON.stringify(live));
+    var lc = {}; draft.items.forEach(function (x) { if (ids[x.id] && x.run) lc[x.run] = (lc[x.run] || 0) + 1; }); await bumpRuns(env, lc, 'live');
     draft.items = draft.items.filter(function (x) { return !ids[x.id]; }); await env.LIMITS.put('draft', JSON.stringify(draft));
   } else if (b.action === 'reject') {
     var rj = {}; (Array.isArray(b.ids) ? b.ids : []).forEach(function (i) { rj[i] = 1; });
+    var rc = {}; draft.items.forEach(function (x) { if (rj[x.id] && x.run) rc[x.run] = (rc[x.run] || 0) + 1; }); await bumpRuns(env, rc, 'rej');
     draft.items = draft.items.filter(function (x) { return !rj[x.id]; }); await env.LIMITS.put('draft', JSON.stringify(draft));
   } else if (b.action === 'remove') {
     var rm = {}; (Array.isArray(b.ids) ? b.ids : []).forEach(function (i) { rm[i] = 1; });
