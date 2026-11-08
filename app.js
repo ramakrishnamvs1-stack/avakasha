@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '41';
+var APPVER = '42';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -753,8 +753,8 @@ function scanFlow() { scan = { type: 'auto', canvas: null, local: false }; if (!
 function scanSheet() {
   scan = { type: 'auto', canvas: null, local: false };
   sheet('<h2>Scan a document</h2><p class="note">Photograph it flat, in good light, with the whole page in the frame. The photo is not saved.</p>'
-    + '<p class="note">You do not need to say what it is. The app works that out: a Class 10 or Class 12 marksheet, birth certificate, caste certificate, income certificate, a driving licence, or a relieving, experience or offer letter.</p>'
-    + '<div class="row" style="margin-top:14px"><button class="btn pri big" id="cam" type="button">Open camera</button><button class="btn big" id="gal" type="button">Choose from gallery</button></div><input type="file" id="gf" accept="image/*" hidden>'
+    + '<p class="note">You do not need to say what it is. The app works that out: a Class 10 or Class 12 marksheet, birth certificate, caste certificate, income certificate, a driving licence, a relieving, experience or offer letter, or a resume.</p>'
+    + '<div class="row" style="margin-top:14px"><button class="btn pri big" id="cam" type="button">Open camera</button><button class="btn big" id="gal" type="button">Choose a photo or file</button></div><p class="note" style="margin-top:8px">A resume can be a PDF or a Word (.docx) file from your phone or computer. You do not need a printed copy.</p><input type="file" id="gf" accept="image/*,application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden>'
     + '<div id="sm"></div><div class="row" style="margin-top:16px"><button class="btn" id="sc" type="button">Cancel</button></div>');
   $('sc').onclick = closeSheet;
   $('gal').onclick = function () { $('gf').click(); };
@@ -782,11 +782,47 @@ function wireCamera() {
     stopCam(); scan.canvas = c; review();
   };
 }
+function b64Of(buf) { var u = new Uint8Array(buf), s = '', i; for (i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); }
+/* Word files are zip files; read word/document.xml and keep the words. */
+async function docxText(file) {
+  var ab = await file.arrayBuffer(), v = new DataView(ab), n = v.byteLength, i, eocd = -1;
+  for (i = n - 22; i >= Math.max(0, n - 66000); i--) if (v.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  if (eocd < 0) throw new Error('zip');
+  var cnt = v.getUint16(eocd + 10, true), p = v.getUint32(eocd + 16, true), ent = null;
+  for (i = 0; i < cnt; i++) {
+    if (v.getUint32(p, true) !== 0x02014b50) break;
+    var meth = v.getUint16(p + 10, true), csz = v.getUint32(p + 20, true), nl = v.getUint16(p + 28, true), el = v.getUint16(p + 30, true), cl = v.getUint16(p + 32, true), off = v.getUint32(p + 42, true);
+    var name = new TextDecoder().decode(new Uint8Array(ab, p + 46, nl));
+    if (name === 'word/document.xml') { ent = { meth: meth, csz: csz, off: off }; break; }
+    p += 46 + nl + el + cl;
+  }
+  if (!ent) throw new Error('nodoc');
+  var ln = v.getUint16(ent.off + 26, true), le = v.getUint16(ent.off + 28, true), data = new Uint8Array(ab, ent.off + 30 + ln + le, ent.csz), xml;
+  if (ent.meth === 0) xml = new TextDecoder().decode(data);
+  else { if (typeof DecompressionStream === 'undefined') throw new Error('nodecomp'); xml = await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text(); }
+  return xml.replace(/<w:tab\/>/g, ' ').replace(/<\/w:p>/g, '\n').replace(/<[^>]+>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&').replace(/\n{3,}/g, '\n\n').trim();
+}
+function fileFail(m) { if ($('sm')) $('sm').innerHTML = '<div class="status err">' + esc(m) + '</div>'; else toast(m); }
 function loadFile(fl) {
+  var nm = fl.name || '', isPdf = fl.type === 'application/pdf' || /\.pdf$/i.test(nm), isDocx = /\.docx$/i.test(nm) || fl.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  if (isPdf || isDocx) {
+    if (fl.size > 5 * 1024 * 1024) { fileFail('That file is larger than 5 MB. Try a smaller copy, or one page at a time.'); return; }
+    scan = { type: 'auto', canvas: null, local: false, pdf: null, text: null, fname: nm };
+    (isPdf ? fl.arrayBuffer().then(function (ab) { scan.pdf = b64Of(ab); }) : docxText(fl).then(function (t) { if (t.length < 40) throw new Error('empty'); scan.text = t.slice(0, 30000); }))
+      .then(reviewFile).catch(function () { fileFail(isPdf ? 'That PDF could not be opened.' : 'That Word file could not be read. Save it as a PDF and try again.'); });
+    return;
+  }
   var img = new Image(), u = URL.createObjectURL(fl);
-  img.onload = function () { var c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight; c.getContext('2d').drawImage(img, 0, 0); URL.revokeObjectURL(u); scan.canvas = c; review(); };
-  img.onerror = function () { if ($('sm')) $('sm').innerHTML = '<div class="status err">That file could not be opened as an image.</div>'; else toast('That file could not be opened as an image.'); };
+  img.onload = function () { var c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight; c.getContext('2d').drawImage(img, 0, 0); URL.revokeObjectURL(u); scan.canvas = c; scan.pdf = scan.text = null; review(); };
+  img.onerror = function () { fileFail('That file could not be opened as an image, PDF or Word file.'); };
   img.src = u;
+}
+function reviewFile() {
+  var server = CFG.readerUrl || userKey();
+  sheet('<h2>Check the file</h2><div class="status"><b>' + esc(scan.fname || 'File') + '</b><div class="note" style="margin-top:4px">' + (scan.pdf ? 'PDF file' : 'Word file') + ' ready to read. The file is not saved.</div></div>'
+    + (server ? '' : '<div class="status warn" style="margin-top:10px">Reading a PDF or Word file needs the reading server, which is not set up here. Use a photo of the page instead.</div>')
+    + '<div class="row" style="margin-top:14px">' + (server ? '<button class="btn pri big" id="rd" type="button">Read this document</button>' : '') + '<button class="btn" id="rt" type="button">Choose another</button></div><div id="sm"></div>');
+  $('rt').onclick = scanFlow; if ($('rd')) $('rd').onclick = readIt;
 }
 function review() {
   var url = scan.canvas.toDataURL('image/jpeg', 0.6);
@@ -850,11 +886,11 @@ function recordCost(u) {
   return { usd: usd, inr: usd * rate(), i: u.input_tokens, o: u.output_tokens || 0 };
 }
 function costLine() { return scan.cost ? '<p class="note" style="margin-top:8px">This scan cost about <b>' + inr(scan.cost.inr) + '</b> (' + scan.cost.i.toLocaleString('en-IN') + ' tokens in, ' + scan.cost.o.toLocaleString('en-IN') + ' out).</p>' : ''; }
-async function callDirect(type, b64, signal) {
+async function callDirect(type, b64, signal, mt, text) {
   var res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST', signal: signal,
     headers: { 'content-type': 'application/json', 'x-api-key': userKey(), 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-    body: JSON.stringify({ model: MODEL, max_tokens: 1200, messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }, { type: 'text', text: PROMPTS[type] }] }] })
+    body: JSON.stringify({ model: MODEL, max_tokens: 1200, messages: [{ role: 'user', content: [text ? { type: 'text', text: 'Document text:\n' + text } : mt === 'application/pdf' ? { type: 'document', source: { type: 'base64', media_type: mt, data: b64 } } : { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }, { type: 'text', text: PROMPTS[type] }] }] })
   });
   var j = null; try { j = await res.json(); } catch (e) {}
   if (!res.ok) {
@@ -872,20 +908,22 @@ async function callDirect(type, b64, signal) {
 function consented() { try { return localStorage.getItem('pa10.consent') === '1'; } catch (e) { return false; } }
 function readIt() {
   var server = (CFG.readerUrl || userKey()) && navigator.onLine !== false && !scan.local;
+  if (!server && (scan.pdf || scan.text)) { if ($('sm')) $('sm').innerHTML = '<div class="status warn">Reading this file needs an internet connection and the reading server.</div>'; return; }
   if (!server) return readLocal();
   if (!consented()) return consentSheet();
   return readRemote();
 }
+function reshow() { if (scan.canvas) review(); else reviewFile(); }
 function consentSheet() {
-  sheet('<h2>Read this with Claude?</h2><p>To read the document accurately, the photo is sent over the internet to Claude, an AI service run by Anthropic. This app does not keep the photo. Only the details you tick afterwards are saved, and they stay on this phone.</p>'
+  sheet('<h2>Read this with Claude?</h2><p>To read the document accurately, the photo or file is sent over the internet to Claude, an AI service run by Anthropic. This app does not keep it. Only the details you tick afterwards are saved, and they stay on this phone.</p>'
     + '<p style="margin-top:10px"><b>If the person in the document is under 18, a parent or guardian must agree.</b></p>'
     + '<label class="field" style="flex-direction:row;align-items:flex-start;gap:10px;font-weight:500"><input type="checkbox" id="cg" style="width:22px;height:22px;flex:none"><span>I am an adult, or a parent or guardian agrees to this photo being read by Claude.</span></label>'
-    + '<div class="row" style="margin-top:16px"><button class="btn pri big" id="cy" type="button" disabled>Agree and read</button><button class="btn" id="cl" type="button">Read on this phone instead</button><button class="btn" id="cn" type="button">Cancel</button></div>'
-    + '<p class="note" style="margin-top:10px">Reading on this phone keeps the photo here but misses more details.</p>');
+    + '<div class="row" style="margin-top:16px"><button class="btn pri big" id="cy" type="button" disabled>Agree and read</button>' + (scan.pdf || scan.text ? '' : '<button class="btn" id="cl" type="button">Read on this phone instead</button>') + '<button class="btn" id="cn" type="button">Cancel</button></div>'
+    + '' + (scan.pdf || scan.text ? '' : '<p class="note" style="margin-top:10px">Reading on this phone keeps the photo here but misses more details.</p>') + '');
   $('cg').onchange = function () { $('cy').disabled = !$('cg').checked; };
-  $('cy').onclick = function () { try { localStorage.setItem('pa10.consent', '1'); } catch (e) {} review(); readRemote(); };
-  $('cl').onclick = function () { scan.local = true; review(); readLocal(); };
-  $('cn').onclick = function () { review(); };
+  $('cy').onclick = function () { try { localStorage.setItem('pa10.consent', '1'); } catch (e) {} reshow(); readRemote(); };
+  if ($('cl')) $('cl').onclick = function () { scan.local = true; review(); readLocal(); };
+  $('cn').onclick = reshow;
 }
 function downscale(src, max) {
   var s = Math.min(1, max / Math.max(src.width, src.height)), c = document.createElement('canvas');
@@ -899,15 +937,15 @@ async function readRemote() {
   $('rd').disabled = true; $('rt').disabled = true;
   var ctlr = new AbortController(), timer = setTimeout(function () { ctlr.abort(); }, 70000);
   try {
-    var blob = await new Promise(function (r) { downscale(scan.canvas, 1800).toBlob(r, 'image/jpeg', 0.82); });
-    var b64 = await blobToB64(blob);
+    var fileMode = !!(scan.pdf || scan.text), b64 = '';
+    if (!fileMode) { var blob = await new Promise(function (r) { downscale(scan.canvas, 1800).toBlob(r, 'image/jpeg', 0.82); }); b64 = await blobToB64(blob); }
     var data;
     if (CFG.readerUrl) {
-      var res = await fetch(CFG.readerUrl, { method: 'POST', signal: ctlr.signal, headers: { 'Content-Type': 'application/json', 'X-App-Key': CFG.appKey || '' }, body: JSON.stringify({ type: scan.type, image: b64, mediaType: 'image/jpeg' }) });
+      var res = await fetch(CFG.readerUrl, { method: 'POST', signal: ctlr.signal, headers: { 'Content-Type': 'application/json', 'X-App-Key': CFG.appKey || '' }, body: JSON.stringify(scan.text ? { type: scan.type, text: scan.text } : scan.pdf ? { type: scan.type, image: scan.pdf, mediaType: 'application/pdf' } : { type: scan.type, image: b64, mediaType: 'image/jpeg' }) });
       var j = null; try { j = await res.json(); } catch (e) {}
       if (!res.ok || !j || !j.ok) { var er = new Error((j && j.error) || 'upstream'); er.code = (j && j.error) || 'upstream'; throw er; }
       data = j.data;
-    } else { data = await callDirect(scan.type, b64, ctlr.signal); }
+    } else { data = await callDirect(scan.type, scan.pdf || b64, ctlr.signal, scan.pdf ? 'application/pdf' : 'image/jpeg', scan.text); }
     clearTimeout(timer);
     scan.cost = recordCost(data && data.__usage);
     var t = scan.type === 'auto' ? (data && data.isDocument !== false ? data.docType : 'other') : scan.type;
@@ -922,8 +960,8 @@ async function readRemote() {
     if (e && e.usage) scan.cost = recordCost(e.usage);
     $('rd').disabled = false; $('rt').disabled = false;
     var msg = e && e.name === 'AbortError' ? 'The reading took too long.' : (SERR[e && e.code] || 'Could not reach the reading server. Check your internet.');
-    box.innerHTML = '<div class="status err">' + esc(msg) + '</div>' + costLine() + '<div class="row" style="margin-top:10px"><button class="btn" id="loc" type="button">Read on this phone instead</button></div><p class="note" style="margin-top:6px">Reading on this phone misses more details.</p>';
-    $('loc').onclick = function () { scan.local = true; review(); readLocal(); };
+    box.innerHTML = '<div class="status err">' + esc(msg) + '</div>' + costLine() + (scan.pdf || scan.text ? '' : '<div class="row" style="margin-top:10px"><button class="btn" id="loc" type="button">Read on this phone instead</button></div><p class="note" style="margin-top:6px">Reading on this phone misses more details.</p>');
+    if ($('loc')) $('loc').onclick = function () { scan.local = true; review(); readLocal(); };
   }
 }
 function streamOf(txt) {

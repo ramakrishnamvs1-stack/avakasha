@@ -285,10 +285,10 @@ export default {
     if (body && body.admin) return adminDo(body.admin, request, env, origin);
     if (env.APP_KEY && request.headers.get('X-App-Key') !== env.APP_KEY) return json({ error: 'forbidden' }, 403, origin);
     if (!env.ANTHROPIC_API_KEY) return json({ error: 'not_configured' }, 500, origin);
-    var type = body && body.type, image = body && body.image, mt = (body && body.mediaType) || 'image/jpeg';
-    if (!PROMPTS[type] || typeof image !== 'string' || !image) return json({ error: 'bad_request' }, 400, origin);
-    if (image.length > MAX_B64) return json({ error: 'too_large' }, 413, origin);
-    if (mt !== 'image/jpeg' && mt !== 'image/png') return json({ error: 'bad_request' }, 400, origin);
+    var type = body && body.type, image = body && body.image, mt = (body && body.mediaType) || 'image/jpeg', docText = body && typeof body.text === 'string' ? body.text.slice(0, 30000) : '';
+    if (!PROMPTS[type] || (!docText && (typeof image !== 'string' || !image))) return json({ error: 'bad_request' }, 400, origin);
+    if (!docText && image.length > MAX_B64) return json({ error: 'too_large' }, 413, origin);
+    if (!docText && mt !== 'image/jpeg' && mt !== 'image/png' && mt !== 'application/pdf') return json({ error: 'bad_request' }, 400, origin);
 
     if (await overLimit(request, env, '', '5', '300')) return json({ error: 'daily_limit' }, 429, origin);
 
@@ -299,7 +299,7 @@ export default {
         headers: { 'content-type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
         body: JSON.stringify({
           model: env.MODEL || DEFAULT_MODEL, max_tokens: 1200,
-          messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: mt, data: image } }, { type: 'text', text: PROMPTS[type] }] }]
+          messages: [{ role: 'user', content: [docText ? { type: 'text', text: 'Document text:\n' + docText } : mt === 'application/pdf' ? { type: 'document', source: { type: 'base64', media_type: mt, data: image } } : { type: 'image', source: { type: 'base64', media_type: mt, data: image } }, { type: 'text', text: PROMPTS[type] }] }]
         })
       });
     } catch (e) { clearTimeout(timer); return json({ error: 'upstream' }, 502, origin); }
