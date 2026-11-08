@@ -3,6 +3,85 @@
  "readOn": "8 Nov 2026",
  "exams": [
   {
+   "id": "x-rrbo",
+   "d": "2026-11-21",
+   "when": "21 Nov 2026",
+   "art": "biz",
+   "title": "IBPS RRB Officer Scale I (preliminary)",
+   "short": "Bank officer exam",
+   "sub": "Gramin banks, officer posts",
+   "org": "IBPS",
+   "line": "First-stage exam for officer posts in regional rural banks.",
+   "facts": [
+    [
+     "Prelims",
+     "21 and 22 Nov 2026 (tentative)"
+    ],
+    [
+     "Qualification",
+     "A degree is needed for this post"
+    ]
+   ],
+   "src": [
+    "IBPS tentative calendar 2026-27",
+    "https://www.ibps.in"
+   ],
+   "note": "Not from an official page. These dates were read from news reports of the IBPS calendar, because the official site could not be read. Confirm them on the official site before you plan."
+  },
+  {
+   "id": "x-rrboa",
+   "art": "biz",
+   "d": "2026-12-06",
+   "when": "6 Dec 2026",
+   "title": "Bank clerk exam (IBPS RRB Office Assistant)",
+   "short": "Bank clerk exam",
+   "sub": "Gramin banks, clerk-level posts",
+   "org": "IBPS",
+   "line": "First-stage (preliminary) exam for clerk-level posts in regional rural banks.",
+   "facts": [
+    [
+     "Prelims",
+     "6, 12 and 13 Dec 2026 (tentative)"
+    ],
+    [
+     "Mains",
+     "30 Jan 2027 (tentative)"
+    ],
+    [
+     "Qualification",
+     "A degree is needed for this post"
+    ]
+   ],
+   "src": [
+    "IBPS tentative calendar 2026-27",
+    "https://www.ibps.in"
+   ],
+   "note": "Not from an official page. These dates were read from news reports of the IBPS calendar, because the official site could not be read. Confirm them on the official site before you plan."
+  },
+  {
+   "id": "x-nift",
+   "d": "2027-01-10",
+   "when": "10 Jan 2027",
+   "art": "biz",
+   "title": "NIFT entrance exam 2027",
+   "short": "Fashion design entrance",
+   "sub": "Design and fashion technology",
+   "org": "National Testing Agency",
+   "line": "Entrance exam for NIFT design and fashion courses.",
+   "facts": [
+    [
+     "Exam",
+     "10 Jan 2027 (tentative)"
+    ]
+   ],
+   "src": [
+    "NTA exam calendar (Dec 2026 cycle onwards)",
+    "https://nta.ac.in/Download/Notice/ExamcalendarRevised.pdf"
+   ],
+   "note": "Date is from the official NTA calendar and is tentative. Confirm on the NTA site.",
+   "off": true
+  },
+  {
    "id": "x-jee1",
    "hero": true,
    "art": "biz",
@@ -58,27 +137,38 @@
    "off": true
   },
   {
-   "id": "x-nift",
-   "d": "2027-01-10",
-   "when": "10 Jan 2027",
-   "art": "biz",
-   "title": "NIFT entrance exam 2027",
-   "short": "Fashion design entrance",
-   "sub": "Design and fashion technology",
-   "org": "National Testing Agency",
-   "line": "Entrance exam for NIFT design and fashion courses.",
+   "id": "x-nda",
+   "art": "def",
+   "d": "2027-04-11",
+   "when": "11 Apr 2027",
+   "title": "NDA and NA exam (I) 2027",
+   "short": "Defence entrance exam",
+   "sub": "Army, Navy and Air Force academies",
+   "org": "UPSC",
+   "line": "Entrance to the National Defence Academy and Naval Academy after Class 12.",
    "facts": [
     [
      "Exam",
-     "10 Jan 2027 (tentative)"
+     "11 Apr 2027"
+    ],
+    [
+     "Notification",
+     "2 Dec 2026"
+    ],
+    [
+     "Apply by",
+     "22 Dec 2026"
+    ],
+    [
+     "Qualification",
+     "Class 12 pass or appearing; unmarried male and female candidates within the age limit"
     ]
    ],
    "src": [
-    "NTA exam calendar (Dec 2026 cycle onwards)",
-    "https://nta.ac.in/Download/Notice/ExamcalendarRevised.pdf"
+    "UPSC exam calendar 2027",
+    "https://upsc.gov.in"
    ],
-   "note": "Date is from the official NTA calendar and is tentative. Confirm on the NTA site.",
-   "off": true
+   "note": "Not from an official page. These dates were read from news reports of the UPSC calendar, because the official site could not be read. Confirm them on the official site before you plan."
   },
   {
    "id": "x-kcet",

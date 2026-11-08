@@ -48,7 +48,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '32';
+var APPVER = '33';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -439,7 +439,7 @@ function renderExams() {
   var l = upExams();
   $('app').innerHTML = subHead('Upcoming exams', 'Sorted by date. Check each date on the official site.')
     + (l.length ? '<div class="xl">' + l.map(function (x) { return xcard(x, 'exam'); }).join('') + '</div>' : '<div class="card"><p class="note">No upcoming exams are listed right now.</p></div>')
-    + '<p class="foot">Dates were read on ' + esc(EXTRA.readOn || '') + ' from the official calendars, and are tentative. Open the official site before you plan.</p>';
+    + '<p class="foot">Dates were read on ' + esc(EXTRA.readOn || '') + ' from the official calendars where marked, and are tentative. Open the official site before you plan.</p>';
   wireBack('#home');
 }
 function renderGovt() {
@@ -468,7 +468,7 @@ function renderX(id) {
   var facts = x.facts.map(function (r) { return '<div class="dkv"><span>' + esc(r[0]) + '</span><span>' + esc(r[1]) + '</span></div>'; }).join('');
   $('app').innerHTML = '<div class="dbar"><button type="button" id="dback" aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><b>' + (isE ? 'Exam details' : 'Job details') + '</b></div>'
     + '<h1 class="dtitle">' + esc(x.title) + '</h1><div class="org" style="font-size:15px;margin-top:6px">' + esc(x.org) + '</div>'
-    + (isE ? (x.off ? '<div class="dnote g"><b>Read from the official calendar.</b> ' + esc(x.note) + '</div>' : '<div class="dnote w"><b>Not announced yet.</b> ' + esc(x.note) + '</div>') : '<div class="dnote w"><b>Sample listing.</b> This is an example, not a real opening. Real private jobs will appear here once we have a trusted source.</div>')
+    + (isE ? (x.off ? '<div class="dnote g"><b>Read from the official calendar.</b> ' + esc(x.note) + '</div>' : '<div class="dnote w"><b>' + (x.tent ? 'Not announced yet.' : 'Not from an official page.') + '</b> ' + esc(x.note) + '</div>') : '<div class="dnote w"><b>Sample listing.</b> This is an example, not a real opening. Real private jobs will appear here once we have a trusted source.</div>')
     + '<div class="dh">Key facts</div><div class="dlist">' + facts + '</div>'
     + '<div class="dh">About</div><div class="dabout"><p>' + esc(x.line) + '</p>' + (isE ? '<p class="note">Source: <a href="' + x.src[1] + '" target="_blank" rel="noopener">' + esc(x.src[0]) + '</a>. Read on ' + esc(EXTRA.readOn || '') + '.</p>' : '') + '</div>'
     + (isE ? '<p class="foot">Never pay an agent to apply or to get an exam seat.</p><div class="dact"><a class="btn pri" href="' + x.src[1] + '" target="_blank" rel="noopener">Open official site ↗</a></div>' : '');
