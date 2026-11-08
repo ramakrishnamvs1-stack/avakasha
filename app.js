@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '48';
+var APPVER = '49';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -420,7 +420,7 @@ function card(e) {
   var r = e.r;
   return '<a class="jc" href="#job/' + encodeURIComponent(r.id) + '"><div class="jct"><span class="pill ' + e.st.k + '">' + esc(e.st.t) + '</span><span class="verdict v-' + e.verdict + '">' + VLAB[e.verdict] + '</span></div>'
     + '<h3>' + esc(r.title) + '</h3><div class="org">' + esc(r.org) + '</div><div class="jcl">' + esc(r.line) + '</div>'
-    + '<div class="jcf"><span class="' + (r.off ? 'o1' : 'o0') + '">' + (r.off ? 'Read from the official notice' : 'Not checked on the official site') + '</span>' + CHEV + '</div></a>';
+    + '<div class="jcf"><span class="' + (r.off ? 'o1' : 'o0') + '">' + (r.off ? 'Read from the official notice' : 'Not checked on the official site') + '</span><span class="jcr">' + heart('job', r.id) + CHEV + '</span></div></a>';
 }
 function renderDetail(id) {
   var r = DATA.records.filter(function (x) { return x.id === id; })[0];
@@ -429,13 +429,14 @@ function renderDetail(id) {
   var rules = e.rules.map(function (x) { return '<li><i class="m ' + x.s + '" aria-hidden="true">' + mark(x.s) + '</i><span><b>' + esc(x.t) + '</b><br><span>' + esc(x.d) + '</span></span></li>'; }).join('');
   var facts = r.facts.map(function (x) { return '<div class="dkv"><span>' + esc(x[0]) + '</span><span>' + esc(x[1]) + '</span></div>'; }).join('');
   var url = r.link ? r.link[1] : r.src[1], lab = r.link ? 'Open official site' : 'Open the source page';
-  $('app').innerHTML = '<div class="dbar"><button type="button" id="dback" aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><b>Job details</b></div>'
+  $('app').innerHTML = '<div class="dbar"><button type="button" id="dback" aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><b>Job details</b>' + heart('job', r.id) + '</div>'
     + '<div class="pills" style="margin-top:8px"><span class="pill ' + e.st.k + '">' + esc(e.st.t) + '</span><span class="verdict v-' + e.verdict + '">' + VLAB[e.verdict] + '</span></div>'
     + '<h1 class="dtitle">' + esc(r.title) + '</h1><div class="org" style="font-size:15px;margin-top:6px">' + esc(r.org) + '</div>'
     + (r.off ? '<div class="dnote g"><b>Read from the official notice.</b> Dates and rules here were taken from the government’s own notice.</div>' : '<div class="dnote w"><b>Not checked on the official site.</b> Dates and rules here come from a news or listing page. Confirm them in the official notice before you apply.</div>')
     + (e.from ? '<div class="from" style="margin-top:12px">You can apply from ' + fmt(e.from) + '.</div>' : '')
     + (rules ? '<div class="dh">How you match</div><div class="dlist"><ul class="rules">' + rules + '</ul></div>' : '')
     + '<div class="dh">Key facts</div><div class="dlist">' + facts + '</div>'
+    + calBlock('job-' + r.id, r.title, r.closes, url, 'Add last date to calendar') + docsBlock(r)
     + '<div class="dh">About</div><div class="dabout"><p>' + esc(r.line) + '</p><p class="muted">' + esc(r.cyc) + '</p><p class="note">Source: <a href="' + r.src[1] + '" target="_blank" rel="noopener">' + esc(r.src[0]) + '</a>. Read on ' + esc(DATA.readOn) + '. Confidence: ' + r.conf + '. ' + esc(r.note) + '</p></div>'
     + '<p class="foot">Check dates, age limits and fees on the official website before you apply, and never pay an agent to apply.</p>'
     + '<div class="dact"><a class="btn pri" href="' + url + '" target="_blank" rel="noopener">' + lab + ' ↗</a></div>';
@@ -510,7 +511,7 @@ function renderHome() {
   stopHome();
   HOME.items = homeItems(); if (HOME.i >= HOME.items.length) HOME.i = 0;
   var ics = HICONS.map(function (c) { return '<a class="hic" href="' + c[2] + '"><span class="hc ' + c[1] + '"><svg viewBox="0 0 24 24" aria-hidden="true">' + c[3] + '</svg></span><span class="hl">' + c[0].replace('Upcoming exams', 'Upcoming<br>exams') + '</span></a>'; }).join('');
-  $('app').innerHTML = '<div class="homew"><div id="hslot"></div><div class="hdots">' + HOME.items.map(function (x, k) { return '<button type="button" data-k="' + k + '" aria-label="Show card ' + (k + 1) + '"><i></i></button>'; }).join('') + '</div><div class="hics">' + ics + '</div></div>';
+  $('app').innerHTML = '<div class="homew"><div id="hslot"></div><div class="hdots">' + HOME.items.map(function (x, k) { return '<button type="button" data-k="' + k + '" aria-label="Show card ' + (k + 1) + '"><i></i></button>'; }).join('') + '</div><div class="hics">' + ics + '</div>' + savedRowHtml() + closingSoonHtml() + '</div>';
   drawHome();
   function go(k) { HOME.i = k; drawHome(); stopHome(); HOME.t = setInterval(next, 5500); }
   function next() { go((HOME.i + 1) % HOME.items.length); }
@@ -533,7 +534,7 @@ function xcard(x, kind, m) {
     left = '<div class="xi">' + BRIEF + '</div>';
     tags = (x.live ? (m && m.g === 1 ? '<span class="tg og">Suits you</span>' : m && m.g === 3 ? '<span class="tg w">' + esc(m.need) + '</span>' : '<span class="tg w">' + esc(x.via || 'Not official') + '</span>') : '<span class="tg w">Sample listing</span>') + '<span class="tg">' + esc(x.place) + '</span>';
   }
-  return '<a class="xc" href="#x/' + encodeURIComponent(x.id) + '">' + left + '<div class="xb"><h3>' + esc(x.title) + '</h3><div class="org">' + esc(x.org) + '</div><div class="xt">' + tags + '</div></div></a>';
+  return '<a class="xc" href="#x/' + encodeURIComponent(x.id) + '">' + left + '<div class="xb"><h3>' + esc(x.title) + '</h3><div class="org">' + esc(x.org) + '</div><div class="xt">' + tags + '</div></div>' + heart('x', x.id) + '</a>';
 }
 function renderExams() {
   var l = upExams();
@@ -637,13 +638,13 @@ function renderTrain() {
 }
 var CAP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9l10-5 10 5-10 5-10-5z"/><path d="M6 11.5V16c0 1.4 2.7 3 6 3s6-1.6 6-3v-4.5M22 9v6"/></svg>';
 function tcard(t, m) {
-  return '<a class="xc" href="#t/' + encodeURIComponent(t.id) + '"><div class="xi">' + CAP + '</div><div class="xb"><h3>' + esc(t.title) + '</h3><div class="org">' + esc(t.org) + '</div><div class="xt"><span class="tg ' + (m.fit ? 'og' : /^Free$/.test(m.tag) ? 'og' : 'w') + '">' + esc(m.fit ? 'Fits you' : m.tag) + '</span>' + (t.off ? '' : '<span class="tg">Details not read</span>') + '</div></div></a>';
+  return '<a class="xc" href="#t/' + encodeURIComponent(t.id) + '"><div class="xi">' + CAP + '</div><div class="xb"><h3>' + esc(t.title) + '</h3><div class="org">' + esc(t.org) + '</div><div class="xt"><span class="tg ' + (m.fit ? 'og' : /^Free$/.test(m.tag) ? 'og' : 'w') + '">' + esc(m.fit ? 'Fits you' : m.tag) + '</span>' + (t.off ? '' : '<span class="tg">Details not read</span>') + '</div></div>' + heart('t', t.id) + '</a>';
 }
 function renderT(id) {
   var t = (EXTRA.trains || []).filter(function (e) { return e.id === id; })[0]; if (!t) { location.hash = '#train'; return; }
   var p = prof(), f = F(), m = p ? trainFit(t, f) : { why: [] };
   var facts = t.facts.map(function (r) { return '<div class="dkv"><span>' + esc(r[0]) + '</span><span>' + esc(r[1]) + '</span></div>'; }).join('');
-  $('app').innerHTML = '<div class="dbar"><button type="button" id="dback" aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><b>Training details</b></div>'
+  $('app').innerHTML = '<div class="dbar"><button type="button" id="dback" aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><b>Training details</b>' + heart('t', t.id) + '</div>'
     + '<h1 class="dtitle">' + esc(t.title) + '</h1><div class="org" style="font-size:15px;margin-top:6px">' + esc(t.org) + '</div>'
     + '<div class="dnote ' + (t.off ? 'g' : 'w') + '"><b>' + (t.off ? 'Read from the official guidelines.' : 'Details not read.') + '</b> ' + esc(t.note) + '</div>'
     + '<div class="dh">Key facts</div><div class="dlist">' + facts + '</div>'
@@ -657,10 +658,11 @@ function renderX(id) {
   if (!x) { isE = false; x = (EXTRA.livePvt || []).concat(EXTRA.pvt || []).filter(function (e) { return e.id === id; })[0]; }
   if (!x) { location.hash = '#home'; return; }
   var facts = x.facts.map(function (r) { return '<div class="dkv"><span>' + esc(r[0]) + '</span><span>' + esc(r[1]) + '</span></div>'; }).join('');
-  $('app').innerHTML = '<div class="dbar"><button type="button" id="dback" aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><b>' + (isE ? 'Exam details' : 'Job details') + '</b></div>'
+  $('app').innerHTML = '<div class="dbar"><button type="button" id="dback" aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><b>' + (isE ? 'Exam details' : 'Job details') + '</b>' + heart('x', x.id) + '</div>'
     + '<h1 class="dtitle">' + esc(x.title) + '</h1><div class="org" style="font-size:15px;margin-top:6px">' + esc(x.org) + '</div>'
     + (isE ? (x.off ? '<div class="dnote g"><b>Read from the official calendar.</b> ' + esc(x.note) + '</div>' : '<div class="dnote w"><b>' + (x.tent ? 'Not announced yet.' : 'Not from an official page.') + '</b> ' + esc(x.note) + '</div>') : (x.live ? '<div class="dnote w"><b>Not from an official page.</b> Listed on: ' + esc(x.via || 'a job site') + '. ' + esc(x.note) + ' <b>Never pay to get a job.</b></div>' : '<div class="dnote w"><b>Sample listing.</b> This is an example, not a real opening. Real private jobs will appear here once we have a trusted source.</div>'))
     + '<div class="dh">Key facts</div><div class="dlist">' + facts + '</div>'
+    + (isE ? (x.tent ? '' : calBlock('x-' + x.id, x.title, x.d, x.src[1], 'Add exam date to calendar')) : calBlock('x-' + x.id, x.title, x.closes, x.src[1], 'Add last date to calendar'))
     + '<div class="dh">About</div><div class="dabout"><p>' + esc(x.line) + '</p>' + (isE || x.live ? '<p class="note">Source: <a href="' + x.src[1] + '" target="_blank" rel="noopener">' + esc(x.src[0]) + '</a>. Read on ' + esc(x.live ? x.found || '' : EXTRA.readOn || '') + '.</p>' : '') + '</div>'
     + (!isE && x.live ? whyBlock(x) + '<p class="foot">Never pay to get a job. Check the employer before you share documents.</p><div class="dact"><a class="btn pri" href="' + x.src[1] + '" target="_blank" rel="noopener">Open the listing ↗</a></div>' : '')
     + (isE ? '<p class="foot">Never pay an agent to apply or to get an exam seat.</p><div class="dact"><a class="btn pri" href="' + x.src[1] + '" target="_blank" rel="noopener">Open official site ↗</a></div>' : '');
@@ -1283,9 +1285,125 @@ function showIntro(done) {
 }
 function firstRun() { if (!prof() && $('sheet').hidden) addPersonSheet(true); }
 var CHEVD = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
-function route() { var h = location.hash.replace('#', ''); if (h.indexOf('job/') === 0) return { r: 'job', id: decodeURIComponent(h.slice(4)) }; if (h.indexOf('x/') === 0) return { r: 'x', id: decodeURIComponent(h.slice(2)) }; if (h.indexOf('t/') === 0) return { r: 't', id: decodeURIComponent(h.slice(2)) }; if (h === 'train') return { r: 'train' }; if (h === 'explore' || h === 'profile' || h === 'exams' || h === 'govt' || h === 'pvt') return { r: h }; return { r: 'home' }; }
+/* ================= saved list, closing soon, calendar, documents needed ================= */
+var HEART = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></svg>';
+function savedList() { var p = prof(); return p ? (p.saved = p.saved || []) : []; }
+function isSaved(k, id) { return savedList().some(function (s) { return s.k === k && s.id === id; }); }
+function toggleSave(k, id) {
+  var p = prof(); if (!p) { addPersonSheet(false, function () { toast('Profile created. Tap the heart again to save.'); }); return null; }
+  var l = savedList(), i = -1; l.forEach(function (s, n) { if (s.k === k && s.id === id) i = n; });
+  if (i >= 0) l.splice(i, 1); else l.push({ k: k, id: id, at: Date.now() });
+  save(); return i < 0;
+}
+function heart(k, id) { var on = isSaved(k, id); return '<button type="button" class="hrt' + (on ? ' on' : '') + '" data-save="' + esc(id) + '" data-sk="' + k + '" aria-pressed="' + on + '" aria-label="' + (on ? 'Remove from saved' : 'Save') + '">' + HEART + '</button>'; }
+var CAL = {};
+var CALSVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
+function calBlock(id, title, iso, url, text) {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso) || daysBetween(TODAY, pd(iso)) < 0) return '';
+  CAL[id] = { title: title, iso: iso, url: url };
+  return '<div class="dh">Reminder</div><div class="dlist"><button type="button" class="calrow" data-cal="' + esc(id) + '">' + CALSVG + text + '<span>›</span></button></div>';
+}
+function icsEsc(t) { return String(t || '').replace(/\\/g, '\\\\').replace(/[,;]/g, function (m) { return '\\' + m; }).replace(/\r?\n/g, '\\n'); }
+function icsDay(d) { return d.getFullYear() + ('0' + (d.getMonth() + 1)).slice(-2) + ('0' + d.getDate()).slice(-2); }
+function addCal(id) {
+  var c = CAL[id]; if (!c) return;
+  var d0 = pd(c.iso), d1 = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() + 1);
+  var lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Avakasha//EN', 'BEGIN:VEVENT', 'UID:' + id + '@avakasha', 'DTSTAMP:' + new Date().toISOString().replace(/[-:]|\.\d{3}/g, ''),
+    'DTSTART;VALUE=DATE:' + icsDay(d0), 'DTEND;VALUE=DATE:' + icsDay(d1), 'SUMMARY:' + icsEsc(c.title + ' (last date)'), 'DESCRIPTION:' + icsEsc('Check the official notice before you apply. ' + (c.url || '')),
+    'BEGIN:VALARM', 'TRIGGER:-P7D', 'ACTION:DISPLAY', 'DESCRIPTION:Closes in 7 days', 'END:VALARM', 'BEGIN:VALARM', 'TRIGGER:-P1D', 'ACTION:DISPLAY', 'DESCRIPTION:Closes tomorrow', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'];
+  var blob = new Blob([lines.join('\r\n') + '\r\n'], { type: 'text/calendar' }), a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'avakasha-' + id.replace(/[^a-z0-9]+/gi, '-').slice(0, 40) + '.ics'; document.body.appendChild(a); a.click(); a.remove(); toast('Calendar file saved. Open it to add the reminder.');
+}
+function hasDocType(p, t) { var dt = DOCTYPES.filter(function (d) { return d[0] === t; })[0]; return (p.docs || []).some(function (d) { return d.type === t || (dt && d.label === dt[1]); }); }
+/* Documents a job probably needs, worked out from its rules. The official notice has the full list. */
+function docsNeeded(r) {
+  var need = [], seen = {};
+  function add(k, label, types) { if (!seen[k]) { seen[k] = 1; need.push({ label: label, types: types }); } }
+  (r.rules || []).forEach(function (x) {
+    if (!x) return;
+    if (x.t === 'income') add('inc', 'Income certificate', ['inc']);
+    else if (x.t === 'cat' || x.t === 'catAny') add('cat', 'Category certificate', ['cat']);
+    else if (x.t === 'lic') add('dl', 'Driving licence', ['dl']);
+    else if (x.t === 'core') add('m10', 'Class 10 marksheet', ['m10']);
+    else if (x.t === 'age' || x.t === 'dobrange') { add('dob', 'Class 10 marksheet or birth certificate, for your date of birth', ['m10', 'birth']); if (x.maxByCat) add('cat', 'Category certificate, if you claim age relaxation', ['cat']); }
+    else if (x.t === 'passed' || x.t === 'pctmin') add('m10', 'Class 10 marksheet', ['m10']);
+    else if (x.t === 'passed12' || x.t === 'pct12') add('m12', 'Class 12 marksheet', ['m12']);
+    else if (x.t === 'exp') add('exp', 'Work experience letter', ['exp']);
+    else if (x.t === 'static') {
+      var t = ((x.title || '') + ' ' + (x.detail || '')).toLowerCase();
+      if (/degree|graduat|bachelor/.test(t)) add('deg', 'Degree or college marksheet', ['degree']);
+      if (/licen[cs]e|driving|\blmv\b|\bhmv\b/.test(t)) add('dl', 'Driving licence', ['dl']);
+      if (/income/.test(t)) add('inc', 'Income certificate', ['inc']);
+      if (/categor|caste|\bobc\b|reserv/.test(t)) add('cat', 'Category certificate', ['cat']);
+    }
+  });
+  if (r.lvl === 12) add('m12', 'Class 12 marksheet', ['m12']);
+  return need;
+}
+function docsBlock(r) {
+  var p = prof(); if (!p) return '';
+  var need = docsNeeded(r); if (!need.length) return '';
+  var n = 0; need.forEach(function (d) { d.have = d.types.some(function (t) { return hasDocType(p, t); }); if (d.have) n++; });
+  return '<div class="dh">Documents you may need</div><div class="dlist"><div class="dhave">You have <b>' + n + ' of ' + need.length + '</b>. Based on the rules above; the official notice has the full list.</div>'
+    + need.map(function (d) { return '<div class="drow"><span class="dl">' + esc(d.label) + '</span>' + (d.have ? '<span class="dok">Added</span>' : '<button type="button" class="dsc" data-scan="1">Scan now</button>') + '</div>'; }).join('') + '</div>';
+}
+function daysTxt(n) { return n === 0 ? 'Closes today' : n === 1 ? '1 day left' : n + ' days left'; }
+function savedEntry(s) {
+  var f = F(), p = prof(), id = encodeURIComponent(s.id);
+  if (s.k === 'job') { var r = DATA.records.filter(function (x) { return x.id === s.id; })[0]; return r ? { iso: r.closes, title: r.title, kind: 'Govt job', href: '#job/' + id, html: card(evaluate(r, f)) } : null; }
+  if (s.k === 'x') {
+    var x = (EXTRA.exams || []).filter(function (e) { return e.id === s.id; })[0];
+    if (x) return { iso: x.tent ? null : x.d, title: x.short || x.title, kind: 'Exam', href: '#x/' + id, html: xcard(x, 'exam') };
+    x = (EXTRA.livePvt || []).concat(EXTRA.pvt || []).filter(function (e) { return e.id === s.id; })[0];
+    return x ? { iso: x.closes || null, title: x.title, kind: 'Private job', href: '#x/' + id, html: xcard(x, 'pvt', x.live && p && pvtSignals(f, p) ? pvtMatch(x, f, p) : null) } : null;
+  }
+  if (s.k === 't') { var t = (EXTRA.trains || []).filter(function (e) { return e.id === s.id; })[0]; return t ? { iso: null, title: t.title, kind: 'Training', href: '#t/' + id, html: tcard(t, p && pvtSignals(f, p) ? trainFit(t, f) : { tag: t.free ? 'Free' : 'Check site', fit: false, why: [] }) } : null; }
+  return null;
+}
+function renderSaved() {
+  var l = savedList(), soon = [], later = [], closed = [], gone = [];
+  l.forEach(function (s) {
+    var e = savedEntry(s); if (!e) { gone.push(s); return; }
+    var d = e.iso ? daysBetween(TODAY, pd(e.iso)) : null;
+    if (d !== null && d < 0) closed.push(e); else if (d !== null && d <= 30) { e.d = d; soon.push(e); } else later.push(e);
+  });
+  soon.sort(function (a, b) { return a.d - b.d; });
+  function grp(t, arr) { return arr.length ? '<div class="dh">' + t + '</div><div class="xl">' + arr.map(function (e) { return e.html; }).join('') + '</div>' : ''; }
+  var n = l.length;
+  $('app').innerHTML = subHead('Saved', n ? n + (n === 1 ? ' item' : ' items') + ' kept on this phone.' : 'Keep jobs, exams and trainings here.')
+    + (n ? '' : '<div class="card"><p class="note">Nothing saved yet. Tap the heart on any job, exam or training to keep it here.</p></div>')
+    + grp('Closing soon', soon) + grp('Later', later) + grp('Closed', closed)
+    + (gone.length ? '<div class="dh">No longer listed</div><div class="xl">' + gone.map(function (s) { return '<div class="card"><p class="note">This item is no longer in the list.</p><div class="row" style="margin-top:8px"><button type="button" class="btn sm" data-save="' + esc(s.id) + '" data-sk="' + s.k + '">Remove</button></div></div>'; }).join('') + '</div>' : '');
+  wireBack('#home');
+}
+function savedRowHtml() { var n = savedList().length; return n ? '<a class="svrow" href="#saved">' + HEART + '<span>Saved</span><small>' + n + (n === 1 ? ' item' : ' items') + ' ›</small></a>' : ''; }
+function closingSoonHtml() {
+  var out = [], seen = {}, p = prof(), f = F();
+  function add(key, kind, title, href, iso, saved) {
+    if (!iso || seen[key]) return; var d = daysBetween(TODAY, pd(iso)); if (d < 0 || d > 30) return;
+    seen[key] = 1; out.push({ kind: kind, title: title, href: href, d: d, saved: saved });
+  }
+  savedList().forEach(function (s) { var e = savedEntry(s); if (e) add(s.k + s.id, e.kind, e.title, e.href, e.iso, true); });
+  if (p && Object.keys(p.facts).length) DATA.records.filter(function (r) { return (r.tab === 'work' || r.tab === 'exp') && relevant(r, f, p); }).map(function (r) { return evaluate(r, f); }).forEach(function (e) { if (e.st.k === 'open' && e.grp < 2) add('job' + e.r.id, 'Govt job', e.r.title, '#job/' + encodeURIComponent(e.r.id), e.r.closes, false); });
+  upExams().forEach(function (x) { if (!x.tent) add('x' + x.id, 'Exam', x.short || x.title, '#x/' + encodeURIComponent(x.id), x.d, false); });
+  if (!out.length) return '';
+  out.sort(function (a, b) { return a.d - b.d || (b.saved ? 1 : 0) - (a.saved ? 1 : 0); });
+  return '<div class="cs"><div class="csh"><b>Closing soon</b></div><div class="csr">'
+    + out.slice(0, 6).map(function (c) { return '<a class="csc" href="' + c.href + '"><span class="csk">' + esc(c.kind) + '</span><b>' + esc(c.title) + '</b><span class="csd' + (c.d <= 7 ? ' u' : '') + '">' + daysTxt(c.d) + '</span></a>'; }).join('') + '</div></div>';
+}
+document.addEventListener('click', function (e) {
+  var t = e.target, el = t && t.closest ? t.closest('[data-save],[data-cal],[data-scan]') : null; if (!el) return;
+  e.preventDefault(); e.stopPropagation();
+  if (el.hasAttribute('data-cal')) { addCal(el.getAttribute('data-cal')); return; }
+  if (el.hasAttribute('data-scan')) { $('nav-scan').click(); return; }
+  var on = toggleSave(el.getAttribute('data-sk'), el.getAttribute('data-save')); if (on === null) return;
+  el.classList.toggle('on', on); el.setAttribute('aria-pressed', String(on)); el.setAttribute('aria-label', on ? 'Remove from saved' : 'Save');
+  toast(on ? 'Saved.' : 'Removed from saved.'); renderTop(route().r); if (route().r === 'saved') renderSaved();
+}, true);
+function route() { var h = location.hash.replace('#', ''); if (h.indexOf('job/') === 0) return { r: 'job', id: decodeURIComponent(h.slice(4)) }; if (h.indexOf('x/') === 0) return { r: 'x', id: decodeURIComponent(h.slice(2)) }; if (h.indexOf('t/') === 0) return { r: 't', id: decodeURIComponent(h.slice(2)) }; if (h === 'train') return { r: 'train' }; if (h === 'saved') return { r: 'saved' }; if (h === 'explore' || h === 'profile' || h === 'exams' || h === 'govt' || h === 'pvt') return { r: h }; return { r: 'home' }; }
 function renderTop(r) {
-  var p = prof(), b = $('avatar'), br = document.querySelector('.brand');
+  var p = prof(), b = $('avatar'), br = document.querySelector('.brand'), sb = $('savedBtn');
+  if (sb) { var sn = savedList().length; sb.hidden = r === 'profile' || !p; sb.innerHTML = HEART + (sn ? '<span class="cnt">' + sn + '</span>' : ''); sb.setAttribute('aria-label', 'Saved, ' + sn + (sn === 1 ? ' item' : ' items')); sb.onclick = function () { location.hash = '#saved'; }; }
   br.innerHTML = r === 'profile' ? '<svg viewBox="0 0 24 24" aria-hidden="true" style="width:22px;height:22px;vertical-align:-4px;margin-right:8px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round"><path d="M15 5l-7 7 7 7"/></svg>Profile' : 'Avakasha'; br.style.color = r === 'profile' ? 'var(--ink)' : '';
   if (r === 'profile' && p) { b.className = 'avatar pill'; b.setAttribute('aria-label', 'Switch person or open menu'); b.innerHTML = '<span class="av">' + initial(p.name) + '</span><span class="an">' + esc(p.name) + '</span>' + CHEVD; b.onclick = peopleSheet; }
   else if (r === 'profile') { b.className = 'avatar pill'; b.setAttribute('aria-label', 'Menu'); b.innerHTML = '<span class="an" style="padding-left:8px">Menu</span>' + CHEVD; b.onclick = menuSheet; }
@@ -1302,13 +1420,13 @@ function render() {
   var rt = route(), h = rt.r;
   stopHome();
   document.body.classList.toggle('is-detail', h === 'job' || h === 'x' || h === 't');
-  document.body.classList.toggle('is-sub', h === 'exams' || h === 'govt' || h === 'pvt' || h === 'train');
+  document.body.classList.toggle('is-sub', h === 'exams' || h === 'govt' || h === 'pvt' || h === 'train' || h === 'saved');
   document.body.classList.toggle('is-home', h === 'home');
   $('nav-home').setAttribute('aria-current', h === 'home' ? 'page' : 'false'); $('nav-explore').setAttribute('aria-current', h === 'explore' ? 'page' : 'false');
   renderTop(h);
   if (!DATA) return;
   if (h === 'explore') refreshLive();
-  if (h === 'job') renderDetail(rt.id); else if (h === 'x') renderX(rt.id); else if (h === 't') renderT(rt.id); else if (h === 'train') renderTrain(); else if (h === 'exams') renderExams(); else if (h === 'govt') renderGovt(); else if (h === 'pvt') renderPvt(); else if (h === 'explore') renderExplore(); else if (h === 'profile') renderProfile(); else renderHome();
+  if (h === 'job') renderDetail(rt.id); else if (h === 'x') renderX(rt.id); else if (h === 't') renderT(rt.id); else if (h === 'train') renderTrain(); else if (h === 'saved') renderSaved(); else if (h === 'exams') renderExams(); else if (h === 'govt') renderGovt(); else if (h === 'pvt') renderPvt(); else if (h === 'explore') renderExplore(); else if (h === 'profile') renderProfile(); else renderHome();
 }
 window.addEventListener('hashchange', function () { render(); window.scrollTo(0, 0); });
 $('nav-scan').onclick = function () { if (!prof()) { addPersonSheet(true, scanFlow); return; } scanFlow(); };
