@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '44';
+var APPVER = '45';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -446,10 +446,10 @@ var NOTES = [
 ];
 var EXTRA = { exams: [], pvt: [] }, SHOWCL = false;
 /* Shared list: a daily search done once for everyone and approved before it reaches phones. Fetched in the background; the last copy is kept for offline use. */
-function getLive() {
+function getLive(force) {
   if (!CFG.readerUrl) return Promise.resolve(null);
   var old = lastLive();
-  if (old && old.t && Date.now() - old.t < 15 * 6e4) return Promise.resolve(old.j);
+  if (old && old.t && Date.now() - old.t < (force ? 3e4 : 15 * 6e4)) return Promise.resolve(old.j);
   var ctl = new AbortController(), t = setTimeout(function () { ctl.abort(); }, 8000);
   return fetch(CFG.readerUrl, { signal: ctl.signal, headers: { 'X-App-Key': CFG.appKey || '' } }).then(function (r) { clearTimeout(t); return r.ok ? r.json() : null; }).then(function (j) {
     if (j && Array.isArray(j.records)) { try { localStorage.setItem('pa10.live', JSON.stringify({ t: Date.now(), j: j })); } catch (e) {} return j; }
@@ -457,13 +457,17 @@ function getLive() {
   }).catch(function () { clearTimeout(t); return old ? old.j : null; });
 }
 function lastLive() { try { var o = JSON.parse(localStorage.getItem('pa10.live') || 'null'); return o && o.j ? o : null; } catch (e) { return null; } }
+var LIVEIDS = {};
 function mergeLive(j) {
   if (!j || !DATA) return;
+  DATA.records = DATA.records.filter(function (r) { return !LIVEIDS[r.id]; });
+  EXTRA.exams = (EXTRA.exams || []).filter(function (x) { return !LIVEIDS[x.id]; });
+  LIVEIDS = {};
   var tl = {}; DATA.records.forEach(function (r) { tl[r.title.toLowerCase()] = 1; });
-  (j.records || []).forEach(function (r) { if (r && r.id && r.title && !tl[r.title.toLowerCase()]) { DATA.records.push(r); tl[r.title.toLowerCase()] = 1; } });
+  (j.records || []).forEach(function (r) { if (r && r.id && r.title && !tl[r.title.toLowerCase()]) { DATA.records.push(r); LIVEIDS[r.id] = 1; tl[r.title.toLowerCase()] = 1; } });
   EXTRA.livePvt = (j.pvt || []).filter(function (x) { return x && x.id && x.title && x.org && Array.isArray(x.src) && Array.isArray(x.facts); });
   var te = {}; (EXTRA.exams || []).forEach(function (x) { te[x.title.toLowerCase()] = 1; });
-  (j.exams || []).forEach(function (x) { if (x && x.id && x.title && !te[x.title.toLowerCase()]) { (EXTRA.exams = EXTRA.exams || []).push(x); te[x.title.toLowerCase()] = 1; } });
+  (j.exams || []).forEach(function (x) { if (x && x.id && x.title && !te[x.title.toLowerCase()]) { (EXTRA.exams = EXTRA.exams || []).push(x); LIVEIDS[x.id] = 1; te[x.title.toLowerCase()] = 1; } });
 }
 var ARTS = {
   med: '<svg viewBox="0 0 190 300" aria-hidden="true"><path d="M10 300V252Q10 205 55 195L95 185L135 195Q180 205 180 252V300Z" fill="#fff"/><path d="M70 188L95 232L120 188" fill="none" stroke="#dfe5ea" stroke-width="3"/><path d="M80 190L95 226L110 190Z" fill="#0d6e6e"/><rect x="85" y="165" width="20" height="28" fill="#d99a6c"/><ellipse cx="95" cy="135" rx="34" ry="40" fill="#e9b58a"/><path d="M60 130Q60 86 95 88Q130 86 130 130Q118 106 95 108Q72 106 60 130Z" fill="#2b2118"/><circle cx="82" cy="138" r="2.6" fill="#2b2118"/><circle cx="108" cy="138" r="2.6" fill="#2b2118"/><path d="M85 153Q95 160 105 153" fill="none" stroke="#8a4b2a" stroke-width="2.4" stroke-linecap="round"/><path d="M68 194Q58 228 76 248Q96 262 112 240" fill="none" stroke="#17323f" stroke-width="4" stroke-linecap="round"/><circle cx="112" cy="238" r="8" fill="#17323f"/><circle cx="112" cy="238" r="3.5" fill="#f6b73c"/><path d="M146 222v22M135 233h22" stroke="#0d6e6e" stroke-width="6" stroke-linecap="round"/></svg>',
@@ -1271,6 +1275,13 @@ function renderTop(r) {
   else if (r === 'profile') { b.className = 'avatar pill'; b.setAttribute('aria-label', 'Menu'); b.innerHTML = '<span class="an" style="padding-left:8px">Menu</span>' + CHEVD; b.onclick = menuSheet; }
   else { b.className = 'avatar'; b.setAttribute('aria-label', 'Open profile'); b.innerHTML = '<span class="av">' + (p ? initial(p.name) : '<svg viewBox="0 0 24 24" aria-hidden="true" style="stroke:#fff;width:20px;height:20px"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>') + '</span>'; b.onclick = function () { location.hash = '#profile'; }; }
 }
+var LIVEBUSY = false;
+/* Opening Explore fetches the newest approved list, at most every 30 seconds, then redraws if it changed. */
+function refreshLive() {
+  if (LIVEBUSY || !CFG.readerUrl) return; LIVEBUSY = true;
+  var before = JSON.stringify((lastLive() || {}).j || null);
+  getLive(true).then(function (j) { LIVEBUSY = false; if (!j || JSON.stringify(j) === before) return; mergeLive(j); if (route().r === 'explore') renderExplore(); }).catch(function () { LIVEBUSY = false; });
+}
 function render() {
   var rt = route(), h = rt.r;
   stopHome();
@@ -1280,6 +1291,7 @@ function render() {
   $('nav-home').setAttribute('aria-current', h === 'home' ? 'page' : 'false'); $('nav-explore').setAttribute('aria-current', h === 'explore' ? 'page' : 'false');
   renderTop(h);
   if (!DATA) return;
+  if (h === 'explore') refreshLive();
   if (h === 'job') renderDetail(rt.id); else if (h === 'x') renderX(rt.id); else if (h === 't') renderT(rt.id); else if (h === 'train') renderTrain(); else if (h === 'exams') renderExams(); else if (h === 'govt') renderGovt(); else if (h === 'pvt') renderPvt(); else if (h === 'explore') renderExplore(); else if (h === 'profile') renderProfile(); else renderHome();
 }
 window.addEventListener('hashchange', function () { render(); window.scrollTo(0, 0); });
