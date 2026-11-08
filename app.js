@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '52';
+var APPVER = '53';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -285,9 +285,10 @@ function renderProfile() {
       + (langs.length ? '<div class="plab">Languages <button class="plink" type="button" data-edit="languages">Edit</button></div><div class="pchips">' + langs.map(function (r) { return '<span class="pchip">' + esc(r) + '</span>'; }).join('') + '</div>' : '') + '</div>' : '')
     + '<button class="pcard prow2" type="button" id="persBtn"><span><b>Personal and eligibility</b><small>' + esc(persSub || (nper ? nper + (nper === 1 ? ' detail' : ' details') : 'Nothing added yet')) + ' · private to this phone</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>'
     + '<div class="pcard"><h3 style="margin-bottom:6px">Documents added</h3>' + docs + '</div>'
-    + '<div class="row" style="justify-content:center"><button class="btn" id="allDet" type="button">See all details</button><button class="btn" id="addJob" type="button">Add a job by hand</button></div>'
+    + '<div class="row" style="justify-content:center"><button class="btn" id="allDet" type="button">See all details</button><button class="btn" id="addJob" type="button">Add a job by hand</button></div><div class="row" style="justify-content:center;margin-top:10px"><button class="btn" id="parBtn" type="button">Share with a parent</button></div>'
     + '<p class="note" style="padding:0 6px 20px">Photos and files are not kept. Only the details you confirm are saved, and they stay on this phone. A marksheet counts for more than a resume when both say something different.</p></div>';
   wireGap(p); wireJobs(p);
+  $('parBtn').onclick = function () { location.hash = '#summary'; };
   $('scanBtn').onclick = scanFlow; $('goExplore').onclick = function () { location.hash = '#explore'; };
   $('persBtn').onclick = function () { factsSheet('Personal and eligibility', pers); };
   $('allDet').onclick = function () { factsSheet('All details', null); };
@@ -549,6 +550,35 @@ function renderExams() {
     + (l.length ? '<div class="xl">' + l.map(function (x) { return xcard(x, 'exam'); }).join('') + '</div>' : '<div class="card"><p class="note">No upcoming exams are listed right now.</p></div>')
     + '<p class="foot">Dates were read on ' + esc(EXTRA.readOn || '') + ' from the official calendars where marked, and are tentative. Open the official site before you plan. Never pay an agent to get an exam seat.</p>';
   wireBack('#home');
+}
+function summaryText(p) {
+  var f = F(), L = [], by = function (tab) { return DATA.records.filter(function (r) { return r.tab === tab && relevant(r, f, p); }).map(function (r) { return evaluate(r, f); }); };
+  L.push('Avakasha summary for ' + p.name); var lu = lastUpdate(p); if (lu) L.push('Details last updated ' + fmt(new Date(lu)));
+  var st = [];
+  if (f.board || f.pct) st.push('Class 10: ' + [f.board, f.pct ? Number(f.pct).toFixed(1) + '%' : '', f.examYear].filter(Boolean).join(', '));
+  if (f.board12 || f.pct12 || f.stream12) st.push('Class 12: ' + [f.board12, f.pct12 ? Number(f.pct12).toFixed(1) + '%' : '', f.stream12 ? String(showVal('stream12', f.stream12)) : '', f.year12].filter(Boolean).join(', '));
+  if (st.length) L.push('', 'Studies', st.join('\n'));
+  var study = by('study').filter(function (e) { return e.grp < 3 && e.verdict !== 'no'; }).slice(0, 4);
+  if (study.length) L.push('', 'Study options that fit', study.map(function (e) { return '- ' + e.r.title + (e.r.stat && e.r.stat.t ? ' (' + e.r.stat.t + ')' : ''); }).join('\n'));
+  var sch = by('scholar').filter(function (e) { return e.grp < 2; }).slice(0, 4);
+  if (sch.length) L.push('', 'Scholarships to check', sch.map(function (e) { return '- ' + e.r.title + (e.r.closes ? ' (closes ' + fmt(pd(e.r.closes)) + ')' : ''); }).join('\n'));
+  var sv = savedList().map(savedEntry).filter(function (e) { return e && e.iso; }).map(function (e) { return { e: e, n: daysBetween(TODAY, pd(e.iso)) }; }).filter(function (x) { return x.n >= 0; }).sort(function (a, b) { return a.n - b.n; }).slice(0, 4);
+  if (sv.length) L.push('', 'Saved and closing soon', sv.map(function (x) { return '- ' + x.e.title + ': ' + daysTxt(x.n).replace('Closes today', 'closes today'); }).join('\n'));
+  var miss = [], seen = {};
+  sch.concat(study).forEach(function (e) { docsNeeded(e.r).forEach(function (d) { if (!d.types.some(function (t) { return hasDocType(p, t); }) && !seen[d.label]) { seen[d.label] = 1; miss.push('- ' + d.label); } }); });
+  if (miss.length) L.push('', 'Documents still to get', miss.join('\n'));
+  L.push('', 'These are matches from public pages, not a promise of selection. Check the official website before applying, and never pay an agent.');
+  return L.join('\n');
+}
+function renderSummary() {
+  var p = prof(); if (!p || !Object.keys(p.facts).length) { $('app').innerHTML = subHead('Share with a parent', 'Scan a marksheet first, then a summary can be made.'); wireBack('#profile'); return; }
+  var t = summaryText(p);
+  $('app').innerHTML = subHead('Share with a parent', 'This is exactly what will be sent. Nothing is shared until you tap Share.')
+    + '<div class="card"><pre class="sumtxt">' + esc(t) + '</pre></div>'
+    + '<div class="row" style="margin-top:14px"><button class="btn pri big" id="sumShare" type="button" style="flex:1">Share</button><button class="btn" id="sumCopy" type="button">Copy</button></div>';
+  wireBack('#profile');
+  $('sumShare').onclick = function () { if (navigator.share) navigator.share({ text: t }).catch(function () {}); else window.open('https://wa.me/?text=' + encodeURIComponent(t), '_blank', 'noopener'); };
+  $('sumCopy').onclick = function () { (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { toast('Copied.'); }, function () { toast('Could not copy. Use Share instead.'); }); };
 }
 function renderPaths(tab) {
   var f = F(), p = prof(), hasFacts = p && Object.keys(p.facts).length, isS = tab === 'scholar';
@@ -1421,7 +1451,7 @@ document.addEventListener('click', function (e) {
   el.classList.toggle('on', on); el.setAttribute('aria-pressed', String(on)); el.setAttribute('aria-label', on ? 'Remove from saved' : 'Save');
   toast(on ? 'Saved.' : 'Removed from saved.'); renderTop(route().r); if (route().r === 'saved') renderSaved();
 }, true);
-function route() { var h = location.hash.replace('#', ''); if (h.indexOf('job/') === 0) return { r: 'job', id: decodeURIComponent(h.slice(4)) }; if (h.indexOf('x/') === 0) return { r: 'x', id: decodeURIComponent(h.slice(2)) }; if (h.indexOf('t/') === 0) return { r: 't', id: decodeURIComponent(h.slice(2)) }; if (h === 'train') return { r: 'train' }; if (h === 'saved') return { r: 'saved' }; if (h === 'study' || h === 'scholar') return { r: h }; if (h === 'explore' || h === 'profile' || h === 'exams' || h === 'govt' || h === 'pvt') return { r: h }; return { r: 'home' }; }
+function route() { var h = location.hash.replace('#', ''); if (h.indexOf('job/') === 0) return { r: 'job', id: decodeURIComponent(h.slice(4)) }; if (h.indexOf('x/') === 0) return { r: 'x', id: decodeURIComponent(h.slice(2)) }; if (h.indexOf('t/') === 0) return { r: 't', id: decodeURIComponent(h.slice(2)) }; if (h === 'train') return { r: 'train' }; if (h === 'saved') return { r: 'saved' }; if (h === 'study' || h === 'scholar' || h === 'summary') return { r: h }; if (h === 'explore' || h === 'profile' || h === 'exams' || h === 'govt' || h === 'pvt') return { r: h }; return { r: 'home' }; }
 function renderTop(r) {
   var p = prof(), b = $('avatar'), br = document.querySelector('.brand'), sb = $('savedBtn');
   if (sb) { var sn = savedList().length; sb.hidden = r === 'profile' || !p; sb.innerHTML = HEART + (sn ? '<span class="cnt">' + sn + '</span>' : ''); sb.setAttribute('aria-label', 'Saved, ' + sn + (sn === 1 ? ' item' : ' items')); sb.onclick = function () { location.hash = '#saved'; }; }
@@ -1441,13 +1471,13 @@ function render() {
   var rt = route(), h = rt.r;
   stopHome();
   document.body.classList.toggle('is-detail', h === 'job' || h === 'x' || h === 't');
-  document.body.classList.toggle('is-sub', h === 'exams' || h === 'govt' || h === 'pvt' || h === 'train' || h === 'saved' || h === 'study' || h === 'scholar');
+  document.body.classList.toggle('is-sub', h === 'exams' || h === 'govt' || h === 'pvt' || h === 'train' || h === 'saved' || h === 'study' || h === 'scholar' || h === 'summary');
   document.body.classList.toggle('is-home', h === 'home');
   $('nav-home').setAttribute('aria-current', h === 'home' ? 'page' : 'false'); $('nav-explore').setAttribute('aria-current', h === 'explore' ? 'page' : 'false');
   renderTop(h);
   if (!DATA) return;
   if (h === 'explore') refreshLive();
-  if (h === 'job') renderDetail(rt.id); else if (h === 'x') renderX(rt.id); else if (h === 't') renderT(rt.id); else if (h === 'train') renderTrain(); else if (h === 'saved') renderSaved(); else if (h === 'study') renderPaths('study'); else if (h === 'scholar') renderPaths('scholar'); else if (h === 'exams') renderExams(); else if (h === 'govt') renderGovt(); else if (h === 'pvt') renderPvt(); else if (h === 'explore') renderExplore(); else if (h === 'profile') renderProfile(); else renderHome();
+  if (h === 'job') renderDetail(rt.id); else if (h === 'x') renderX(rt.id); else if (h === 't') renderT(rt.id); else if (h === 'train') renderTrain(); else if (h === 'saved') renderSaved(); else if (h === 'summary') renderSummary(); else if (h === 'study') renderPaths('study'); else if (h === 'scholar') renderPaths('scholar'); else if (h === 'exams') renderExams(); else if (h === 'govt') renderGovt(); else if (h === 'pvt') renderPvt(); else if (h === 'explore') renderExplore(); else if (h === 'profile') renderProfile(); else renderHome();
 }
 window.addEventListener('hashchange', function () { render(); window.scrollTo(0, 0); });
 $('nav-scan').onclick = function () { if (!prof()) { addPersonSheet(true, scanFlow); return; } scanFlow(); };
