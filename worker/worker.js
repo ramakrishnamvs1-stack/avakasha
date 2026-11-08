@@ -7,6 +7,17 @@
 
 var DEFAULT_ORIGIN = 'https://ramakrishnamvs1-stack.github.io';
 var DEFAULT_MODEL = 'claude-sonnet-5-5';
+/* Private job search uses a cheaper model (PVT_MODEL in Cloudflare overrides it). If that model cannot be used, the search falls back to the main model. */
+var DEFAULT_PVT_MODEL = 'claude-haiku-5-5';
+var PVT_MAX = 10;
+/* Rough prices in US dollars per million tokens, and per web search. These are estimates for the review page, not a bill. Override with PRICE_IN_<name>, PRICE_OUT_<name> if they change. */
+var RATES = { haiku: { i: 1, o: 5 }, sonnet: { i: 3, o: 15 }, opus: { i: 5, o: 25 } };
+function rateFor(model) { var m = String(model || '').toLowerCase(); return m.indexOf('haiku') >= 0 ? RATES.haiku : m.indexOf('opus') >= 0 ? RATES.opus : RATES.sonnet; }
+function costInr(env, model, usage) {
+  var r = rateFor(model), fx = parseFloat(env.USD_INR || '90') || 90;
+  var usd = ((usage.input_tokens || 0) * r.i + (usage.output_tokens || 0) * r.o) / 1e6 + (usage.searches || 0) * 0.01;
+  return usd * fx;
+}
 var MAX_B64 = 7 * 1024 * 1024; /* about 5 MB of image */
 
 var COMMON = 'The image is a photo of an Indian official document. Read only the fields asked for. If a value is not clearly readable, use null. Do not guess. Do not include any person\'s name, roll or registration number, address, or any ID number, phone number or email address. Reply with only one JSON object and nothing else.';
@@ -140,8 +151,9 @@ var OFFICIAL_DOMAINS = ['gov.in', 'nic.in', 'ibps.in', 'ac.in', 'edu.in'];
 var RULES_TEXT = 'For each job, give the eligibility rules as a list using only these kinds: {"t":"age","min":18,"max":27,"maxByCat":{"OBC":30,"SC":32,"ST":32}} (ages as on the notice), {"t":"passed"} (Class 10 pass needed), {"t":"passed12"} (Class 12 pass needed), {"t":"pct12","min":50} (minimum Class 12 marks), {"t":"pctmin","min":50} (minimum Class 10 marks), {"t":"exp","min":2} (years of experience), {"t":"static","title":"short name","detail":"one sentence"} for anything else, such as a degree, a diploma, a trade, a licence or a language test. Be careful: give a Class 10 or Class 12 rule only when the notice itself asks for exactly that. For diploma, ITI or degree posts use a static rule and no Class 10 or 12 rule. Set "lvl":12 when Class 12 is needed. If the age limit or qualification is not on the page, leave that rule out.';
 var JOB_SHAPE = '{"title":"","org":"","line":"one short sentence","closes":"YYYY-MM-DD or null","cyc":"the application dates in one sentence","lvl":10,"facts":[["Age","..."],["Qualification","..."],["Pay","..."]],"rules":[],"srcName":"notice name","url":""}';
 /* One search pass. domains limits where Claude may search; null means anywhere. */
-async function searchPass(env, prompt, domains, maxUses) {
-  var msgs = [{ role: 'user', content: prompt }], seen = {}, text = '', u = { input_tokens: 0, output_tokens: 0, searches: 0 }, stop = '';
+async function searchPass(env, prompt, domains, maxUses, model) {
+  var base = env.MODEL || DEFAULT_MODEL; model = model || base;
+  var msgs = [{ role: 'user', content: prompt }], seen = {}, text = '', u = { input_tokens: 0, output_tokens: 0, searches: 0, inr: 0, model: model }, stop = '';
   var tool = { type: 'web_search_20250305', name: 'web_search', max_uses: maxUses }; if (domains) tool.allowed_domains = domains;
   var ctl = new AbortController(), timer = setTimeout(function () { ctl.abort(); }, 280000);
   try {
@@ -149,11 +161,12 @@ async function searchPass(env, prompt, domains, maxUses) {
       var up = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST', signal: ctl.signal,
         headers: { 'content-type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: env.MODEL || DEFAULT_MODEL, max_tokens: 12000, tools: [tool], messages: msgs })
+        body: JSON.stringify({ model: model, max_tokens: 12000, tools: [tool], messages: msgs })
       });
+      if (!up.ok && model !== base && (up.status === 400 || up.status === 404)) { model = base; u.model = base; u.fellBack = true; turn--; continue; }
       if (!up.ok) { clearTimeout(timer); var et = ''; try { et = (await up.text()).slice(0, 200); } catch (e) {} return { error: 'upstream', status: up.status, tail: et, u: u }; }
       var d = await up.json();
-      if (d.usage) { u.input_tokens += d.usage.input_tokens || 0; u.output_tokens += d.usage.output_tokens || 0; u.searches += (d.usage.server_tool_use && d.usage.server_tool_use.web_search_requests) || 0; }
+      if (d.usage) { u.input_tokens += d.usage.input_tokens || 0; u.output_tokens += d.usage.output_tokens || 0; var ws = (d.usage.server_tool_use && d.usage.server_tool_use.web_search_requests) || 0; u.searches += ws; u.inr += costInr(env, model, { input_tokens: d.usage.input_tokens || 0, output_tokens: d.usage.output_tokens || 0, searches: ws }); }
       text = ''; stop = d.stop_reason || '';
       (d.content || []).forEach(function (c) {
         if (c.type === 'web_search_tool_result' && Array.isArray(c.content)) c.content.forEach(function (r) { if (r && r.url) seen[r.url.split('#')[0]] = 1; });
@@ -178,9 +191,9 @@ function promptB(today) {
 }
 var PVT_SHAPE = '{"title":"","company":"","city":"","line":"one short sentence","pay":"as printed, or empty","minExp":0,"edu":"10 or 12 or diploma or degree or pg","skills":[],"closes":"YYYY-MM-DD or null","srcName":"site name","url":""}';
 function promptC(today) {
-  return 'Today is ' + today + '. You help job seekers in India.\nUse web search on any site to find private-sector jobs that are open right now in Bengaluru and elsewhere in Karnataka. Cover a mix: entry-level and fresher roles, Class 10 or Class 12 pass roles (delivery, retail, office assistant, driver, technician, security), diploma or ITI roles, and graduate roles. Up to 12 jobs. List only what you saw on a page in the search results, and use that page\'s own address as url, preferring the employer\'s own careers page over a job board. Never invent a company, pay or date. Skip anything that asks the applicant to pay any fee or deposit, anything vague about the employer, and anything already closed. Keep every field short; edu is the lowest qualification asked for, and minExp is the years of experience asked for (0 if freshers can apply).\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[' + PVT_SHAPE + ']}</json>';
+  return 'Today is ' + today + '. You help job seekers in India.\nUse web search on any site to find private-sector jobs that are open right now in Bengaluru and elsewhere in Karnataka. Cover a mix: entry-level and fresher roles, Class 10 or Class 12 pass roles (delivery, retail, office assistant, driver, technician, security), diploma or ITI roles, and graduate roles. Up to 10 jobs. List only what you saw on a page in the search results, and use that page\'s own address as url, preferring the employer\'s own careers page over a job board. Never invent a company, pay or date. Skip anything that asks the applicant to pay any fee or deposit, anything vague about the employer, and anything already closed. Keep every field short; edu is the lowest qualification asked for, and minExp is the years of experience asked for (0 if freshers can apply).\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[' + PVT_SHAPE + ']}</json>';
 }
-function addUsage(a, b) { return { input_tokens: (a.input_tokens || 0) + (b.input_tokens || 0), output_tokens: (a.output_tokens || 0) + (b.output_tokens || 0), searches: (a.searches || 0) + (b.searches || 0) }; }
+function addUsage(a, b) { return { input_tokens: (a.input_tokens || 0) + (b.input_tokens || 0), output_tokens: (a.output_tokens || 0) + (b.output_tokens || 0), searches: (a.searches || 0) + (b.searches || 0), inr: (a.inr || 0) + (b.inr || 0), fellBack: !!(a.fellBack || b.fellBack) }; }
 /* The daily job has two steps so each fits in one request. Step A searches official government sites only and starts a fresh draft. Step B searches anywhere for posts step A missed; those are "leads" that need an official notice link before they can be approved. Nothing reaches users until it is approved. */
 async function runStep(env, step) {
   if (!env.LIMITS || !env.ANTHROPIC_API_KEY) return { error: 'not_configured' };
@@ -199,10 +212,10 @@ async function runStep(env, step) {
   if (step === 'C') {
     var dc = (await kget(env, 'draft')) || { items: [] }, idc = {}, tc = []; dc.items.forEach(function (x) { idc[x.id] = 1; if (x.k === 'pvt') tc.push(nkey(x.org + x.title)); });
     (live.pvt || []).forEach(function (x) { idc[x.id] = 1; });
-    var C = await searchPass(env, promptC(today), null, 6);
+    var C = await searchPass(env, promptC(today), null, 5, env.PVT_MODEL || DEFAULT_PVT_MODEL);
     if (!C.ok) return { error: C.error, stop: C.stop, len: C.len, tail: C.tail, status: C.status, usage: C.u };
     var addc = 0;
-    (Array.isArray(C.o.jobs) ? C.o.jobs : []).forEach(function (x) {
+    (Array.isArray(C.o.jobs) ? C.o.jobs : []).slice(0, PVT_MAX).forEach(function (x) {
       var c = cleanPvt(x, C.seen, today); if (!c || idc[c.id]) return;
       var nk = nkey(c.org + c.title); if (tc.indexOf(nk) >= 0) return; tc.push(nk); idc[c.id] = 1; dc.items.push(c); addc++;
     });
@@ -224,7 +237,13 @@ async function runStep(env, step) {
   await env.LIMITS.put('draft', JSON.stringify(d));
   return { ok: true, n: d.items.length, leads: d.items.filter(function (x) { return x.lead; }).length, usage: B.u };
 }
-async function runDaily(env) { var a = await runStep(env, 'A'); if (!a.ok) return a; var b = await runStep(env, 'B'); if (!b.ok) return b; var c = await runStep(env, 'C'); return c.ok ? { ok: true, n: c.n, leads: c.leads, usage: addUsage(addUsage(a.usage, b.usage), c.usage) } : c; }
+/* Runs a step and adds its estimated cost to this month's total (spend:YYYY-MM in KV). */
+async function runLogged(env, step) {
+  var r = await runStep(env, step), inr = r && r.usage && r.usage.inr || 0;
+  if (inr > 0 && env.LIMITS) { try { var k = 'spend:' + todayStr().slice(0, 7), v = parseFloat((await env.LIMITS.get(k)) || '0') || 0; await env.LIMITS.put(k, String(v + inr), { expirationTtl: 7776000 }); } catch (e) {} }
+  return r;
+}
+async function runDaily(env) { var a = await runLogged(env, 'A'); if (!a.ok) return a; var b = await runLogged(env, 'B'); if (!b.ok) return b; var c = await runLogged(env, 'C'); return c.ok ? { ok: true, n: c.n, leads: c.leads, usage: addUsage(addUsage(a.usage, b.usage), c.usage) } : c; }
 function cutoff(days) { return new Date(Date.now() - days * 864e5).toISOString().slice(0, 10); }
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 async function adminDo(b, request, env, origin) {
@@ -236,7 +255,7 @@ async function adminDo(b, request, env, origin) {
   if (b.action === 'run' || b.action === 'run2' || b.action === 'run3') {
     var step = b.action === 'run' ? 'A' : b.action === 'run2' ? 'B' : 'C';
     if (step === 'A') { var last = await env.LIMITS.get('lastrun'); if (last && Date.now() - parseInt(last, 10) < 36e5) return json({ error: 'too_soon' }, 429, origin); }
-    var r = await runStep(env, step);
+    var r = await runLogged(env, step);
     var res = { at: Date.now(), ok: !!r.ok, step: step, n: r.n, leads: r.leads, error: r.error, stop: r.stop, len: r.len, tail: r.tail, status: r.status, usage: r.usage };
     await env.LIMITS.put('lastresult', JSON.stringify(res));
     if (r.ok && step === 'A') await env.LIMITS.put('lastrun', String(Date.now()));
@@ -261,8 +280,8 @@ async function adminDo(b, request, env, origin) {
     live.records = live.records.filter(function (x) { return !rm[x.id]; }); live.exams = live.exams.filter(function (x) { return !rm[x.id]; }); live.pvt = live.pvt.filter(function (x) { return !rm[x.id]; });
     live.at = Date.now(); await env.LIMITS.put('live', JSON.stringify(live));
   }
-  var lastres = await kget(env, 'lastresult');
-  return json({ ok: true, draft: draft, last: lastres, live: { at: live.at, records: live.records.map(function (x) { return { id: x.id, title: x.title, closes: x.closes }; }), exams: live.exams.map(function (x) { return { id: x.id, title: x.title, d: x.d }; }), pvt: live.pvt.map(function (x) { return { id: x.id, title: x.title + ' · ' + x.org, closes: x.closes, d: x.found }; }) } }, 200, origin);
+  var lastres = await kget(env, 'lastresult'), spend = parseFloat((await env.LIMITS.get('spend:' + todayStr().slice(0, 7))) || '0') || 0;
+  return json({ ok: true, draft: draft, last: lastres, spend: Math.round(spend), live: { at: live.at, records: live.records.map(function (x) { return { id: x.id, title: x.title, closes: x.closes }; }), exams: live.exams.map(function (x) { return { id: x.id, title: x.title, d: x.d }; }), pvt: live.pvt.map(function (x) { return { id: x.id, title: x.title + ' · ' + x.org, closes: x.closes, d: x.found }; }) } }, 200, origin);
 }
 async function liveGet(env, origin) {
   var today = todayStr(), live = (await kget(env, 'live')) || { at: 0, records: [], exams: [] };

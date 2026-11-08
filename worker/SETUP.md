@@ -38,3 +38,9 @@ Pass A searches official government sites only (gov.in, nic.in, ibps.in, ac.in, 
 - Each full run now costs about 60 to 75 rupees. Private jobs with no closing date disappear from the app after 21 days.
 - Redeploy `worker.js` for this to work. The review page and app update by themselves.
 - A resume scan reads skills, job titles, years of work, highest education, city and languages. It never reads name, phone, email or address. Details from several documents are combined on the phone.
+
+### Cost and the private-job model (optional settings)
+- The review page now shows an estimated rupee cost for the last step and for the month so far. These are estimates from token counts and web searches, not your bill; check Anthropic Console for the real figure.
+- Private job search uses a cheaper model (default `claude-haiku-5-5`). To change it, add a Worker variable `PVT_MODEL`. If that model cannot be used, the search falls back to the main model and the review page says so.
+- `USD_INR` (default 90) sets the exchange rate used for the estimate.
+- Each private search is capped at 10 jobs.

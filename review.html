@@ -78,12 +78,13 @@ function draw(j){
   else if(TAB==='p')body=pv.length?'<p class="mu">Found on job sites. Open each listing, check the employer is real and nothing asks for a fee, fix the qualification and years, then approve.</p>'+pv.join(''):'<div class="c mu">No private jobs waiting.</div>';
   else body=(lv.map(function(x){return '<div class="c"><b>'+esc(x.title)+'</b> <span class="mu">'+esc(x.closes||x.d||'')+'</span><div class="row"><button class="d" data-rm="'+esc(x.id)+'">Remove</button></div></div>'}).join(''))||'<div class="c mu">Nothing live yet.</div>';
   $('list').innerHTML=body;
-  var L=j.last;$('msg').innerHTML=L?(L.ok?'Last run: '+L.n+' finds ('+(L.leads||0)+' leads).':'<span class="err">Last run failed: '+esc(L.error||'')+'</span> <span class="mu">'+esc(JSON.stringify({stop:L.stop,status:L.status,tail:L.tail}))+'</span>')+' <span class="mu">'+new Date(L.at).toLocaleString()+'</span>':'';
+  var L=j.last;$('msg').innerHTML=L?(L.ok?'Last run: '+L.n+' finds ('+(L.leads||0)+' leads).':'<span class="err">Last run failed: '+esc(L.error||'')+'</span> <span class="mu">'+esc(JSON.stringify({stop:L.stop,status:L.status,tail:L.tail}))+'</span>')+' <span class="mu">'+new Date(L.at).toLocaleString()+'</span>'+(L.usage&&L.usage.inr?' <span class="mu">Cost of the last step about ₹'+Math.round(L.usage.inr)+(L.usage.fellBack?' (cheaper model unavailable, used the main one)':'')+'.</span>':''):'';
+  if(j.spend!=null)$('msg').innerHTML+=' <span class="mu">This month so far about ₹'+j.spend+' (estimate).</span>';
 }
 async function load(a){$('msg').textContent='Working…';try{var j=await api(a||{action:'list'});draw(j);$('msg').textContent=''}catch(e){$('msg').innerHTML='<span class="err">'+esc(e.message)+'</span>'}}
 $('go').onclick=async function(){KEY=$('key').value;try{var j=await api({action:'list'});try{sessionStorage.setItem('ak',KEY)}catch(e){}$('login').hidden=true;$('main').hidden=false;draw(j)}catch(e){$('lerr').textContent=e.message==='forbidden'?'Wrong key.':e.message}};
 $('reload').onclick=function(){load()};
-$('run').onclick=async function(){if(!confirm('Run the search now? It costs about ₹60 to ₹75 and takes 3 to 6 minutes. Keep this page open.'))return;
+$('run').onclick=async function(){if(!confirm('Run the search now? It costs roughly ₹50 to ₹75 (the real cost shows afterwards) and takes 3 to 6 minutes. Keep this page open.'))return;
   var t0=Date.now(),tick=setInterval(function(){var s=$('msg').getAttribute('data-s')||'';$('msg').textContent=s+' ('+Math.round((Date.now()-t0)/1000)+' s)'},1000);
   function st(t){$('msg').setAttribute('data-s',t);$('msg').textContent=t}
   try{st('Step 1 of 3: searching official sites…');await api({action:'run'});st('Step 2 of 3: looking for other govt posts…');await api({action:'run2'});st('Step 3 of 3: looking for private jobs…');await api({action:'run3'})}
