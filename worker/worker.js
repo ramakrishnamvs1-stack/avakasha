@@ -111,11 +111,19 @@ function cleanExam(x, seen, today) {
   return { id: 'dx-' + hash(url), k: 'exam', art: 'biz', d: d, when: d, title: title, short: title, sub: cleanS(x.org, 80), org: cleanS(x.org, 80), line: cleanS(x.line, 200), facts: facts, src: [cleanS(x.srcName, 80) || host, url], note: 'Found by the daily search and checked by Avakasha. Confirm the date on the official site.', official: off };
 }
 var EDU_NAME = { '10': 'Class 10', '12': 'Class 12', diploma: 'Diploma or ITI', degree: 'Degree', pg: 'Master\'s degree' };
+var BOARDS = /(^|\.)(naukri|linkedin|indeed|foundit|monster|shine|glassdoor|apna|workindia|quikr|timesjobs|freshersworld|jooble|instahyre|internshala|olx|talent|simplyhired|ziprecruiter|careerbuilder|hirist|cutshort|wellfound|jobhai|babajob|sulekha|justdial|facebook|whatsapp|telegram|t)\.(com|co\.in|in|app|me|io)$/i;
+var FEEWORDS = /registration\s+fee|security\s+deposit|refundable|pay\s+(?:rs|₹|inr)|joining\s+fee|training\s+fee|fee\s+required|deposit\s+required|work\s+from\s+home.{0,30}(?:earn|per\s+day)/i;
+function viaOf(host, org) {
+  if (BOARDS.test(host)) return 'Job board';
+  var h = host.replace(/^www\./, '').split('.')[0].toLowerCase(), toks = String(org).toLowerCase().split(/[^a-z0-9]+/).filter(function (t) { return t.length >= 4; });
+  return toks.some(function (t) { return h.indexOf(t) >= 0 || t.indexOf(h) >= 0 && h.length >= 4; }) ? 'Employer\'s own page' : 'Other site';
+}
 function cleanPvt(x, seen, today) {
   var url = cleanS(x && x.url, 400).split('#')[0], host;
   try { var u = new URL(url); if (u.protocol !== 'https:') return null; host = u.hostname; } catch (e) { return null; }
   if (seen && !seen[url]) return null;
   var title = cleanS(x.title, 100), org = cleanS(x.company || x.org, 80); if (!title || !org) return null;
+  if (FEEWORDS.test(title + ' ' + cleanS(x.line, 300) + ' ' + cleanS(x.pay, 80))) return null;
   var closes = okDate(x.closes); if (closes && closes < today) return null;
   var city = cleanS(x.city || x.place, 40) || 'Karnataka', skills = (Array.isArray(x.skills) ? x.skills : []).map(function (s) { return cleanS(s, 30); }).filter(Boolean).slice(0, 8);
   var minExp = num(x.minExp, 0, 30), edu = EDU_NAME[x.edu] ? x.edu : null, pay = cleanS(x.pay, 60);
@@ -125,7 +133,7 @@ function cleanPvt(x, seen, today) {
   if (edu) facts.push(['Qualification', EDU_NAME[edu] + ' or higher']);
   if (skills.length) facts.push(['Skills', skills.join(', ')]);
   if (closes) facts.push(['Apply by', closes]);
-  return { id: 'dp-' + hash(url), k: 'pvt', live: true, title: title, org: org, place: city, line: cleanS(x.line, 200), skills: skills, pay: pay, minExp: minExp || 0, edu: edu, closes: closes, found: today, facts: facts, src: [cleanS(x.srcName, 80) || host, url], host: host, note: 'Found on a job site by the daily search and checked by Avakasha. This is not an official page. Check the employer before you apply.' };
+  return { id: 'dp-' + hash(url), k: 'pvt', live: true, title: title, org: org, place: city, line: cleanS(x.line, 200), skills: skills, pay: pay, minExp: minExp || 0, edu: edu, closes: closes, found: today, via: viaOf(host, org), facts: facts, src: [cleanS(x.srcName, 80) || host, url], host: host, note: 'Found on a job site by the daily search and checked by Avakasha. This is not an official page. Check the employer before you apply.' };
 }
 async function kget(env, k) { try { var v = await env.LIMITS.get(k); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
 var OFFICIAL_DOMAINS = ['gov.in', 'nic.in', 'ibps.in', 'ac.in', 'edu.in'];
@@ -170,7 +178,7 @@ function promptB(today) {
 }
 var PVT_SHAPE = '{"title":"","company":"","city":"","line":"one short sentence","pay":"as printed, or empty","minExp":0,"edu":"10 or 12 or diploma or degree or pg","skills":[],"closes":"YYYY-MM-DD or null","srcName":"site name","url":""}';
 function promptC(today) {
-  return 'Today is ' + today + '. You help job seekers in India.\nUse web search on any site to find private-sector jobs that are open right now in Bengaluru and elsewhere in Karnataka. Cover a mix: entry-level and fresher roles, Class 10 or Class 12 pass roles (delivery, retail, office assistant, driver, technician, security), diploma or ITI roles, and graduate roles. Up to 12 jobs. List only what you saw on a page in the search results, and use that page\'s own address as url, preferring the employer\'s own careers page over a job board. Never invent a company, pay or date. Skip anything that asks the applicant to pay a fee, anything vague about the employer, and anything already closed. Keep every field short; edu is the lowest qualification asked for, and minExp is the years of experience asked for (0 if freshers can apply).\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[' + PVT_SHAPE + ']}</json>';
+  return 'Today is ' + today + '. You help job seekers in India.\nUse web search on any site to find private-sector jobs that are open right now in Bengaluru and elsewhere in Karnataka. Cover a mix: entry-level and fresher roles, Class 10 or Class 12 pass roles (delivery, retail, office assistant, driver, technician, security), diploma or ITI roles, and graduate roles. Up to 12 jobs. List only what you saw on a page in the search results, and use that page\'s own address as url, preferring the employer\'s own careers page over a job board. Never invent a company, pay or date. Skip anything that asks the applicant to pay any fee or deposit, anything vague about the employer, and anything already closed. Keep every field short; edu is the lowest qualification asked for, and minExp is the years of experience asked for (0 if freshers can apply).\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[' + PVT_SHAPE + ']}</json>';
 }
 function addUsage(a, b) { return { input_tokens: (a.input_tokens || 0) + (b.input_tokens || 0), output_tokens: (a.output_tokens || 0) + (b.output_tokens || 0), searches: (a.searches || 0) + (b.searches || 0) }; }
 /* The daily job has two steps so each fits in one request. Step A searches official government sites only and starts a fresh draft. Step B searches anywhere for posts step A missed; those are "leads" that need an official notice link before they can be approved. Nothing reaches users until it is approved. */

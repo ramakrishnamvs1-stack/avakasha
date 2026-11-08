@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '34';
+var APPVER = '35';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -430,7 +430,7 @@ function renderHome() {
   stopHome();
   HOME.items = homeItems(); if (HOME.i >= HOME.items.length) HOME.i = 0;
   var ics = HICONS.map(function (c) { return '<a class="hic" href="' + c[2] + '"><span class="hc ' + c[1] + '"><svg viewBox="0 0 24 24" aria-hidden="true">' + c[3] + '</svg></span><span class="hl">' + c[0].replace('Upcoming exams', 'Upcoming<br>exams') + '</span></a>'; }).join('');
-  $('app').innerHTML = '<div class="homew"><div id="hslot"></div><div class="hdots">' + HOME.items.map(function (x, k) { return '<button type="button" data-k="' + k + '" aria-label="Show card ' + (k + 1) + '"><i></i></button>'; }).join('') + '</div><div class="hics">' + ics + '</div></div>';
+  $('app').innerHTML = '<div class="homew"><div id="hslot"></div><div class="hdots">' + HOME.items.map(function (x, k) { return '<button type="button" data-k="' + k + '" aria-label="Show card ' + (k + 1) + '"><i></i></button>'; }).join('') + '</div><div class="hics">' + ics + '</div><p class="hnp">Never pay anyone to get a job or an exam seat.</p></div>';
   drawHome();
   function go(k) { HOME.i = k; drawHome(); stopHome(); HOME.t = setInterval(next, 5500); }
   function next() { go((HOME.i + 1) % HOME.items.length); }
@@ -451,7 +451,7 @@ function xcard(x, kind, m) {
     tags = '<span class="tg w">' + esc(dayTxt(x)) + '</span><span class="tg">' + esc(x.org) + '</span>';
   } else {
     left = '<div class="xi">' + BRIEF + '</div>';
-    tags = (x.live ? (m && m.g === 1 ? '<span class="tg og">Suits you</span>' : m && m.g === 3 ? '<span class="tg w">' + esc(m.need) + '</span>' : '<span class="tg w">Not official</span>') : '<span class="tg w">Sample listing</span>') + '<span class="tg">' + esc(x.place) + '</span>';
+    tags = (x.live ? (m && m.g === 1 ? '<span class="tg og">Suits you</span>' : m && m.g === 3 ? '<span class="tg w">' + esc(m.need) + '</span>' : '<span class="tg w">' + esc(x.via || 'Not official') + '</span>') : '<span class="tg w">Sample listing</span>') + '<span class="tg">' + esc(x.place) + '</span>';
   }
   return '<a class="xc" href="#x/' + encodeURIComponent(x.id) + '">' + left + '<div class="xb"><h3>' + esc(x.title) + '</h3><div class="org">' + esc(x.org) + '</div><div class="xt">' + tags + '</div></div></a>';
 }
@@ -459,7 +459,7 @@ function renderExams() {
   var l = upExams();
   $('app').innerHTML = subHead('Upcoming exams', 'Sorted by date. Check each date on the official site.')
     + (l.length ? '<div class="xl">' + l.map(function (x) { return xcard(x, 'exam'); }).join('') + '</div>' : '<div class="card"><p class="note">No upcoming exams are listed right now.</p></div>')
-    + '<p class="foot">Dates were read on ' + esc(EXTRA.readOn || '') + ' from the official calendars where marked, and are tentative. Open the official site before you plan.</p>';
+    + '<p class="foot">Dates were read on ' + esc(EXTRA.readOn || '') + ' from the official calendars where marked, and are tentative. Open the official site before you plan. Never pay an agent to get an exam seat.</p>';
   wireBack('#home');
 }
 function renderGovt() {
@@ -501,7 +501,7 @@ function renderPvt() {
   if (!live.length) {
     var l = EXTRA.pvt || [];
     $('app').innerHTML = subHead('Pvt Jobs', 'Private openings near you.')
-      + '<div class="banner" style="margin-top:12px"><b>Sample listings.</b> Real private jobs are not published yet, so these are examples of what will appear here. They are not real openings.</div><div class="xl">' + l.map(function (x) { return xcard(x, 'pvt'); }).join('') + '</div>';
+      + '<div class="banner" style="margin-top:12px"><b>Sample listings.</b> Real private jobs are not published yet, so these are examples of what will appear here. They are not real openings. Never pay anyone to get a job.</div><div class="xl">' + l.map(function (x) { return xcard(x, 'pvt'); }).join('') + '</div>';
     wireBack('#home'); return;
   }
   var sig = p && pvtSignals(f, p), items = live.map(function (x) { return { x: x, m: sig ? pvtMatch(x, f, p) : { score: 0, why: [], need: '', g: 2 } }; });
@@ -525,7 +525,7 @@ function renderX(id) {
   var facts = x.facts.map(function (r) { return '<div class="dkv"><span>' + esc(r[0]) + '</span><span>' + esc(r[1]) + '</span></div>'; }).join('');
   $('app').innerHTML = '<div class="dbar"><button type="button" id="dback" aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><b>' + (isE ? 'Exam details' : 'Job details') + '</b></div>'
     + '<h1 class="dtitle">' + esc(x.title) + '</h1><div class="org" style="font-size:15px;margin-top:6px">' + esc(x.org) + '</div>'
-    + (isE ? (x.off ? '<div class="dnote g"><b>Read from the official calendar.</b> ' + esc(x.note) + '</div>' : '<div class="dnote w"><b>' + (x.tent ? 'Not announced yet.' : 'Not from an official page.') + '</b> ' + esc(x.note) + '</div>') : (x.live ? '<div class="dnote w"><b>Not from an official page.</b> ' + esc(x.note) + '</div>' : '<div class="dnote w"><b>Sample listing.</b> This is an example, not a real opening. Real private jobs will appear here once we have a trusted source.</div>'))
+    + (isE ? (x.off ? '<div class="dnote g"><b>Read from the official calendar.</b> ' + esc(x.note) + '</div>' : '<div class="dnote w"><b>' + (x.tent ? 'Not announced yet.' : 'Not from an official page.') + '</b> ' + esc(x.note) + '</div>') : (x.live ? '<div class="dnote w"><b>Not from an official page.</b> Listed on: ' + esc(x.via || 'a job site') + '. ' + esc(x.note) + ' <b>Never pay to get a job.</b></div>' : '<div class="dnote w"><b>Sample listing.</b> This is an example, not a real opening. Real private jobs will appear here once we have a trusted source.</div>'))
     + '<div class="dh">Key facts</div><div class="dlist">' + facts + '</div>'
     + '<div class="dh">About</div><div class="dabout"><p>' + esc(x.line) + '</p>' + (isE || x.live ? '<p class="note">Source: <a href="' + x.src[1] + '" target="_blank" rel="noopener">' + esc(x.src[0]) + '</a>. Read on ' + esc(x.live ? x.found || '' : EXTRA.readOn || '') + '.</p>' : '') + '</div>'
     + (!isE && x.live ? whyBlock(x) + '<p class="foot">Never pay to get a job. Check the employer before you share documents.</p><div class="dact"><a class="btn pri" href="' + x.src[1] + '" target="_blank" rel="noopener">Open the listing ↗</a></div>' : '')
