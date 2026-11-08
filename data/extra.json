@@ -1,59 +1,210 @@
 {
-  "version": "2026-11-07",
-  "readOn": "7 Nov 2026",
-  "exams": [
-    {
-      "id": "x-rrboa", "hero": true, "art": "biz", "d": "2026-12-06", "when": "6 Dec 2026",
-      "title": "Bank clerk exam (IBPS RRB Office Assistant)",
-      "short": "Bank clerk exam", "sub": "Gramin banks, clerk-level posts",
-      "org": "IBPS", "line": "First-stage (preliminary) exam for clerk-level posts in regional rural banks.",
-      "facts": [["Prelims", "6, 12 and 13 Dec 2026 (tentative)"], ["Mains", "30 Jan 2027 (tentative)"], ["Qualification", "A degree is needed for this post"]],
-      "src": ["IBPS tentative calendar 2026-27", "https://www.ibps.in"],
-      "note": "Dates were read from news reports of the IBPS calendar. Confirm them on the IBPS site."
-    },
-    {
-      "id": "x-nda", "hero": true, "art": "def", "d": "2027-04-11", "when": "11 Apr 2027",
-      "title": "NDA and NA exam (I) 2027",
-      "short": "Defence entrance exam", "sub": "Army, Navy and Air Force academies",
-      "org": "UPSC", "line": "Entrance to the National Defence Academy and Naval Academy after Class 12.",
-      "facts": [["Exam", "11 Apr 2027"], ["Notification", "2 Dec 2026"], ["Apply by", "22 Dec 2026"], ["Qualification", "Class 12 pass or appearing; unmarried male and female candidates within the age limit"]],
-      "src": ["UPSC exam calendar 2027", "https://upsc.gov.in"],
-      "note": "Dates were read from news reports of the UPSC calendar. Confirm them on the UPSC site."
-    },
-    {
-      "id": "x-rrbo", "d": "2026-11-21", "when": "21 Nov 2026", "art": "biz",
-      "title": "IBPS RRB Officer Scale I (preliminary)",
-      "short": "Bank officer exam", "sub": "Gramin banks, officer posts",
-      "org": "IBPS", "line": "First-stage exam for officer posts in regional rural banks.",
-      "facts": [["Prelims", "21 and 22 Nov 2026 (tentative)"], ["Qualification", "A degree is needed for this post"]],
-      "src": ["IBPS tentative calendar 2026-27", "https://www.ibps.in"],
-      "note": "Dates were read from news reports of the IBPS calendar. Confirm them on the IBPS site."
-    },
-    {
-      "id": "x-kcet", "d": "2027-04-15", "tent": true, "when": "April 2027", "art": "biz",
-      "title": "KCET 2027", "short": "KCET 2027", "sub": "Engineering, pharmacy and farm science seats",
-      "org": "Karnataka Examinations Authority", "line": "Karnataka's common entrance test for professional courses after Class 12.",
-      "facts": [["Exam", "Expected in April 2027. KEA has not announced dates"], ["Qualification", "Class 12 (PUC) with the required subjects"]],
-      "src": ["Karnataka Examinations Authority", "https://cetonline.karnataka.gov.in"],
-      "note": "The date is an expectation based on earlier years, not an announcement. Watch the KEA site."
-    },
-    {
-      "id": "x-neet", "hero": true, "art": "med", "d": "2027-05-01", "tent": true, "when": "May 2027",
-      "title": "NEET (UG) 2027", "short": "Medical entrance exam", "sub": "Medical and allied health courses",
-      "org": "National Testing Agency", "line": "National entrance test for MBBS, BDS and other medical courses after Class 12.",
-      "facts": [["Exam", "Expected in May 2027. NTA has not announced a date"], ["Qualification", "Class 12 with Physics, Chemistry and Biology"]],
-      "src": ["National Testing Agency", "https://neet.nta.nic.in"],
-      "note": "The date is an expectation based on earlier years, not an announcement. Watch the NTA site."
-    }
-  ],
-  "pvt": [
-    {"id": "p-del", "title": "Delivery partner", "org": "Logistics company", "place": "Bangalore", "posted": "Sample",
-     "line": "Deliver parcels in your area on a two-wheeler.", "facts": [["Needs", "Class 10 pass, driving licence, own two-wheeler"], ["Where", "Bangalore"]]},
-    {"id": "p-shop", "title": "Showroom sales assistant", "org": "Retail store", "place": "Yeshwanthpur, Bangalore", "posted": "Sample",
-     "line": "Help customers in a store and handle billing.", "facts": [["Needs", "Class 12 pass, spoken Kannada and basic English"], ["Where", "Yeshwanthpur, Bangalore"]]},
-    {"id": "p-off", "title": "Office assistant", "org": "Accounting firm", "place": "Rajajinagar, Bangalore", "posted": "Sample",
-     "line": "File papers, run errands and help with data entry.", "facts": [["Needs", "Class 10 pass, basic computer skills"], ["Where", "Rajajinagar, Bangalore"]]},
-    {"id": "p-drv", "title": "Light vehicle driver", "org": "Travel agency", "place": "Bangalore", "posted": "Sample",
-     "line": "Drive customers in a car on city and outstation trips.", "facts": [["Needs", "Light motor vehicle licence, 1 year of driving"], ["Where", "Bangalore"]]}
-  ]
+ "version": "2026-11-07",
+ "readOn": "8 Nov 2026",
+ "exams": [
+  {
+   "id": "x-jee1",
+   "hero": true,
+   "art": "biz",
+   "d": "2027-01-20",
+   "when": "20 Jan 2027",
+   "title": "JEE Main 2027, Session 1",
+   "short": "Engineering entrance",
+   "sub": "Engineering and architecture seats",
+   "org": "National Testing Agency",
+   "line": "National entrance test for engineering courses after Class 12.",
+   "facts": [
+    [
+     "Exam",
+     "20 to 24 and 28 Jan 2027 (tentative)"
+    ],
+    [
+     "Qualification",
+     "Class 12 with Physics and Maths, passed or appearing"
+    ]
+   ],
+   "src": [
+    "NTA exam calendar (Dec 2026 cycle onwards)",
+    "https://nta.ac.in/Download/Notice/ExamcalendarRevised.pdf"
+   ],
+   "note": "Date is from the official NTA calendar and is tentative. Confirm on the NTA site."
+  },
+  {
+   "id": "x-jee2",
+   "d": "2027-04-02",
+   "when": "2 Apr 2027",
+   "art": "biz",
+   "title": "JEE Main 2027, Session 2",
+   "short": "Engineering entrance",
+   "sub": "Second attempt",
+   "org": "National Testing Agency",
+   "line": "Second session of the national engineering entrance test.",
+   "facts": [
+    [
+     "Exam",
+     "2 to 7 Apr 2027 (tentative)"
+    ],
+    [
+     "Qualification",
+     "Class 12 with Physics and Maths, passed or appearing"
+    ]
+   ],
+   "src": [
+    "NTA exam calendar (Dec 2026 cycle onwards)",
+    "https://nta.ac.in/Download/Notice/ExamcalendarRevised.pdf"
+   ],
+   "note": "Date is from the official NTA calendar and is tentative. Confirm on the NTA site."
+  },
+  {
+   "id": "x-nift",
+   "d": "2027-01-10",
+   "when": "10 Jan 2027",
+   "art": "biz",
+   "title": "NIFT entrance exam 2027",
+   "short": "Fashion design entrance",
+   "sub": "Design and fashion technology",
+   "org": "National Testing Agency",
+   "line": "Entrance exam for NIFT design and fashion courses.",
+   "facts": [
+    [
+     "Exam",
+     "10 Jan 2027 (tentative)"
+    ]
+   ],
+   "src": [
+    "NTA exam calendar (Dec 2026 cycle onwards)",
+    "https://nta.ac.in/Download/Notice/ExamcalendarRevised.pdf"
+   ],
+   "note": "Date is from the official NTA calendar and is tentative. Confirm on the NTA site."
+  },
+  {
+   "id": "x-kcet",
+   "d": "2027-04-15",
+   "tent": true,
+   "when": "April 2027",
+   "art": "biz",
+   "title": "KCET 2027",
+   "short": "KCET 2027",
+   "sub": "Engineering, pharmacy and farm science seats",
+   "org": "Karnataka Examinations Authority",
+   "line": "Karnataka's common entrance test for professional courses after Class 12.",
+   "facts": [
+    [
+     "Exam",
+     "Expected in April 2027. KEA has not announced dates"
+    ],
+    [
+     "Qualification",
+     "Class 12 (PUC) with the required subjects"
+    ]
+   ],
+   "src": [
+    "Karnataka Examinations Authority",
+    "https://cetonline.karnataka.gov.in"
+   ],
+   "note": "No date has been announced yet; the KEA site shows no KCET 2027 notice. Watch the official site."
+  },
+  {
+   "id": "x-neet",
+   "hero": true,
+   "art": "med",
+   "d": "2027-05-01",
+   "tent": true,
+   "when": "May 2027",
+   "title": "NEET (UG) 2027",
+   "short": "Medical entrance exam",
+   "sub": "Medical and allied health courses",
+   "org": "National Testing Agency",
+   "line": "National entrance test for MBBS, BDS and other medical courses after Class 12.",
+   "facts": [
+    [
+     "Exam",
+     "Expected in May 2027. NTA has not announced a date"
+    ],
+    [
+     "Qualification",
+     "Class 12 with Physics, Chemistry and Biology"
+    ]
+   ],
+   "src": [
+    "National Testing Agency",
+    "https://neet.nta.nic.in"
+   ],
+   "note": "No date has been announced yet; the NTA calendar for Dec 2026 onwards does not list it. Watch the official site."
+  }
+ ],
+ "pvt": [
+  {
+   "id": "p-del",
+   "title": "Delivery partner",
+   "org": "Logistics company",
+   "place": "Bangalore",
+   "posted": "Sample",
+   "line": "Deliver parcels in your area on a two-wheeler.",
+   "facts": [
+    [
+     "Needs",
+     "Class 10 pass, driving licence, own two-wheeler"
+    ],
+    [
+     "Where",
+     "Bangalore"
+    ]
+   ]
+  },
+  {
+   "id": "p-shop",
+   "title": "Showroom sales assistant",
+   "org": "Retail store",
+   "place": "Yeshwanthpur, Bangalore",
+   "posted": "Sample",
+   "line": "Help customers in a store and handle billing.",
+   "facts": [
+    [
+     "Needs",
+     "Class 12 pass, spoken Kannada and basic English"
+    ],
+    [
+     "Where",
+     "Yeshwanthpur, Bangalore"
+    ]
+   ]
+  },
+  {
+   "id": "p-off",
+   "title": "Office assistant",
+   "org": "Accounting firm",
+   "place": "Rajajinagar, Bangalore",
+   "posted": "Sample",
+   "line": "File papers, run errands and help with data entry.",
+   "facts": [
+    [
+     "Needs",
+     "Class 10 pass, basic computer skills"
+    ],
+    [
+     "Where",
+     "Rajajinagar, Bangalore"
+    ]
+   ]
+  },
+  {
+   "id": "p-drv",
+   "title": "Light vehicle driver",
+   "org": "Travel agency",
+   "place": "Bangalore",
+   "posted": "Sample",
+   "line": "Drive customers in a car on city and outstation trips.",
+   "facts": [
+    [
+     "Needs",
+     "Light motor vehicle licence, 1 year of driving"
+    ],
+    [
+     "Where",
+     "Bangalore"
+    ]
+   ]
+  }
+ ]
 }
