@@ -33,6 +33,12 @@ var FACTS = [
   { k: 'pct12', g: 'Class 12', l: 'Class 12 total percentage', type: 'number', step: 0.1, min: 0, max: 100, why: 'marks-based rules' },
   { k: 'passed12', g: 'Class 12', l: 'Passed Class 12', type: 'select', o: YN, why: 'basic eligibility' },
   { k: 'stream12', g: 'Class 12', l: 'Class 12 subjects', type: 'select', o: [['pcm', 'Science: Physics, Chemistry, Maths'], ['pcb', 'Science: Physics, Chemistry, Biology'], ['pcmb', 'Science: PCM and Biology'], ['sci', 'Science: another combination'], ['comm', 'Commerce'], ['arts', 'Arts / Humanities']], why: 'courses and entrance exams' },
+  { k: 'eduLevel', g: 'Resume', l: 'Highest education', type: 'select', o: [['10', 'Class 10'], ['12', 'Class 12 / PUC'], ['diploma', 'Diploma or ITI'], ['degree', 'Degree'], ['pg', 'Master’s or higher']], why: 'private jobs' },
+  { k: 'expYears', g: 'Resume', l: 'Years of work experience', type: 'number', step: 0.5, min: 0, max: 50, why: 'private jobs' },
+  { k: 'roles', g: 'Resume', l: 'Job titles (held or wanted)', type: 'text', list: 1, why: 'private jobs' },
+  { k: 'skills', g: 'Resume', l: 'Skills', type: 'text', list: 1, why: 'private jobs' },
+  { k: 'city', g: 'Resume', l: 'City to work in', type: 'text', why: 'private jobs' },
+  { k: 'languages', g: 'Resume', l: 'Languages spoken', type: 'text', list: 1, why: 'private jobs' },
   { k: 'lmv', g: 'Driving licence', l: 'Light vehicle (LMV) licence since', type: 'date', why: 'driver posts' },
   { k: 'hmv', g: 'Driving licence', l: 'Heavy vehicle (HMV) licence since', type: 'date', why: 'driver posts' },
   { k: 'badge', g: 'Driving licence', l: 'Public service badge', type: 'select', o: YN, why: 'driver posts' },
@@ -48,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '33';
+var APPVER = '34';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -65,8 +71,18 @@ function expMonths(p) {
   return tot;
 }
 function expText(m) { var y = Math.floor(m / 12), mo = m % 12; return (y ? y + (y === 1 ? ' year' : ' years') : '') + (y && mo ? ' ' : '') + (mo || !y ? mo + (mo === 1 ? ' month' : ' months') : ''); }
+var EDUR = { '10': 1, '12': 2, diploma: 2, degree: 3, pg: 4 };
+function eduRank(f) { return Math.max(EDUR[f.eduLevel] || 0, f.passed12 === 'yes' ? 2 : 0, f.passed === 'yes' ? 1 : 0); }
+/* When a second document says more about the same thing, combine instead of replacing. */
+function mergeFact(k, v, src) {
+  var p = prof(), old = p && p.facts[k], x = FD[k]; if (!old || !x) { setFact(k, v, src); return; }
+  if (x.list) { var seen = {}, out = []; (old.v + ',' + v).split(/[,;\n]/).forEach(function (t) { t = t.trim(); var kk = t.toLowerCase(); if (t && !seen[kk]) { seen[kk] = 1; out.push(t); } }); setFact(k, out.slice(0, 20).join(', '), src); }
+  else if (k === 'eduLevel') setFact(k, (EDUR[v] || 0) >= (EDUR[old.v] || 0) ? v : old.v, src);
+  else if (k === 'expYears') setFact(k, Math.max(parseFloat(v) || 0, parseFloat(old.v) || 0), src);
+  else setFact(k, v, src);
+}
 function F() { var p = prof(), o = {}; if (!p) return o; for (var k in p.facts) o[k] = p.facts[k].v; if (o.passed12 === 'yes' && !o.passed) o.passed = 'yes';
-  if (jobsOf(p).some(jobDone)) o.exp = String(Math.round(expMonths(p) / 12 * 10) / 10); return o; }
+  if (jobsOf(p).some(jobDone)) { var ey = Math.round(expMonths(p) / 12 * 10) / 10; if (!(parseFloat(o.expYears) > ey)) o.exp = String(ey); else o.exp = o.expYears; } else if (o.expYears !== undefined) o.exp = o.expYears; return o; }
 function setFact(k, v, src) {
   var p = prof(); if (!p) return;
   if (v === '' || v === null || v === undefined) { delete p.facts[k]; } else { p.facts[k] = { v: String(v), src: src || 'typed', at: Date.now() }; }
@@ -178,7 +194,7 @@ var DATA = null;
 var TAB = 'work';
 var QOPEN = false;
 var SHOWALL = false;
-function completion() { var f = F(), n = 0, t = 0; FACTS.forEach(function (x) { if (x.g === 'Driving licence') return; t++; if (f[x.k]) n++; }); return Math.round(n / t * 100); }
+function completion() { var f = F(), n = 0, t = 0; FACTS.forEach(function (x) { if (x.g === 'Driving licence' || x.g === 'Resume') return; t++; if (f[x.k]) n++; }); return Math.round(n / t * 100); }
 function srcLabel(p, fct) { if (fct.src === 'typed') return 'You entered'; var d = (p.docs || []).filter(function (x) { return x.id === fct.src; })[0]; return d ? 'From ' + d.label : 'You entered'; }
 function renderProfile() {
   var p = prof();
@@ -375,6 +391,7 @@ function mergeLive(j) {
   if (!j || !DATA) return;
   var tl = {}; DATA.records.forEach(function (r) { tl[r.title.toLowerCase()] = 1; });
   (j.records || []).forEach(function (r) { if (r && r.id && r.title && !tl[r.title.toLowerCase()]) { DATA.records.push(r); tl[r.title.toLowerCase()] = 1; } });
+  EXTRA.livePvt = (j.pvt || []).filter(function (x) { return x && x.id && x.title && x.org && Array.isArray(x.src) && Array.isArray(x.facts); });
   var te = {}; (EXTRA.exams || []).forEach(function (x) { te[x.title.toLowerCase()] = 1; });
   (j.exams || []).forEach(function (x) { if (x && x.id && x.title && !te[x.title.toLowerCase()]) { (EXTRA.exams = EXTRA.exams || []).push(x); te[x.title.toLowerCase()] = 1; } });
 }
@@ -426,13 +443,16 @@ function subHead(title, sub) {
 }
 function wireBack(to) { var b = $('dback'); if (b) b.onclick = function () { if (to) location.hash = to; else if (history.length > 1) history.back(); else location.hash = '#home'; }; }
 var BRIEF = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/></svg>';
-function xcard(x, kind) {
+function xcard(x, kind, m) {
   var left, tags;
   if (kind === 'exam') {
     var d = pd(x.d), mon = MON[d.getMonth()];
     left = '<div class="xd g-' + x.art + '">' + (x.tent ? '<b>' + mon + '</b><small>' + d.getFullYear() + '</small>' : '<b>' + d.getDate() + '</b><small>' + mon + '</small>') + '</div>';
     tags = '<span class="tg w">' + esc(dayTxt(x)) + '</span><span class="tg">' + esc(x.org) + '</span>';
-  } else { left = '<div class="xi">' + BRIEF + '</div>'; tags = '<span class="tg w">Sample listing</span><span class="tg">' + esc(x.place) + '</span>'; }
+  } else {
+    left = '<div class="xi">' + BRIEF + '</div>';
+    tags = (x.live ? (m && m.g === 1 ? '<span class="tg og">Suits you</span>' : m && m.g === 3 ? '<span class="tg w">' + esc(m.need) + '</span>' : '<span class="tg w">Not official</span>') : '<span class="tg w">Sample listing</span>') + '<span class="tg">' + esc(x.place) + '</span>';
+  }
   return '<a class="xc" href="#x/' + encodeURIComponent(x.id) + '">' + left + '<div class="xb"><h3>' + esc(x.title) + '</h3><div class="org">' + esc(x.org) + '</div><div class="xt">' + tags + '</div></div></a>';
 }
 function renderExams() {
@@ -455,22 +475,60 @@ function renderGovt() {
   wireBack('#home');
   if ($('showCl')) $('showCl').onclick = function () { SHOWCL = !SHOWCL; renderGovt(); };
 }
-function renderPvt() {
-  var l = EXTRA.pvt || [];
-  $('app').innerHTML = subHead('Pvt Jobs', 'Private openings near you.')
-    + '<div class="banner" style="margin-top:12px"><b>Sample listings.</b> We are still finding a trusted source for private jobs, so these are examples of what will appear here. They are not real openings.</div><div class="xl">' + l.map(function (x) { return xcard(x, 'pvt'); }).join('') + '</div>';
-  wireBack('#home');
+function listOf(t) { return String(t || '').split(/[,;\n]/).map(function (x) { return x.trim().toLowerCase(); }).filter(Boolean); }
+function cityKey(c) { return String(c || '').toLowerCase().replace(/bengaluru|bangalore/g, 'bangalore').trim(); }
+/* How well a private job fits what the profile holds. g: 1 suits you, 2 you can apply, 3 needs more. */
+function pvtMatch(x, f, p) {
+  var roles = listOf(f.roles).concat(jobsOf(p).map(function (j) { return String(j.role || '').toLowerCase(); }).filter(Boolean)), skills = listOf(f.skills);
+  if (f.lmv || f.hmv) { roles.push('driver'); skills.push('driving'); }
+  var text = (x.title + ' ' + (x.line || '') + ' ' + (x.skills || []).join(' ')).toLowerCase(), why = [], score = 0;
+  var rh = roles.filter(function (r) { return r.length > 3 && text.indexOf(r) >= 0; });
+  if (rh.length) { score += 3; why.push('The job matches your role: ' + rh[0] + '.'); }
+  var sh = skills.filter(function (k) { return k.length > 1 && text.indexOf(k) >= 0; }).slice(0, 4);
+  if (sh.length) { score += sh.length; why.push('Your skills match: ' + sh.join(', ') + '.'); }
+  var c = cityKey(f.city), pl = cityKey(x.place);
+  if (c && pl && (pl.indexOf(c) >= 0 || c.indexOf(pl) >= 0)) { score += 2; why.push('It is in ' + x.place + '.'); }
+  var er = eduRank(f), need = '';
+  if (x.edu && er && (EDUR[x.edu] || 0) > er) need = 'Needs ' + ({ '10': 'Class 10', '12': 'Class 12', diploma: 'a diploma', degree: 'a degree', pg: 'a master’s' }[x.edu]);
+  var yrs = parseFloat(f.exp || '0') || 0;
+  if (!need && x.minExp && x.minExp > yrs + 0.5) need = 'Needs ' + x.minExp + ' yr' + (x.minExp === 1 ? '' : 's');
+  if (!need && x.edu && er) why.push('You meet the education asked for.');
+  return { score: score, why: why, need: need, g: need ? 3 : (rh.length || sh.length) && score >= 2 ? 1 : 2 };
 }
+function pvtSignals(f, p) { return !!(f.skills || f.roles || f.eduLevel || f.city || eduRank(f) || jobsOf(p).length || f.lmv || f.hmv); }
+function renderPvt() {
+  var live = EXTRA.livePvt || [], f = F(), p = prof();
+  if (!live.length) {
+    var l = EXTRA.pvt || [];
+    $('app').innerHTML = subHead('Pvt Jobs', 'Private openings near you.')
+      + '<div class="banner" style="margin-top:12px"><b>Sample listings.</b> Real private jobs are not published yet, so these are examples of what will appear here. They are not real openings.</div><div class="xl">' + l.map(function (x) { return xcard(x, 'pvt'); }).join('') + '</div>';
+    wireBack('#home'); return;
+  }
+  var sig = p && pvtSignals(f, p), items = live.map(function (x) { return { x: x, m: sig ? pvtMatch(x, f, p) : { score: 0, why: [], need: '', g: 2 } }; });
+  items.sort(function (a, b) { return a.m.g - b.m.g || b.m.score - a.m.score; });
+  var g1 = items.filter(function (i) { return i.m.g === 1; }), g2 = items.filter(function (i) { return i.m.g === 2; }), g3 = items.filter(function (i) { return i.m.g === 3; });
+  function sec(t, a) { return a.length ? (t ? '<h3 class="h3" style="margin:16px 4px 8px">' + t + '</h3>' : '') + '<div class="xl">' + a.map(function (i) { return xcard(i.x, 'pvt', i.m); }).join('') + '</div>' : ''; }
+  $('app').innerHTML = subHead('Pvt Jobs', sig ? 'Open jobs, with the ones that fit your profile first.' : 'Open private jobs.')
+    + '<div class="banner" style="margin-top:12px"><b>Not from an official page.</b> These were found on job sites and checked by Avakasha, but not by the employer. Check the employer first, and never pay anyone to get a job.</div>'
+    + sec(sig && g1.length ? 'Suits you' : '', g1) + sec(sig && g1.length ? 'You can apply' : '', g2)
+    + (g3.length ? '<div class="row" style="margin-top:16px"><button class="btn xbtn" id="showCl" type="button">' + (SHOWCL ? 'Hide ones that need more' : 'Show ones that need more') + '</button></div>' : '')
+    + (SHOWCL ? sec('', g3) : '')
+    + '<p class="foot">Found by the daily search on ' + esc(String(live.map(function (x) { return x.found || ''; }).sort().pop() || '')) + '. Jobs are removed after three weeks or when they close.</p>';
+  wireBack('#home');
+  if ($('showCl')) $('showCl').onclick = function () { SHOWCL = !SHOWCL; renderPvt(); };
+}
+function whyBlock(x) { var p = prof(), f = F(); if (!p || !pvtSignals(f, p)) return ''; var m = pvtMatch(x, f, p), l = m.why.slice(); if (m.need) l.unshift(m.need + ' for this job.'); return l.length ? '<div class="dh">How it fits you</div><div class="dabout"><p>' + l.map(esc).join('</p><p>') + '</p></div>' : ''; }
 function renderX(id) {
   var isE = true, x = (EXTRA.exams || []).filter(function (e) { return e.id === id; })[0];
-  if (!x) { isE = false; x = (EXTRA.pvt || []).filter(function (e) { return e.id === id; })[0]; }
+  if (!x) { isE = false; x = (EXTRA.livePvt || []).concat(EXTRA.pvt || []).filter(function (e) { return e.id === id; })[0]; }
   if (!x) { location.hash = '#home'; return; }
   var facts = x.facts.map(function (r) { return '<div class="dkv"><span>' + esc(r[0]) + '</span><span>' + esc(r[1]) + '</span></div>'; }).join('');
   $('app').innerHTML = '<div class="dbar"><button type="button" id="dback" aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><b>' + (isE ? 'Exam details' : 'Job details') + '</b></div>'
     + '<h1 class="dtitle">' + esc(x.title) + '</h1><div class="org" style="font-size:15px;margin-top:6px">' + esc(x.org) + '</div>'
-    + (isE ? (x.off ? '<div class="dnote g"><b>Read from the official calendar.</b> ' + esc(x.note) + '</div>' : '<div class="dnote w"><b>' + (x.tent ? 'Not announced yet.' : 'Not from an official page.') + '</b> ' + esc(x.note) + '</div>') : '<div class="dnote w"><b>Sample listing.</b> This is an example, not a real opening. Real private jobs will appear here once we have a trusted source.</div>')
+    + (isE ? (x.off ? '<div class="dnote g"><b>Read from the official calendar.</b> ' + esc(x.note) + '</div>' : '<div class="dnote w"><b>' + (x.tent ? 'Not announced yet.' : 'Not from an official page.') + '</b> ' + esc(x.note) + '</div>') : (x.live ? '<div class="dnote w"><b>Not from an official page.</b> ' + esc(x.note) + '</div>' : '<div class="dnote w"><b>Sample listing.</b> This is an example, not a real opening. Real private jobs will appear here once we have a trusted source.</div>'))
     + '<div class="dh">Key facts</div><div class="dlist">' + facts + '</div>'
-    + '<div class="dh">About</div><div class="dabout"><p>' + esc(x.line) + '</p>' + (isE ? '<p class="note">Source: <a href="' + x.src[1] + '" target="_blank" rel="noopener">' + esc(x.src[0]) + '</a>. Read on ' + esc(EXTRA.readOn || '') + '.</p>' : '') + '</div>'
+    + '<div class="dh">About</div><div class="dabout"><p>' + esc(x.line) + '</p>' + (isE || x.live ? '<p class="note">Source: <a href="' + x.src[1] + '" target="_blank" rel="noopener">' + esc(x.src[0]) + '</a>. Read on ' + esc(x.live ? x.found || '' : EXTRA.readOn || '') + '.</p>' : '') + '</div>'
+    + (!isE && x.live ? whyBlock(x) + '<p class="foot">Never pay to get a job. Check the employer before you share documents.</p><div class="dact"><a class="btn pri" href="' + x.src[1] + '" target="_blank" rel="noopener">Open the listing ↗</a></div>' : '')
     + (isE ? '<p class="foot">Never pay an agent to apply or to get an exam seat.</p><div class="dact"><a class="btn pri" href="' + x.src[1] + '" target="_blank" rel="noopener">Open official site ↗</a></div>' : '');
   wireBack(null);
 }
@@ -486,6 +544,7 @@ function questions(list, f) {
 }
 function ctl(x, val, id) {
   if (x.type === 'select') return '<select id="' + id + '"><option value="">Select</option>' + x.o.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (String(val) === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>';
+  if (x.type === 'text') return '<input id="' + id + '" type="text" maxlength="240" value="' + esc(val || '') + '"' + (x.list ? ' placeholder="Separate with commas"' : '') + '>';
   if (x.type === 'date') return '<input id="' + id + '" type="date" value="' + esc(val || '') + '">';
   return '<input id="' + id + '" type="number" inputmode="decimal" value="' + esc(val || '') + '"' + (x.step ? ' step="' + x.step + '"' : '') + (x.min !== undefined ? ' min="' + x.min + '"' : '') + (x.max !== undefined ? ' max="' + x.max + '"' : '') + '>';
 }
@@ -633,7 +692,7 @@ function menuSheet() {
 /* ================= scan ================= */
 var stream = null;
 function stopCam() { if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; } var c = $('camv'); if (c) { c.hidden = true; try { $('vid').srcObject = null; } catch (e) {} if ($('sheet').hidden) document.body.style.overflow = ''; } }
-var DOCTYPES = [['m10', 'Class 10 marksheet'], ['birth', 'Birth certificate'], ['cat', 'Category (caste) certificate'], ['inc', 'Income certificate'], ['exp', 'Work experience letter'], ['dl', 'Driving licence'], ['m12', 'Class 12 marksheet']];
+var DOCTYPES = [['m10', 'Class 10 marksheet'], ['birth', 'Birth certificate'], ['cat', 'Category (caste) certificate'], ['inc', 'Income certificate'], ['exp', 'Work experience letter'], ['dl', 'Driving licence'], ['m12', 'Class 12 marksheet'], ['degree', 'Degree or college marksheet'], ['resume', 'Resume']];
 var scan = { type: 'auto', canvas: null };
 function scanFlow() { scan = { type: 'auto', canvas: null, local: false }; if (!$('sheet').hidden) closeSheet(); openCamera(); }
 function scanSheet() {
@@ -714,10 +773,11 @@ async function readLocal() {
 /* ---- personal test key: saved only on this phone, used to call Claude directly ---- */
 function userKey() { try { return localStorage.getItem('pa10.key') || ''; } catch (e) { return ''; } }
 var MODEL = 'claude-sonnet-5-5';
-var COMMON = 'The image is a photo of an Indian official document. Read only the fields asked for. If a value is not clearly readable, use null. Do not guess. Do not include any person\'s name, roll or registration number, address, or any ID number. Reply with only one JSON object and nothing else.';
+var COMMON = 'The image is a photo of an Indian official document. Read only the fields asked for. If a value is not clearly readable, use null. Do not guess. Do not include any person\'s name, roll or registration number, address, or any ID number, phone number or email address. Reply with only one JSON object and nothing else.';
 var PROMPTS = {
-  auto: COMMON + '\nFirst decide what the document is and put it in docType: "m10" (a school Class 10, SSLC or matriculation marksheet or pass certificate), "m12" (a Class 12, PUC or higher secondary marksheet), "degree" (a college or university marksheet or degree), "exp" (a relieving letter, experience certificate, offer letter or appointment letter from an employer), "dl" (a driving licence), "birth" (a birth certificate), "cat" (a caste or category certificate), "inc" (an income certificate), or "other". Fill only the fields for that document and use null for the rest. Fields: {"isDocument": boolean, "docType": "m10" | "m12" | "degree" | "exp" | "dl" | "birth" | "cat" | "inc" | "other", "board": "CBSE" | "ICSE" | "Karnataka SSLC" | "Karnataka PUC" | "Other state board" | null, "examYear": number | null, "dob": "YYYY-MM-DD" | null, "result": "pass" | "fail" | "unknown", "gradeSystem": "marks" | "cgpa" | "grades" | "unknown", "totalObtained": number | null, "totalMax": number | null, "printedPercentage": number | null, "cgpa": number | null, "subjects": [{"name": string, "obtained": number | null, "max": number | null}], "category": "SC" | "ST" | "OBC" | "General" | null, "categoryText": string | null, "annualIncomeRupees": number | null, "role": string | null, "employer": string | null, "startDate": "YYYY-MM-DD" | null, "endDate": "YYYY-MM-DD" | null, "stillWorking": boolean, "letterKind": "relieving" | "experience" | "offer" | "other" | null, "licenceClasses": [{"class": string, "issued": "YYYY-MM-DD" | null}], "validUpto": "YYYY-MM-DD" | null, "badgeHeld": boolean | null, "notes": [string]}. For a driving licence list each vehicle class printed (for example LMV, MCWG, HMV, HGMV, HPMV) with its own date of issue, the date the licence is valid until, and whether a public service vehicle badge is shown; never include the licence number, name or address. For a work letter, give the employer organisation name and the job title, never the person\'s name; use the date of joining as startDate and the last working day or relieving date as endDate, not the date the letter was written; if a date is not printed use null, and say so in notes. For a Class 12 marksheet, board is the Class 12 board (use "Karnataka PUC" for the Department of Pre-University Education) and subjects must list every subject with its marks. For a Class 10 or Class 12 marksheet use the printed total if there is one. In notes, list anything doubtful, such as a printed total that does not equal the sum of subjects, a subject printed separately from the total, or a blurred value. Keep notes short.',
+  auto: COMMON + '\nFirst decide what the document is and put it in docType: "m10" (a school Class 10, SSLC or matriculation marksheet or pass certificate), "m12" (a Class 12, PUC or higher secondary marksheet), "degree" (a college or university marksheet or degree), "exp" (a relieving letter, experience certificate, offer letter or appointment letter from an employer), "dl" (a driving licence), "birth" (a birth certificate), "cat" (a caste or category certificate), "inc" (an income certificate), "resume" (a resume or CV), or "other". For a resume or CV (docType "resume"): "skills" is up to 12 short skills, tools or certifications, "roles" is up to 5 job titles the person has held or is seeking, "expYears" is the total years of paid work (0 for a fresher, null if unclear), "eduLevel" is the highest completed ("10" Class 10, "12" Class 12 or PUC, "diploma" diploma or ITI, "degree" bachelor\'s, "pg" master\'s or above), "city" is the city where the person lives or wants to work, "languages" is the languages the person speaks. Never output a name, phone number, email or address. Fill only the fields for that document and use null for the rest. Fields: {"isDocument": boolean, "skills": [string], "roles": [string], "expYears": number | null, "eduLevel": "10" | "12" | "diploma" | "degree" | "pg" | null, "city": string | null, "languages": [string], "docType": "m10" | "m12" | "degree" | "exp" | "dl" | "birth" | "cat" | "inc" | "resume" | "other", "board": "CBSE" | "ICSE" | "Karnataka SSLC" | "Karnataka PUC" | "Other state board" | null, "examYear": number | null, "dob": "YYYY-MM-DD" | null, "result": "pass" | "fail" | "unknown", "gradeSystem": "marks" | "cgpa" | "grades" | "unknown", "totalObtained": number | null, "totalMax": number | null, "printedPercentage": number | null, "cgpa": number | null, "subjects": [{"name": string, "obtained": number | null, "max": number | null}], "category": "SC" | "ST" | "OBC" | "General" | null, "categoryText": string | null, "annualIncomeRupees": number | null, "role": string | null, "employer": string | null, "startDate": "YYYY-MM-DD" | null, "endDate": "YYYY-MM-DD" | null, "stillWorking": boolean, "letterKind": "relieving" | "experience" | "offer" | "other" | null, "licenceClasses": [{"class": string, "issued": "YYYY-MM-DD" | null}], "validUpto": "YYYY-MM-DD" | null, "badgeHeld": boolean | null, "notes": [string]}. For a driving licence list each vehicle class printed (for example LMV, MCWG, HMV, HGMV, HPMV) with its own date of issue, the date the licence is valid until, and whether a public service vehicle badge is shown; never include the licence number, name or address. For a work letter, give the employer organisation name and the job title, never the person\'s name; use the date of joining as startDate and the last working day or relieving date as endDate, not the date the letter was written; if a date is not printed use null, and say so in notes. For a Class 12 marksheet, board is the Class 12 board (use "Karnataka PUC" for the Department of Pre-University Education) and subjects must list every subject with its marks. For a Class 10 or Class 12 marksheet use the printed total if there is one. In notes, list anything doubtful, such as a printed total that does not equal the sum of subjects, a subject printed separately from the total, or a blurred value. Keep notes short.',
   m10: COMMON + '\nThe document should be a school Class 10 marksheet or pass certificate (CBSE, ICSE, Karnataka SSLC, or another state board, in any year). Fields: {"isDocument": boolean, "board": "CBSE" | "ICSE" | "Karnataka SSLC" | "Other state board" | null, "examYear": number | null, "dob": "YYYY-MM-DD" | null, "result": "pass" | "fail" | "unknown", "gradeSystem": "marks" | "cgpa" | "grades" | "unknown", "totalObtained": number | null, "totalMax": number | null, "printedPercentage": number | null, "cgpa": number | null, "subjects": [{"name": string, "obtained": number | null, "max": number | null}], "notes": [string]}. Use the printed total if there is one. In notes, list anything doubtful, such as a printed total that does not equal the sum of subjects, a subject printed separately from the total, or a blurred value. Keep notes short.',
+  resume: COMMON + '\nThe document should be a resume or CV.'+ ' For a resume or CV (docType "resume"): "skills" is up to 12 short skills, tools or certifications, "roles" is up to 5 job titles the person has held or is seeking, "expYears" is the total years of paid work (0 for a fresher, null if unclear), "eduLevel" is the highest completed ("10" Class 10, "12" Class 12 or PUC, "diploma" diploma or ITI, "degree" bachelor\'s, "pg" master\'s or above), "city" is the city where the person lives or wants to work, "languages" is the languages the person speaks. Never output a name, phone number, email or address.' + ' Fields: {"isDocument": boolean, "skills": [string], "roles": [string], "expYears": number | null, "eduLevel": "10" | "12" | "diploma" | "degree" | "pg" | null, "city": string | null, "languages": [string], "notes": [string]}.',
   birth: COMMON + '\nThe document should be a birth certificate. Fields: {"isDocument": boolean, "dob": "YYYY-MM-DD" | null, "notes": [string]}.',
   cat: COMMON + '\nThe document should be a caste or category certificate. Fields: {"isDocument": boolean, "category": "SC" | "ST" | "OBC" | "General" | null, "categoryText": string | null, "notes": [string]}.',
   inc: COMMON + '\nThe document should be an income certificate. Fields: {"isDocument": boolean, "annualIncomeRupees": number | null, "notes": [string]}.'
@@ -829,8 +889,7 @@ function toM12(P, subjectText, boardText, notes) {
 }
 function isSupported(t) { return DOCTYPES.some(function (d) { return d[0] === t; }); }
 function unsupportedMsg(t) {
-  if (t === 'degree') return 'This looks like a college or degree document. The app reads Class 10 documents for now.';
-  return 'This does not look like a Class 10 or 12 marksheet, birth, caste or income certificate, driving licence or work letter. Retake the photo with the whole page in the frame.';
+  return 'This does not look like a marksheet, birth, caste or income certificate, driving licence, work letter or resume. Retake the photo with the whole page in the frame.';
 }
 function detectLocal(t) {
   if (/driving\s+licen[cs]e|licen[cs]e\s+to\s+drive|\bmcwg\b|\bhgmv\b|\bhpmv\b|\blmv\b/i.test(t) && !/marks\s+obtained|grand\s+total/i.test(t)) return 'dl';
@@ -858,6 +917,19 @@ function mapServer(type, d) {
     if (d.badgeHeld === true) add('badge', 'yes', 'guess', 'A public service badge seems to be shown. Check it.');
     var cl = (d.licenceClasses || []).map(function (c) { return c && c.class; }).filter(Boolean).join(', ');
     if (cl) notes.push('Classes found on the licence: ' + cl + '. Only light (LMV) and heavy (HMV) classes are saved.');
+    return { props: P, notes: notes };
+  }
+  if (type === 'degree') { add('eduLevel', 'degree', 'guess', 'This looks like a college document. Check the level.'); return { props: P, notes: notes }; }
+  if (type === 'resume') {
+    var lst = function (a, n) { return (Array.isArray(a) ? a : []).filter(function (x) { return typeof x === 'string' && x.trim(); }).map(function (x) { return x.trim().slice(0, 40); }).slice(0, n); };
+    var sk = lst(d.skills, 12), ro = lst(d.roles, 5), la = lst(d.languages, 6);
+    if (['10', '12', 'diploma', 'degree', 'pg'].indexOf(d.eduLevel) >= 0) add('eduLevel', d.eduLevel, 'guess', 'Highest level found on the resume. Check it.');
+    if (typeof d.expYears === 'number' && d.expYears >= 0 && d.expYears <= 50) add('expYears', d.expYears, 'guess', 'Total years of work worked out from the resume. Check it.');
+    if (ro.length) add('roles', ro.join(', '), 'read');
+    if (sk.length) add('skills', sk.join(', '), 'read');
+    if (typeof d.city === 'string' && d.city.trim()) add('city', d.city.trim().slice(0, 40), 'guess', 'City found on the resume. Change it if you want jobs elsewhere.');
+    if (la.length) add('languages', la.join(', '), 'read');
+    notes.push('Only this page was read. If the resume has more pages, scan them too and the details will be combined.');
     return { props: P, notes: notes };
   }
   if (type === 'birth') { if (validDob(d.dob)) add('dob', d.dob, 'read', 'Check the day and month.'); return { props: P, notes: notes }; }
@@ -985,7 +1057,7 @@ function confirmSheet(props, text, notes) {
   $('back').onclick = canSave ? closeSheet : function () { scanSheet(); };
   if (canSave) $('ok').onclick = function () {
     var p = prof(), dt = DOCTYPES.filter(function (d) { return d[0] === scan.type; })[0], doc = { id: uid(), label: dt[1], at: Date.now(), keys: [] }, n = 0;
-    props.forEach(function (pr, i) { if ($('pc' + i).checked) { var v = $('pv' + i).value; if (v !== '') { setFact(pr.k, v, doc.id); doc.keys.push(pr.k); n++; } } });
+    props.forEach(function (pr, i) { if ($('pc' + i).checked) { var v = $('pv' + i).value; if (v !== '') { mergeFact(pr.k, v, doc.id); doc.keys.push(pr.k); n++; } } });
     missing.forEach(function (k) { var v = $('mv-' + k).value; if (v !== '') { if (k === 'dob' && !(parseInt(v.slice(0, 4), 10) >= 1930)) return; setFact(k, v, doc.id); doc.keys.push(k); n++; } });
     if (!n) { toast('Nothing was ticked or typed.'); return; }
     p.docs.push(doc); save(); closeSheet(); scan = { type: 'auto', canvas: null }; location.hash = '#profile'; render(); toast('Read as ' + dt[1] + '. ' + n + ' detail' + (n === 1 ? '' : 's') + ' saved.' + (gaps(p).n ? ' Some details are still missing.' : ''));

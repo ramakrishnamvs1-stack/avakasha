@@ -30,3 +30,11 @@ Nothing is public until you approve it. Items that came from a site that is not 
 ### How the daily run searches
 
 Pass A searches official government sites only (gov.in, nic.in, ibps.in, ac.in, edu.in) and names the main ones (KEA, KPSC, SSC, UPSC, IBPS, RRB, India Post, ISRO, BEL). Pass B searches anywhere for posts pass A missed. Those show on the review page under **Leads**. A lead can be approved only after you paste its official notice link, and the Worker rejects an approval without a link on an official domain.
+
+
+## Private jobs and resumes
+
+- The daily search now has a third step that looks for private jobs (Bengaluru and Karnataka first). The review page runs all three steps from "Search now" and shows private jobs in their own section. Approve only listings where the employer looks real and nothing asks for a fee.
+- Each full run now costs about 60 to 75 rupees. Private jobs with no closing date disappear from the app after 21 days.
+- Redeploy `worker.js` for this to work. The review page and app update by themselves.
+- A resume scan reads skills, job titles, years of work, highest education, city and languages. It never reads name, phone, email or address. Details from several documents are combined on the phone.

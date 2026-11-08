@@ -9,10 +9,11 @@ var DEFAULT_ORIGIN = 'https://ramakrishnamvs1-stack.github.io';
 var DEFAULT_MODEL = 'claude-sonnet-5-5';
 var MAX_B64 = 7 * 1024 * 1024; /* about 5 MB of image */
 
-var COMMON = 'The image is a photo of an Indian official document. Read only the fields asked for. If a value is not clearly readable, use null. Do not guess. Do not include any person\'s name, roll or registration number, address, or any ID number. Reply with only one JSON object and nothing else.';
+var COMMON = 'The image is a photo of an Indian official document. Read only the fields asked for. If a value is not clearly readable, use null. Do not guess. Do not include any person\'s name, roll or registration number, address, or any ID number, phone number or email address. Reply with only one JSON object and nothing else.';
 var PROMPTS = {
-  auto: COMMON + '\nFirst decide what the document is and put it in docType: "m10" (a school Class 10, SSLC or matriculation marksheet or pass certificate), "m12" (a Class 12, PUC or higher secondary marksheet), "degree" (a college or university marksheet or degree), "exp" (a relieving letter, experience certificate, offer letter or appointment letter from an employer), "dl" (a driving licence), "birth" (a birth certificate), "cat" (a caste or category certificate), "inc" (an income certificate), or "other". Fill only the fields for that document and use null for the rest. Fields: {"isDocument": boolean, "docType": "m10" | "m12" | "degree" | "exp" | "dl" | "birth" | "cat" | "inc" | "other", "board": "CBSE" | "ICSE" | "Karnataka SSLC" | "Karnataka PUC" | "Other state board" | null, "examYear": number | null, "dob": "YYYY-MM-DD" | null, "result": "pass" | "fail" | "unknown", "gradeSystem": "marks" | "cgpa" | "grades" | "unknown", "totalObtained": number | null, "totalMax": number | null, "printedPercentage": number | null, "cgpa": number | null, "subjects": [{"name": string, "obtained": number | null, "max": number | null}], "category": "SC" | "ST" | "OBC" | "General" | null, "categoryText": string | null, "annualIncomeRupees": number | null, "role": string | null, "employer": string | null, "startDate": "YYYY-MM-DD" | null, "endDate": "YYYY-MM-DD" | null, "stillWorking": boolean, "letterKind": "relieving" | "experience" | "offer" | "other" | null, "licenceClasses": [{"class": string, "issued": "YYYY-MM-DD" | null}], "validUpto": "YYYY-MM-DD" | null, "badgeHeld": boolean | null, "notes": [string]}. For a driving licence list each vehicle class printed (for example LMV, MCWG, HMV, HGMV, HPMV) with its own date of issue, the date the licence is valid until, and whether a public service vehicle badge is shown; never include the licence number, name or address. For a work letter, give the employer organisation name and the job title, never the person\'s name; use the date of joining as startDate and the last working day or relieving date as endDate, not the date the letter was written; if a date is not printed use null, and say so in notes. For a Class 12 marksheet, board is the Class 12 board (use "Karnataka PUC" for the Department of Pre-University Education) and subjects must list every subject with its marks. For a Class 10 or Class 12 marksheet use the printed total if there is one. In notes, list anything doubtful, such as a printed total that does not equal the sum of subjects, a subject printed separately from the total, or a blurred value. Keep notes short.',
+  auto: COMMON + '\nFirst decide what the document is and put it in docType: "m10" (a school Class 10, SSLC or matriculation marksheet or pass certificate), "m12" (a Class 12, PUC or higher secondary marksheet), "degree" (a college or university marksheet or degree), "exp" (a relieving letter, experience certificate, offer letter or appointment letter from an employer), "dl" (a driving licence), "birth" (a birth certificate), "cat" (a caste or category certificate), "inc" (an income certificate), "resume" (a resume or CV), or "other". For a resume or CV (docType "resume"): "skills" is up to 12 short skills, tools or certifications, "roles" is up to 5 job titles the person has held or is seeking, "expYears" is the total years of paid work (0 for a fresher, null if unclear), "eduLevel" is the highest completed ("10" Class 10, "12" Class 12 or PUC, "diploma" diploma or ITI, "degree" bachelor\'s, "pg" master\'s or above), "city" is the city where the person lives or wants to work, "languages" is the languages the person speaks. Never output a name, phone number, email or address. Fill only the fields for that document and use null for the rest. Fields: {"isDocument": boolean, "skills": [string], "roles": [string], "expYears": number | null, "eduLevel": "10" | "12" | "diploma" | "degree" | "pg" | null, "city": string | null, "languages": [string], "docType": "m10" | "m12" | "degree" | "exp" | "dl" | "birth" | "cat" | "inc" | "resume" | "other", "board": "CBSE" | "ICSE" | "Karnataka SSLC" | "Karnataka PUC" | "Other state board" | null, "examYear": number | null, "dob": "YYYY-MM-DD" | null, "result": "pass" | "fail" | "unknown", "gradeSystem": "marks" | "cgpa" | "grades" | "unknown", "totalObtained": number | null, "totalMax": number | null, "printedPercentage": number | null, "cgpa": number | null, "subjects": [{"name": string, "obtained": number | null, "max": number | null}], "category": "SC" | "ST" | "OBC" | "General" | null, "categoryText": string | null, "annualIncomeRupees": number | null, "role": string | null, "employer": string | null, "startDate": "YYYY-MM-DD" | null, "endDate": "YYYY-MM-DD" | null, "stillWorking": boolean, "letterKind": "relieving" | "experience" | "offer" | "other" | null, "licenceClasses": [{"class": string, "issued": "YYYY-MM-DD" | null}], "validUpto": "YYYY-MM-DD" | null, "badgeHeld": boolean | null, "notes": [string]}. For a driving licence list each vehicle class printed (for example LMV, MCWG, HMV, HGMV, HPMV) with its own date of issue, the date the licence is valid until, and whether a public service vehicle badge is shown; never include the licence number, name or address. For a work letter, give the employer organisation name and the job title, never the person\'s name; use the date of joining as startDate and the last working day or relieving date as endDate, not the date the letter was written; if a date is not printed use null, and say so in notes. For a Class 12 marksheet, board is the Class 12 board (use "Karnataka PUC" for the Department of Pre-University Education) and subjects must list every subject with its marks. For a Class 10 or Class 12 marksheet use the printed total if there is one. In notes, list anything doubtful, such as a printed total that does not equal the sum of subjects, a subject printed separately from the total, or a blurred value. Keep notes short.',
   m10: COMMON + '\nThe document should be a school Class 10 marksheet or pass certificate (CBSE, ICSE, Karnataka SSLC, or another state board, in any year). Fields: {"isDocument": boolean, "board": "CBSE" | "ICSE" | "Karnataka SSLC" | "Other state board" | null, "examYear": number | null, "dob": "YYYY-MM-DD" | null, "result": "pass" | "fail" | "unknown", "gradeSystem": "marks" | "cgpa" | "grades" | "unknown", "totalObtained": number | null, "totalMax": number | null, "printedPercentage": number | null, "cgpa": number | null, "subjects": [{"name": string, "obtained": number | null, "max": number | null}], "notes": [string]}. Use the printed total if there is one. In notes, list anything doubtful, such as a printed total that does not equal the sum of subjects, a subject printed separately from the total, or a blurred value. Keep notes short.',
+  resume: COMMON + '\nThe document should be a resume or CV.'+ ' For a resume or CV (docType "resume"): "skills" is up to 12 short skills, tools or certifications, "roles" is up to 5 job titles the person has held or is seeking, "expYears" is the total years of paid work (0 for a fresher, null if unclear), "eduLevel" is the highest completed ("10" Class 10, "12" Class 12 or PUC, "diploma" diploma or ITI, "degree" bachelor\'s, "pg" master\'s or above), "city" is the city where the person lives or wants to work, "languages" is the languages the person speaks. Never output a name, phone number, email or address.' + ' Fields: {"isDocument": boolean, "skills": [string], "roles": [string], "expYears": number | null, "eduLevel": "10" | "12" | "diploma" | "degree" | "pg" | null, "city": string | null, "languages": [string], "notes": [string]}.',
   birth: COMMON + '\nThe document should be a birth certificate. Fields: {"isDocument": boolean, "dob": "YYYY-MM-DD" | null, "notes": [string]}.',
   cat: COMMON + '\nThe document should be a caste or category certificate. Fields: {"isDocument": boolean, "category": "SC" | "ST" | "OBC" | "General" | null, "categoryText": string | null (the exact category wording printed, such as "Category-2A"), "notes": [string]}.',
   inc: COMMON + '\nThe document should be an income certificate. Fields: {"isDocument": boolean, "annualIncomeRupees": number | null, "notes": [string]}.'
@@ -109,6 +110,23 @@ function cleanExam(x, seen, today) {
   var off = OFFICIAL.test(host);
   return { id: 'dx-' + hash(url), k: 'exam', art: 'biz', d: d, when: d, title: title, short: title, sub: cleanS(x.org, 80), org: cleanS(x.org, 80), line: cleanS(x.line, 200), facts: facts, src: [cleanS(x.srcName, 80) || host, url], note: 'Found by the daily search and checked by Avakasha. Confirm the date on the official site.', official: off };
 }
+var EDU_NAME = { '10': 'Class 10', '12': 'Class 12', diploma: 'Diploma or ITI', degree: 'Degree', pg: 'Master\'s degree' };
+function cleanPvt(x, seen, today) {
+  var url = cleanS(x && x.url, 400).split('#')[0], host;
+  try { var u = new URL(url); if (u.protocol !== 'https:') return null; host = u.hostname; } catch (e) { return null; }
+  if (seen && !seen[url]) return null;
+  var title = cleanS(x.title, 100), org = cleanS(x.company || x.org, 80); if (!title || !org) return null;
+  var closes = okDate(x.closes); if (closes && closes < today) return null;
+  var city = cleanS(x.city || x.place, 40) || 'Karnataka', skills = (Array.isArray(x.skills) ? x.skills : []).map(function (s) { return cleanS(s, 30); }).filter(Boolean).slice(0, 8);
+  var minExp = num(x.minExp, 0, 30), edu = EDU_NAME[x.edu] ? x.edu : null, pay = cleanS(x.pay, 60);
+  var facts = [['Where', city]];
+  if (pay) facts.push(['Pay', pay]);
+  facts.push(['Experience', minExp ? minExp + (minExp === 1 ? ' year' : ' years') + ' or more' : 'Freshers can apply']);
+  if (edu) facts.push(['Qualification', EDU_NAME[edu] + ' or higher']);
+  if (skills.length) facts.push(['Skills', skills.join(', ')]);
+  if (closes) facts.push(['Apply by', closes]);
+  return { id: 'dp-' + hash(url), k: 'pvt', live: true, title: title, org: org, place: city, line: cleanS(x.line, 200), skills: skills, pay: pay, minExp: minExp || 0, edu: edu, closes: closes, found: today, facts: facts, src: [cleanS(x.srcName, 80) || host, url], host: host, note: 'Found on a job site by the daily search and checked by Avakasha. This is not an official page. Check the employer before you apply.' };
+}
 async function kget(env, k) { try { var v = await env.LIMITS.get(k); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
 var OFFICIAL_DOMAINS = ['gov.in', 'nic.in', 'ibps.in', 'ac.in', 'edu.in'];
 var RULES_TEXT = 'For each job, give the eligibility rules as a list using only these kinds: {"t":"age","min":18,"max":27,"maxByCat":{"OBC":30,"SC":32,"ST":32}} (ages as on the notice), {"t":"passed"} (Class 10 pass needed), {"t":"passed12"} (Class 12 pass needed), {"t":"pct12","min":50} (minimum Class 12 marks), {"t":"pctmin","min":50} (minimum Class 10 marks), {"t":"exp","min":2} (years of experience), {"t":"static","title":"short name","detail":"one sentence"} for anything else, such as a degree, a diploma, a trade, a licence or a language test. Be careful: give a Class 10 or Class 12 rule only when the notice itself asks for exactly that. For diploma, ITI or degree posts use a static rule and no Class 10 or 12 rule. Set "lvl":12 when Class 12 is needed. If the age limit or qualification is not on the page, leave that rule out.';
@@ -150,6 +168,10 @@ function promptA(today) {
 function promptB(today) {
   return 'Today is ' + today + '. You help job seekers in India (Karnataka first, then central government).\nUse web search on any site to find government job recruitments that are open to apply for right now, in Karnataka or central government, at any qualification level. Up to 10 jobs. List only what you saw on a page in the search results, with that page\'s own address as url. Never invent a date or a number. Skip anything already closed. Keep every field short.\n' + RULES_TEXT + '\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[' + JOB_SHAPE + ']}</json>';
 }
+var PVT_SHAPE = '{"title":"","company":"","city":"","line":"one short sentence","pay":"as printed, or empty","minExp":0,"edu":"10 or 12 or diploma or degree or pg","skills":[],"closes":"YYYY-MM-DD or null","srcName":"site name","url":""}';
+function promptC(today) {
+  return 'Today is ' + today + '. You help job seekers in India.\nUse web search on any site to find private-sector jobs that are open right now in Bengaluru and elsewhere in Karnataka. Cover a mix: entry-level and fresher roles, Class 10 or Class 12 pass roles (delivery, retail, office assistant, driver, technician, security), diploma or ITI roles, and graduate roles. Up to 12 jobs. List only what you saw on a page in the search results, and use that page\'s own address as url, preferring the employer\'s own careers page over a job board. Never invent a company, pay or date. Skip anything that asks the applicant to pay a fee, anything vague about the employer, and anything already closed. Keep every field short; edu is the lowest qualification asked for, and minExp is the years of experience asked for (0 if freshers can apply).\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[' + PVT_SHAPE + ']}</json>';
+}
 function addUsage(a, b) { return { input_tokens: (a.input_tokens || 0) + (b.input_tokens || 0), output_tokens: (a.output_tokens || 0) + (b.output_tokens || 0), searches: (a.searches || 0) + (b.searches || 0) }; }
 /* The daily job has two steps so each fits in one request. Step A searches official government sites only and starts a fresh draft. Step B searches anywhere for posts step A missed; those are "leads" that need an official notice link before they can be approved. Nothing reaches users until it is approved. */
 async function runStep(env, step) {
@@ -166,6 +188,20 @@ async function runStep(env, step) {
     await env.LIMITS.put('draft', JSON.stringify({ at: Date.now(), items: items, usage: A.u, passA: 'ok' }));
     return { ok: true, n: items.length, leads: 0, usage: A.u };
   }
+  if (step === 'C') {
+    var dc = (await kget(env, 'draft')) || { items: [] }, idc = {}, tc = []; dc.items.forEach(function (x) { idc[x.id] = 1; if (x.k === 'pvt') tc.push(nkey(x.org + x.title)); });
+    (live.pvt || []).forEach(function (x) { idc[x.id] = 1; });
+    var C = await searchPass(env, promptC(today), null, 6);
+    if (!C.ok) return { error: C.error, stop: C.stop, len: C.len, tail: C.tail, status: C.status, usage: C.u };
+    var addc = 0;
+    (Array.isArray(C.o.jobs) ? C.o.jobs : []).forEach(function (x) {
+      var c = cleanPvt(x, C.seen, today); if (!c || idc[c.id]) return;
+      var nk = nkey(c.org + c.title); if (tc.indexOf(nk) >= 0) return; tc.push(nk); idc[c.id] = 1; dc.items.push(c); addc++;
+    });
+    dc.usage = addUsage(dc.usage || {}, C.u); dc.passC = 'ok'; dc.at = Date.now();
+    await env.LIMITS.put('draft', JSON.stringify(dc));
+    return { ok: true, n: dc.items.length, leads: dc.items.filter(function (x) { return x.lead; }).length, pvt: addc, usage: C.u };
+  }
   var d = (await kget(env, 'draft')) || { items: [] }, titles2 = d.items.map(function (x) { return nkey(x.title); }), ids = {}; d.items.forEach(function (x) { ids[x.id] = 1; });
   var B = await searchPass(env, promptB(today), null, 5);
   if (!B.ok) return { error: B.error, stop: B.stop, len: B.len, tail: B.tail, status: B.status, usage: B.u };
@@ -180,16 +216,17 @@ async function runStep(env, step) {
   await env.LIMITS.put('draft', JSON.stringify(d));
   return { ok: true, n: d.items.length, leads: d.items.filter(function (x) { return x.lead; }).length, usage: B.u };
 }
-async function runDaily(env) { var a = await runStep(env, 'A'); if (!a.ok) return a; var b = await runStep(env, 'B'); return b.ok ? { ok: true, n: b.n, leads: b.leads, usage: addUsage(a.usage, b.usage) } : b; }
+async function runDaily(env) { var a = await runStep(env, 'A'); if (!a.ok) return a; var b = await runStep(env, 'B'); if (!b.ok) return b; var c = await runStep(env, 'C'); return c.ok ? { ok: true, n: c.n, leads: c.leads, usage: addUsage(addUsage(a.usage, b.usage), c.usage) } : c; }
+function cutoff(days) { return new Date(Date.now() - days * 864e5).toISOString().slice(0, 10); }
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 async function adminDo(b, request, env, origin) {
   if (!env.ADMIN_KEY || !env.LIMITS) return json({ error: 'not_configured' }, 500, origin);
   var ip = request.headers.get('CF-Connecting-IP') || 'x', kf = 'fail:' + todayStr() + ':' + ip, nf = parseInt((await env.LIMITS.get(kf)) || '0', 10);
   if (nf >= 10) return json({ error: 'locked' }, 429, origin);
   if (b.key !== env.ADMIN_KEY) { await env.LIMITS.put(kf, String(nf + 1), { expirationTtl: 86400 }); return json({ error: 'forbidden' }, 403, origin); }
-  var today = todayStr(), live = (await kget(env, 'live')) || { at: 0, records: [], exams: [] }, draft = (await kget(env, 'draft')) || { at: 0, items: [] };
-  if (b.action === 'run' || b.action === 'run2') {
-    var step = b.action === 'run' ? 'A' : 'B';
+  var today = todayStr(), live = (await kget(env, 'live')) || { at: 0, records: [], exams: [] }; live.pvt = live.pvt || []; var draft = (await kget(env, 'draft')) || { at: 0, items: [] };
+  if (b.action === 'run' || b.action === 'run2' || b.action === 'run3') {
+    var step = b.action === 'run' ? 'A' : b.action === 'run2' ? 'B' : 'C';
     if (step === 'A') { var last = await env.LIMITS.get('lastrun'); if (last && Date.now() - parseInt(last, 10) < 36e5) return json({ error: 'too_soon' }, 429, origin); }
     var r = await runStep(env, step);
     var res = { at: Date.now(), ok: !!r.ok, step: step, n: r.n, leads: r.leads, error: r.error, stop: r.stop, len: r.len, tail: r.tail, status: r.status, usage: r.usage };
@@ -201,9 +238,9 @@ async function adminDo(b, request, env, origin) {
     var ids = {};
     (Array.isArray(b.items) ? b.items : []).slice(0, 40).forEach(function (x) {
       if (!x || !Array.isArray(x.src)) return; x.url = x.src[1]; x.srcName = x.src[0]; x.date = x.d;
-      var c = x.k === 'exam' ? cleanExam(x, null, today) : cleanRecord(x, null, today); if (!c) return;
+      var c = x.k === 'exam' ? cleanExam(x, null, today) : x.k === 'pvt' ? cleanPvt(x, null, today) : cleanRecord(x, null, today); if (!c) return;
       if (x.lead && !c.official) return;
-      var list = c.k === 'exam' ? live.exams : live.records; var i = list.map(function (y) { return y.id; }).indexOf(c.id);
+      var list = c.k === 'exam' ? live.exams : c.k === 'pvt' ? live.pvt : live.records; var i = list.map(function (y) { return y.id; }).indexOf(c.id);
       if (i >= 0) list[i] = c; else list.push(c); ids[c.id] = 1;
     });
     live.at = Date.now(); await env.LIMITS.put('live', JSON.stringify(live));
@@ -213,15 +250,15 @@ async function adminDo(b, request, env, origin) {
     draft.items = draft.items.filter(function (x) { return !rj[x.id]; }); await env.LIMITS.put('draft', JSON.stringify(draft));
   } else if (b.action === 'remove') {
     var rm = {}; (Array.isArray(b.ids) ? b.ids : []).forEach(function (i) { rm[i] = 1; });
-    live.records = live.records.filter(function (x) { return !rm[x.id]; }); live.exams = live.exams.filter(function (x) { return !rm[x.id]; });
+    live.records = live.records.filter(function (x) { return !rm[x.id]; }); live.exams = live.exams.filter(function (x) { return !rm[x.id]; }); live.pvt = live.pvt.filter(function (x) { return !rm[x.id]; });
     live.at = Date.now(); await env.LIMITS.put('live', JSON.stringify(live));
   }
   var lastres = await kget(env, 'lastresult');
-  return json({ ok: true, draft: draft, last: lastres, live: { at: live.at, records: live.records.map(function (x) { return { id: x.id, title: x.title, closes: x.closes }; }), exams: live.exams.map(function (x) { return { id: x.id, title: x.title, d: x.d }; }) } }, 200, origin);
+  return json({ ok: true, draft: draft, last: lastres, live: { at: live.at, records: live.records.map(function (x) { return { id: x.id, title: x.title, closes: x.closes }; }), exams: live.exams.map(function (x) { return { id: x.id, title: x.title, d: x.d }; }), pvt: live.pvt.map(function (x) { return { id: x.id, title: x.title + ' · ' + x.org, closes: x.closes, d: x.found }; }) } }, 200, origin);
 }
 async function liveGet(env, origin) {
   var today = todayStr(), live = (await kget(env, 'live')) || { at: 0, records: [], exams: [] };
-  return json({ at: live.at, records: live.records.filter(function (x) { return !x.closes || x.closes >= today; }), exams: live.exams.filter(function (x) { return x.d >= today; }) }, 200, origin);
+  return json({ at: live.at, records: live.records.filter(function (x) { return !x.closes || x.closes >= today; }), exams: live.exams.filter(function (x) { return x.d >= today; }), pvt: (live.pvt || []).filter(function (x) { return x.closes ? x.closes >= today : x.found >= cutoff(21); }) }, 200, origin);
 }
 
 export default {
