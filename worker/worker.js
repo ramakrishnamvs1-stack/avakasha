@@ -115,8 +115,8 @@ var BOARDS = /(^|\.)(naukri|linkedin|indeed|foundit|monster|shine|glassdoor|apna
 var FEEWORDS = /registration\s+fee|security\s+deposit|refundable|pay\s+(?:rs|₹|inr)|joining\s+fee|training\s+fee|fee\s+required|deposit\s+required|work\s+from\s+home.{0,30}(?:earn|per\s+day)/i;
 function viaOf(host, org) {
   if (BOARDS.test(host)) return 'Job board';
-  var h = host.replace(/^www\./, '').split('.')[0].toLowerCase(), toks = String(org).toLowerCase().split(/[^a-z0-9]+/).filter(function (t) { return t.length >= 4; });
-  return toks.some(function (t) { return h.indexOf(t) >= 0 || t.indexOf(h) >= 0 && h.length >= 4; }) ? 'Employer\'s own page' : 'Other site';
+  var h = host.replace(/^www\./, '').split('.').slice(0, -1).join('.').toLowerCase(), toks = String(org).toLowerCase().split(/[^a-z0-9]+/).filter(function (t) { return t.length >= 4; });
+  return toks.some(function (t) { return h.indexOf(t) >= 0; }) ? 'Employer\'s own page' : 'Other site';
 }
 function cleanPvt(x, seen, today) {
   var url = cleanS(x && x.url, 400).split('#')[0], host;
