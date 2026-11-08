@@ -419,16 +419,28 @@
   },
   {
    "id": "t-sidh",
-   "title": "Free online courses (Skill India Digital)",
+   "title": "Online skill courses (Skill India Digital)",
    "org": "Skill India",
-   "line": "Free online courses and the place to register for Skill India training.",
-   "free": true,
+   "line": "A list of online skill courses from different institutes. Each course is marked Free or Paid, with its length and language.",
+   "free": false,
    "minEdu": 0,
-   "off": false,
+   "off": true,
    "facts": [
     [
      "Cost",
-     "The site offers free online courses"
+     "Each course is marked Free or Paid. Check the label"
+    ],
+    [
+     "Length",
+     "From a few hours to a year, shown on each course"
+    ],
+    [
+     "Languages",
+     "A language filter, which includes Kannada"
+    ],
+    [
+     "Examples",
+     "Mechanic Motor Vehicle (free, 1 year), Basics of Counselling (free, 7 hours)"
     ],
     [
      "Also",
@@ -436,11 +448,11 @@
     ]
    ],
    "src": [
-    "Skill India Digital Hub",
-    "https://www.skillindiadigital.gov.in/free-online-courses/"
+    "Skill Courses, Skill India Digital",
+    "https://www.skillindiadigital.gov.in/courses"
    ],
-   "go": "https://www.skillindiadigital.gov.in/",
-   "note": "The official site blocks automated reading, so the details were not checked. Open it to see courses, eligibility and fees."
+   "go": "https://www.skillindiadigital.gov.in/courses",
+   "note": "Read from the course list on the official site. Courses change, and some are paid, so check the Free or Paid label before you apply."
   },
   {
    "id": "t-ksdc",
