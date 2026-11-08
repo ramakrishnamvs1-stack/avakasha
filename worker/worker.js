@@ -193,9 +193,18 @@ var PVT_SHAPE = '{"title":"","company":"","city":"","line":"one short sentence",
 function promptC(today) {
   return 'Today is ' + today + '. You help job seekers in India.\nUse web search on any site to find private-sector jobs that are open right now in Bengaluru and elsewhere in Karnataka. Cover a mix: entry-level and fresher roles, Class 10 or Class 12 pass roles (delivery, retail, office assistant, driver, technician, security), diploma or ITI roles, and graduate roles. Up to 10 jobs. List only what you saw on a page in the search results, and use that page\'s own address as url, preferring the employer\'s own careers page over a job board. Never invent a company, pay or date. Skip anything that asks the applicant to pay any fee or deposit, anything vague about the employer, and anything already closed. Keep every field short; edu is the lowest qualification asked for, and minExp is the years of experience asked for (0 if freshers can apply).\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[' + PVT_SHAPE + ']}</json>';
 }
+/* Role families for private jobs. Each is its own search, so roles like software and Agile get looked for by name. */
+var FAMILIES = [
+  { id: 'sw', name: 'Software and IT', roles: 'Software Engineer, Developer (Java, Python, JavaScript, .NET, React), Frontend or Backend Developer, Full Stack Developer, DevOps Engineer, Data Analyst, IT Support or Technical Support Engineer', levels: 'freshers, 1 to 3 years, and 3 to 8 years' },
+  { id: 'agile', name: 'Agile, testing and project roles', roles: 'Scrum Master, Agile Coach, Product Owner, Project Coordinator, Project Manager, QA or Test Engineer, Manual or Automation Tester', levels: '1 to 3 years, 3 to 8 years, and senior' },
+  { id: 'acc', name: 'Accounts and finance', roles: 'Accountant, Accounts Executive, Tally, GST or Taxation Executive, Bookkeeper, Finance Analyst, Banking or Loan Officer', levels: 'freshers, 1 to 3 years, and 3 to 8 years' }
+];
+function promptF(today, f) {
+  return 'Today is ' + today + '. You help job seekers in India.\nUse web search on any site, job boards included (for example Naukri, LinkedIn, Indeed, Foundit and company career pages), to find ' + f.name + ' jobs that are open right now in Bengaluru and elsewhere in Karnataka. Roles to look for: ' + f.roles + '. Include a spread of levels: ' + f.levels + '. Up to 10 jobs. List only what you saw on a page in the search results, and use that page\'s own address as url. Never invent a company, pay or date. Skip anything that asks the applicant to pay any fee or deposit, anything vague about the employer, and anything already closed. Keep every field short; edu is the lowest qualification asked for, and minExp is the years of experience asked for (0 if freshers can apply).\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[' + PVT_SHAPE + ']}</json>';
+}
 function addUsage(a, b) { return { input_tokens: (a.input_tokens || 0) + (b.input_tokens || 0), output_tokens: (a.output_tokens || 0) + (b.output_tokens || 0), searches: (a.searches || 0) + (b.searches || 0), inr: (a.inr || 0) + (b.inr || 0), fellBack: !!(a.fellBack || b.fellBack) }; }
 /* The daily job has two steps so each fits in one request. Step A searches official government sites only and starts a fresh draft. Step B searches anywhere for posts step A missed; those are "leads" that need an official notice link before they can be approved. Nothing reaches users until it is approved. */
-async function runStep(env, step, runId) {
+async function runStep(env, step, runId, fam) {
   if (!env.LIMITS || !env.ANTHROPIC_API_KEY) return { error: 'not_configured' };
   var today = todayStr(), live = (await kget(env, 'live')) || { records: [], exams: [] };
   var known = {}; live.records.concat(live.exams).forEach(function (x) { known[x.id] = 1; });
@@ -213,11 +222,11 @@ async function runStep(env, step, runId) {
   if (step === 'C') {
     var dc = (await kget(env, 'draft')) || { items: [] }, idc = {}, tc = []; dc.items.forEach(function (x) { idc[x.id] = 1; if (x.k === 'pvt') tc.push(nkey(x.org + x.title)); });
     (live.pvt || []).forEach(function (x) { idc[x.id] = 1; });
-    var C = await searchPass(env, promptC(today), null, 5, env.PVT_MODEL || DEFAULT_PVT_MODEL);
+    var C = await searchPass(env, fam ? promptF(today, fam) : promptC(today), null, 5, env.PVT_MODEL || DEFAULT_PVT_MODEL);
     if (!C.ok) return { error: C.error, stop: C.stop, len: C.len, tail: C.tail, status: C.status, usage: C.u };
     var addc = 0, rawc = 0, badc = 0, dupc = 0;
     (Array.isArray(C.o.jobs) ? C.o.jobs : []).slice(0, PVT_MAX).forEach(function (x) {
-      rawc++; var c = cleanPvt(x, C.seen, today); if (!c) { badc++; return; } c.run = runId; if (idc[c.id]) { dupc++; return; }
+      rawc++; var c = cleanPvt(x, C.seen, today); if (!c) { badc++; return; } c.run = runId; if (fam) c.fam = fam.id; if (idc[c.id]) { dupc++; return; }
       var nk = nkey(c.org + c.title); if (tc.indexOf(nk) >= 0) { dupc++; return; } tc.push(nk); idc[c.id] = 1; dc.items.push(c); addc++;
     });
     dc.usage = addUsage(dc.usage || {}, C.u); dc.passC = 'ok'; dc.at = Date.now();
@@ -244,9 +253,9 @@ async function bumpRuns(env, counts, field) {
   try { var lg = (await kget(env, 'runlog')) || [], ch = false; lg.forEach(function (e) { if (counts[e.id]) { e[field] = (e[field] || 0) + counts[e.id]; ch = true; } }); if (ch) await env.LIMITS.put('runlog', JSON.stringify(lg)); } catch (e) {}
 }
 /* Runs a step and adds its estimated cost to this month's total (spend:YYYY-MM in KV). */
-async function runLogged(env, step, src) {
-  var runId = Date.now(), r = await runStep(env, step, runId), inr = r && r.usage && r.usage.inr || 0;
-  if (env.LIMITS) { try { var lg = (await kget(env, 'runlog')) || []; lg.unshift({ id: runId, at: runId, live: 0, rej: 0, step: step, src: src || 'manual', ok: !!r.ok, error: r.ok ? null : (r.error || 'upstream'), raw: r.stats && r.stats.raw, added: r.stats && r.stats.added, dup: r.stats && r.stats.dup, bad: r.stats && r.stats.bad, inr: Math.round(inr * 10) / 10, model: r.usage && r.usage.model, fellBack: !!(r.usage && r.usage.fellBack) }); await env.LIMITS.put('runlog', JSON.stringify(lg.slice(0, 45))); } catch (e) {} }
+async function runLogged(env, step, src, fam) {
+  var runId = Date.now(), r = await runStep(env, step, runId, fam), inr = r && r.usage && r.usage.inr || 0;
+  if (env.LIMITS) { try { var lg = (await kget(env, 'runlog')) || []; lg.unshift({ id: runId, at: runId, live: 0, rej: 0, step: step, label: fam ? fam.name : null, src: src || 'manual', ok: !!r.ok, error: r.ok ? null : (r.error || 'upstream'), raw: r.stats && r.stats.raw, added: r.stats && r.stats.added, dup: r.stats && r.stats.dup, bad: r.stats && r.stats.bad, inr: Math.round(inr * 10) / 10, model: r.usage && r.usage.model, fellBack: !!(r.usage && r.usage.fellBack) }); await env.LIMITS.put('runlog', JSON.stringify(lg.slice(0, 45))); } catch (e) {} }
   if (inr > 0 && env.LIMITS) { try { var k = 'spend:' + todayStr().slice(0, 7), v = parseFloat((await env.LIMITS.get(k)) || '0') || 0; await env.LIMITS.put(k, String(v + inr), { expirationTtl: 7776000 }); } catch (e) {} }
   return r;
 }
@@ -259,10 +268,11 @@ async function adminDo(b, request, env, origin) {
   if (nf >= 10) return json({ error: 'locked' }, 429, origin);
   if (b.key !== env.ADMIN_KEY) { await env.LIMITS.put(kf, String(nf + 1), { expirationTtl: 86400 }); return json({ error: 'forbidden' }, 403, origin); }
   var today = todayStr(), live = (await kget(env, 'live')) || { at: 0, records: [], exams: [] }; live.pvt = live.pvt || []; var draft = (await kget(env, 'draft')) || { at: 0, items: [] };
-  if (b.action === 'run' || b.action === 'run2' || b.action === 'run3') {
+  if (b.action === 'run' || b.action === 'run2' || b.action === 'run3' || b.action === 'runfam') {
+    var fam = null; if (b.action === 'runfam') { fam = FAMILIES.filter(function (f) { return f.id === b.fam; })[0]; if (!fam) return json({ error: 'unknown_family' }, 400, origin); }
     var step = b.action === 'run' ? 'A' : b.action === 'run2' ? 'B' : 'C';
     if (step === 'A') { var last = await env.LIMITS.get('lastrun'); if (last && Date.now() - parseInt(last, 10) < 36e5) return json({ error: 'too_soon' }, 429, origin); }
-    var r = await runLogged(env, step);
+    var r = await runLogged(env, step, 'manual', fam);
     var res = { at: Date.now(), ok: !!r.ok, step: step, n: r.n, leads: r.leads, error: r.error, stop: r.stop, len: r.len, tail: r.tail, status: r.status, usage: r.usage };
     await env.LIMITS.put('lastresult', JSON.stringify(res));
     if (r.ok && step === 'A') await env.LIMITS.put('lastrun', String(Date.now()));
@@ -291,7 +301,7 @@ async function adminDo(b, request, env, origin) {
   }
   var lastres = await kget(env, 'lastresult'), spend = parseFloat((await env.LIMITS.get('spend:' + todayStr().slice(0, 7))) || '0') || 0;
   var runlog = (await kget(env, 'runlog')) || [];
-  return json({ ok: true, draft: draft, last: lastres, spend: Math.round(spend), runlog: runlog, live: { at: live.at, records: live.records.map(function (x) { return { id: x.id, title: x.title, closes: x.closes }; }), exams: live.exams.map(function (x) { return { id: x.id, title: x.title, d: x.d }; }), pvt: live.pvt.map(function (x) { return { id: x.id, title: x.title + ' · ' + x.org, closes: x.closes, d: x.found }; }) } }, 200, origin);
+  return json({ ok: true, fams: FAMILIES.map(function (f) { return { id: f.id, name: f.name }; }), draft: draft, last: lastres, spend: Math.round(spend), runlog: runlog, live: { at: live.at, records: live.records.map(function (x) { return { id: x.id, title: x.title, closes: x.closes }; }), exams: live.exams.map(function (x) { return { id: x.id, title: x.title, d: x.d }; }), pvt: live.pvt.map(function (x) { return { id: x.id, title: x.title + ' · ' + x.org, closes: x.closes, d: x.found }; }) } }, 200, origin);
 }
 async function liveGet(env, origin) {
   var today = todayStr(), live = (await kget(env, 'live')) || { at: 0, records: [], exams: [] };
