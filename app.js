@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '47';
+var APPVER = '48';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -90,6 +90,9 @@ function setFact(k, v, src) {
 }
 function toast(m) { var t = $('toast'); t.textContent = m; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(function () { t.hidden = true; }, 3200); }
 
+function stamp(t) { try { return new Date(t).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } }
+function lastUpdate(p) { var t = 0; (p.docs || []).forEach(function (d) { if (d.at > t) t = d.at; }); for (var k in p.facts) if (p.facts[k] && p.facts[k].at > t) t = p.facts[k].at; return t; }
+var SINGLE_DOC = { m10: 1, m12: 1, birth: 1, cat: 1, inc: 1, dl: 1, resume: 1 };
 /* ================= rule engine ================= */
 function R(s, t, d, x) { var o = { s: s, t: t, d: d || '' }; if (x) for (var k in x) o[k] = x[k]; return o; }
 function ageM(f) { return f.dob ? monthsBetween(pd(f.dob), TODAY) : null; }
@@ -264,12 +267,12 @@ function renderProfile() {
     $('firstAdd').onclick = function () { addPersonSheet(false); }; return;
   }
   var f = F(), nf = Object.keys(p.facts).length, er = eduRows(p, f);
-  var docs = (p.docs || []).length ? (p.docs || []).map(function (d) { return '<div class="pdoc"><span class="pdi"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/></svg></span><span class="pdt"><b>' + esc(d.label) + '</b><small>Added ' + fmt(new Date(d.at)) + '</small></span><button class="plink" data-deldoc="' + d.id + '" type="button">Remove</button></div>'; }).join('') : '<p class="note">No documents yet.</p>';
+  var docs = (p.docs || []).length ? (p.docs || []).map(function (d) { return '<div class="pdoc"><span class="pdi"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/></svg></span><span class="pdt"><b>' + esc(d.label) + '</b><small>Updated ' + stamp(d.at) + '</small></span><button class="plink" data-deldoc="' + d.id + '" type="button">Remove</button></div>'; }).join('') : '<p class="note">No documents yet.</p>';
   var sk = skillList(f), shown = SHOWSK ? sk : sk.slice(0, 8), roles = chipList(f.roles), langs = chipList(f.languages), ex = parseFloat(f.exp), hasWork = !isNaN(ex) || roles.length;
   var pers = ['Identity', 'Eligibility', 'Now', 'Driving licence'], nper = FACTS.filter(function (x) { return p.facts[x.k] && pers.indexOf(x.g) >= 0; }).length;
   var ageT = f.dob ? Math.floor(ageM(f) / 12) : null, persSub = [ageT !== null ? 'Age ' + ageT : '', f.state ? showVal('state', f.state) : '', f.cat ? showVal('cat', f.cat) : ''].filter(Boolean).join(' · ');
   $('app').innerHTML = '<div class="pcol">'
-    + '<div class="pcard"><div class="phead"><span class="pav">' + initial(p.name) + '</span><div class="phn"><h2>' + esc(p.name) + '</h2><div class="note">' + esc(summaryLine(p, f)) + '</div></div></div>'
+    + '<div class="pcard"><div class="phead"><span class="pav">' + initial(p.name) + '</span><div class="phn"><h2>' + esc(p.name) + '</h2><div class="note">' + esc(summaryLine(p, f)) + '</div>' + (lastUpdate(p) ? '<div class="note" style="margin-top:2px">Last updated ' + stamp(lastUpdate(p)) + '</div>' : '') + '</div></div>'
     + '<div class="row" style="margin-top:16px;flex-wrap:nowrap"><button class="btn pri big" id="scanBtn" type="button" style="flex:1">Scan or add a file</button><button class="btn big" id="goExplore" type="button">Explore</button></div></div>'
     + gapCard(p)
     + '<div class="pcard"><div class="ptop"><h3>Education</h3><span class="note">Latest first</span></div>' + (er.length ? '<div class="tl">' + er.join('') + '</div>' : '<p class="note" style="margin-top:8px">No education added yet. Scan a marksheet or a resume.</p>') + '</div>'
@@ -381,8 +384,9 @@ function jobSheet(j, d, notes, text, hand) {
     if (e && e < s) { toast('The end date is before the start date.'); return; }
     var p = prof();
     if (j) { j.role = r; j.org = o; j.start = s; j.end = e; j.current = c; save(); closeSheet(); render(); toast('Job updated.'); return; }
+    if (jobsOf(p).some(function (x) { return String(x.org || '').trim().toLowerCase() === o.toLowerCase() && x.start === s; })) { closeSheet(); toast('That job is already on the profile.'); return; }
     var docId = '';
-    if (!hand) { var doc = { id: uid(), label: 'Work experience letter', at: Date.now(), keys: [], jobs: 1 }; p.docs.push(doc); docId = doc.id; }
+    if (!hand) { var doc = { id: uid(), label: 'Work experience letter', type: 'exp', at: Date.now(), keys: [], jobs: 1 }; p.docs.push(doc); docId = doc.id; }
     p.jobs = jobsOf(p); p.jobs.push({ id: uid(), docId: docId, role: r, org: o, start: s, end: e, current: c });
     save(); closeSheet(); scan = { type: 'auto', canvas: null }; location.hash = '#profile'; render(); toast('Job saved. Experience so far: ' + expText(expMonths(p)) + '.');
   };
@@ -1217,7 +1221,9 @@ var NOISE = /photo|\bid fields?\b|omitted|maximum marks?|max(imum)? (marks )?(is
 function tidyNotes(notes) { return (notes || []).filter(function (n) { return typeof n === 'string' && n.trim() && !NOISE.test(n); }).slice(0, 3); }
 function confirmSheet(props, text, notes) {
   notes = tidyNotes(notes);
+  var dt0 = DOCTYPES.filter(function (d) { return d[0] === scan.type; })[0], oldDoc = dt0 && SINGLE_DOC[scan.type] ? ((prof() && prof().docs) || []).filter(function (d) { return d.type === scan.type || d.label === dt0[1]; })[0] : null;
   var have = F(), got = {}; props.forEach(function (p) { got[p.k] = 1; });
+  if (oldDoc) (oldDoc.keys || []).forEach(function (k) { if (prof().facts[k] && prof().facts[k].src === oldDoc.id) delete have[k]; });
   var missing = (EXPECT[scan.type] || []).filter(function (k) { return !got[k] && !have[k]; });
   var rows = props.map(function (p, i) {
     var x = FD[p.k];
@@ -1226,19 +1232,21 @@ function confirmSheet(props, text, notes) {
   var mrows = missing.map(function (k) { var x = FD[k]; return '<div class="prop"><div class="main2" style="width:100%"><b>' + x.l + '</b><span class="tag guess">not found</span><div style="margin-top:6px">' + ctl(x, '', 'mv-' + k) + '</div>' + (EXPECT_NOTE[k] ? '<small>' + esc(EXPECT_NOTE[k]) + '</small>' : '') + '</div></div>'; }).join('');
   var canSave = props.length || missing.length;
   sheet('<h2>' + (props.length ? 'Check what was read' : 'Nothing could be read') + '</h2>'
+    + (oldDoc && canSave ? '<div class="status"><b>You already added a ' + esc(dt0[1]) + '.</b> Last updated ' + stamp(oldDoc.at) + '. Saving replaces it with this one.</div>' : '')
     + ((notes && notes.length) ? '<div class="status warn"><b>Please check:</b><ul style="margin:6px 0 0;padding-left:18px">' + notes.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul></div>' : '')
     + costLine()
     + (props.length ? '<p class="note">Untick anything that is wrong or fix it. Only ticked details are saved.</p>' + rows : '<div class="status warn">The text was too faint or the page was cut off. Retake the photo in better light, or type the details from the document below.</div>')
     + (missing.length ? '<h3 class="h3" style="margin-top:14px">Not found on this document</h3><p class="note" style="margin-top:2px">This document should show these. Type them from the document if you can; leave blank if not.</p>' + mrows : '')
     + (text ? '<details style="margin-top:12px"><summary class="note">What the phone read</summary><pre style="white-space:pre-wrap;font-size:12px;color:var(--muted);max-height:180px;overflow:auto">' + esc(text.trim().slice(0, 1500)) + '</pre></details>' : '')
-    + '<div class="row" style="margin-top:16px">' + (canSave ? '<button class="btn pri big" id="ok" type="button">Save to profile</button>' : '') + '<button class="btn" id="back" type="button">' + (canSave ? 'Cancel' : 'Retake') + '</button></div>');
+    + '<div class="row" style="margin-top:16px">' + (canSave ? '<button class="btn pri big" id="ok" type="button">' + (oldDoc ? 'Replace and save' : 'Save to profile') + '</button>' : '') + '<button class="btn" id="back" type="button">' + (canSave ? 'Cancel' : 'Retake') + '</button></div>');
   $('back').onclick = canSave ? closeSheet : function () { scanSheet(); };
   if (canSave) $('ok').onclick = function () {
-    var p = prof(), dt = DOCTYPES.filter(function (d) { return d[0] === scan.type; })[0], doc = { id: uid(), label: dt[1], at: Date.now(), keys: [] }, n = 0;
-    props.forEach(function (pr, i) { if ($('pc' + i).checked) { var v = $('pv' + i).value; if (v !== '') { mergeFact(pr.k, v, doc.id); doc.keys.push(pr.k); n++; } } });
-    missing.forEach(function (k) { var v = $('mv-' + k).value; if (v !== '') { if (k === 'dob' && !(parseInt(v.slice(0, 4), 10) >= 1930)) return; setFact(k, v, doc.id); doc.keys.push(k); n++; } });
+    var p = prof(), dt = DOCTYPES.filter(function (d) { return d[0] === scan.type; })[0], doc = { id: uid(), label: dt[1], type: scan.type, at: Date.now(), keys: [] }, n = 0;
+    props.forEach(function (pr, i) { if ($('pc' + i).checked) { var v = $('pv' + i).value; if (v !== '') { mergeFact(pr.k, v, doc.id); if (doc.keys.indexOf(pr.k) < 0) doc.keys.push(pr.k); n++; } } });
+    missing.forEach(function (k) { var v = $('mv-' + k).value; if (v !== '') { if (k === 'dob' && !(parseInt(v.slice(0, 4), 10) >= 1930)) return; setFact(k, v, doc.id); if (doc.keys.indexOf(k) < 0) doc.keys.push(k); n++; } });
     if (!n) { toast('Nothing was ticked or typed.'); return; }
-    p.docs.push(doc); save(); closeSheet(); scan = { type: 'auto', canvas: null }; location.hash = '#profile'; render(); toast('Read as ' + dt[1] + '. ' + n + ' detail' + (n === 1 ? '' : 's') + ' saved.' + (gaps(p).n ? ' Some details are still missing.' : ''));
+    if (oldDoc) { oldDoc.keys.forEach(function (k) { if (p.facts[k] && p.facts[k].src === oldDoc.id) delete p.facts[k]; }); p.docs = p.docs.filter(function (x) { return x.id !== oldDoc.id; }); }
+    p.docs.push(doc); save(); closeSheet(); scan = { type: 'auto', canvas: null }; location.hash = '#profile'; render(); toast((oldDoc ? 'Replaced the earlier ' + dt[1] + '. ' : 'Read as ' + dt[1] + '. ') + n + ' detail' + (n === 1 ? '' : 's') + ' saved.' + (gaps(p).n ? ' Some details are still missing.' : ''));
   };
 }
 
