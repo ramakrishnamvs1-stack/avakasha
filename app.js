@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '46';
+var APPVER = '47';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -354,6 +354,7 @@ function wireJobs(p) {
 }
 /* j = existing job (edit), d = reading result for a new job, hand = typed in by the person */
 function jobSheet(j, d, notes, text, hand) {
+  notes = (notes || []).filter(function (n) { return typeof n === 'string' && n.trim() && !/photo|\bid fields?\b|omitted/i.test(n); }).slice(0, 4);
   var cur = j || d || {}, kind = cur.letterKind || cur.kind || '';
   var curNow = j ? !!j.current : (d ? (d.stillWorking === true || (d.letterKind === 'offer' && !d.endDate)) : false);
   var s0 = (j ? j.start : d && d.startDate) || '', e0 = (j ? j.end : d && d.endDate) || '', role0 = (j ? j.role : d && d.role) || '', org0 = (j ? j.org : d && d.employer) || '';
@@ -964,7 +965,7 @@ function recordCost(u) {
   try { localStorage.setItem('pa10.cost', JSON.stringify(l)); } catch (e) {}
   return { usd: usd, inr: usd * rate(), i: u.input_tokens, o: u.output_tokens || 0 };
 }
-function costLine() { return scan.cost ? '<p class="note" style="margin-top:8px">This scan cost about <b>' + inr(scan.cost.inr) + '</b> (' + scan.cost.i.toLocaleString('en-IN') + ' tokens in, ' + scan.cost.o.toLocaleString('en-IN') + ' out).</p>' : ''; }
+function costLine() { return scan.cost && devOn() ? '<p class="note" style="margin-top:8px">This scan cost about <b>' + inr(scan.cost.inr) + '</b> (' + scan.cost.i.toLocaleString('en-IN') + ' tokens in, ' + scan.cost.o.toLocaleString('en-IN') + ' out).</p>' : ''; }
 async function callDirect(type, b64, signal, mt, text) {
   var res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST', signal: signal,
@@ -1126,7 +1127,8 @@ function mapServer(type, d) {
   if (tO !== null && tM) { pc = Math.round(tO / tM * 1000) / 10; pnote = 'Read ' + tO + ' of ' + tM + '.'; }
   else if (typeof d.printedPercentage === 'number') { pc = d.printedPercentage; pnote = 'The sheet prints this percentage.'; }
   else if (d.gradeSystem === 'cgpa' || typeof d.cgpa === 'number') { notes.push('This sheet gives a CGPA' + (typeof d.cgpa === 'number' ? ' of ' + d.cgpa : '') + ', not marks. Enter the percentage your board states for it, or leave it blank.'); }
-  if (typeof d.totalObtained === 'number' && cnt && Math.abs(sumO - d.totalObtained) > 0) { pconf = 'guess'; notes.push('The subject marks add up to ' + sumO + ', but the printed total is ' + d.totalObtained + '. A subject may be counted separately, or one value was misread.'); }
+  var outside = typeof d.totalObtained === 'number' && subs.some(function (s) { return typeof s.obtained === 'number' && sumO - s.obtained === d.totalObtained; });
+  if (typeof d.totalObtained === 'number' && cnt && !outside && Math.abs(sumO - d.totalObtained) > 0) { pconf = 'guess'; notes.push('The subject marks add up to ' + sumO + ', but the printed total is ' + d.totalObtained + '. A subject may be counted separately, or one value was misread.'); }
   if (pc !== null && (pc <= 0 || pc > 100)) { notes.push('The percentage came out as ' + pc + ', which cannot be right.'); pc = null; }
   if (pc !== null) add('pct', pc, pconf, pnote + (pconf === 'guess' ? ' Check it.' : ''));
   var has = function (re) { return subs.some(function (s) { return re.test(s.name); }); };
@@ -1210,7 +1212,11 @@ function parse(type, text) {
 }
 var EXPECT = { m12: ['board12', 'year12', 'passed12', 'pct12', 'stream12'], dl: ['lmv'], m10: ['board', 'examYear', 'passed', 'pct', 'core', 'dob'], birth: ['dob'], cat: ['cat'], inc: ['income'] };
 var EXPECT_NOTE = { lmv: 'Many licences list the date of issue next to each vehicle class. If you hold only a heavy or two-wheeler class, leave this blank.', dob: 'Many marksheets do not print the date of birth. Use the birth certificate if so.', core: 'Check each of Maths, Science and English on the sheet.' };
+/* Notes meant for us, not the student: omitted photo and ID fields, maximum marks not printed, and explanations of a subject printed outside the total. Keep at most three. */
+var NOISE = /photo|\bid fields?\b|omitted|maximum marks?|max(imum)? (marks )?(is |are )?not printed|printed separately|not (counted )?in the (printed )?total|equals the sum of/i;
+function tidyNotes(notes) { return (notes || []).filter(function (n) { return typeof n === 'string' && n.trim() && !NOISE.test(n); }).slice(0, 3); }
 function confirmSheet(props, text, notes) {
+  notes = tidyNotes(notes);
   var have = F(), got = {}; props.forEach(function (p) { got[p.k] = 1; });
   var missing = (EXPECT[scan.type] || []).filter(function (k) { return !got[k] && !have[k]; });
   var rows = props.map(function (p, i) {
