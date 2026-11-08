@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '51';
+var APPVER = '52';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -679,7 +679,7 @@ function renderX(id) {
     + '<h1 class="dtitle">' + esc(x.title) + '</h1><div class="org" style="font-size:15px;margin-top:6px">' + esc(x.org) + '</div>'
     + (isE ? (x.off ? '<div class="dnote g"><b>Read from the official calendar.</b> ' + esc(x.note) + '</div>' : '<div class="dnote w"><b>' + (x.tent ? 'Not announced yet.' : 'Not from an official page.') + '</b> ' + esc(x.note) + '</div>') : (x.live ? '<div class="dnote w"><b>Not from an official page.</b> Listed on: ' + esc(x.via || 'a job site') + '. ' + esc(x.note) + ' <b>Never pay to get a job.</b></div>' : '<div class="dnote w"><b>Sample listing.</b> This is an example, not a real opening. Real private jobs will appear here once we have a trusted source.</div>'))
     + '<div class="dh">Key facts</div><div class="dlist">' + facts + '</div>'
-    + (isE ? (x.tent ? '' : calBlock('x-' + x.id, x.title, x.d, x.src[1], 'Add exam date to calendar')) : calBlock('x-' + x.id, x.title, x.closes, x.src[1], 'Add last date to calendar'))
+    + (isE ? (x.tent ? '' : calBlock('x-' + x.id, x.title, x.d, x.src[1], 'Add exam date to calendar')) : calBlock('x-' + x.id, x.title, x.closes, x.src[1], 'Add last date to calendar')) + (isE ? examDocsBlock(x) : '')
     + '<div class="dh">About</div><div class="dabout"><p>' + esc(x.line) + '</p>' + (isE || x.live ? '<p class="note">Source: <a href="' + x.src[1] + '" target="_blank" rel="noopener">' + esc(x.src[0]) + '</a>. Read on ' + esc(x.live ? x.found || '' : EXTRA.readOn || '') + '.</p>' : '') + '</div>'
     + (!isE && x.live ? whyBlock(x) + '<p class="foot">Never pay to get a job. Check the employer before you share documents.</p><div class="dact"><a class="btn pri" href="' + x.src[1] + '" target="_blank" rel="noopener">Open the listing ↗</a></div>' : '')
     + (isE ? '<p class="foot">Never pay an agent to apply or to get an exam seat.</p><div class="dact"><a class="btn pri" href="' + x.src[1] + '" target="_blank" rel="noopener">Open official site ↗</a></div>' : '');
@@ -1357,11 +1357,15 @@ function docsNeeded(r) {
   if (r.lvl === 12) add('m12', 'Class 12 marksheet', ['m12']);
   return need;
 }
+function examDocsBlock(x) {
+  var rules = /^x-rrbo/.test(x.id) ? [{ t: 'static', title: 'Degree' }, { t: 'catAny' }] : [{ t: 'passed12' }, { t: 'age' }, { t: 'catAny' }];
+  return docsBlock({ rules: rules });
+}
 function docsBlock(r) {
   var p = prof(); if (!p) return '';
   var need = docsNeeded(r); if (!need.length) return '';
   var n = 0; need.forEach(function (d) { d.have = d.types.some(function (t) { return hasDocType(p, t); }); if (d.have) n++; });
-  return '<div class="dh">Documents you may need</div><div class="dlist"><div class="dhave">You have <b>' + n + ' of ' + need.length + '</b>. Based on the rules above; the official notice has the full list.</div>'
+  return '<div class="dh">Documents you may need</div><div class="dlist"><div class="dhave">You have <b>' + n + ' of ' + need.length + '</b>. Usually asked for. The official notice has the full list.</div>'
     + need.map(function (d) { return '<div class="drow"><span class="dl">' + esc(d.label) + '</span>' + (d.have ? '<span class="dok">Added</span>' : '<button type="button" class="dsc" data-scan="1">Scan now</button>') + '</div>'; }).join('') + '</div>';
 }
 function daysTxt(n) { return n === 0 ? 'Closes today' : n === 1 ? '1 day left' : n + ' days left'; }
