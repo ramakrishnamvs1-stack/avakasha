@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '42';
+var APPVER = '43';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -196,30 +196,100 @@ var QOPEN = false;
 var SHOWALL = false;
 function completion() { var f = F(), n = 0, t = 0; FACTS.forEach(function (x) { if (x.g === 'Driving licence' || x.g === 'Resume') return; t++; if (f[x.k]) n++; }); return Math.round(n / t * 100); }
 function srcLabel(p, fct) { if (fct.src === 'typed') return 'You entered'; var d = (p.docs || []).filter(function (x) { return x.id === fct.src; })[0]; return d ? 'From ' + d.label : 'You entered'; }
+var SHOWSK = false;
+function srcTag(p, fct) {
+  if (!fct || fct.src === 'typed') return { t: 'You entered', c: 'n' };
+  var d = (p.docs || []).filter(function (x) { return x.id === fct.src; })[0], l = d ? d.label.toLowerCase() : '';
+  if (!d) return { t: 'You entered', c: 'n' };
+  if (l.indexOf('resume') >= 0) return { t: 'From resume', c: 'a' };
+  if (l.indexOf('letter') >= 0) return { t: 'From letter', c: 'g' };
+  if (l.indexOf('marksheet') >= 0) return { t: 'From marksheet', c: 'g' };
+  if (l.indexOf('licence') >= 0) return { t: 'From licence', c: 'g' };
+  return { t: 'From certificate', c: 'g' };
+}
+function tagFor(p, keys) { for (var i = 0; i < keys.length; i++) if (p.facts[keys[i]]) return srcTag(p, p.facts[keys[i]]); return null; }
+function tagHtml(t) { return t ? '<span class="ptg ' + t.c + '">' + esc(t.t) + '</span>' : ''; }
+function firstKey(p, keys) { for (var i = 0; i < keys.length; i++) if (p.facts[keys[i]]) return keys[i]; return keys[0]; }
+function skillList(f) { return String(f.skills || '').split(/[,;\n]/).map(function (x) { return x.trim(); }).filter(Boolean); }
+function chipList(t) { return String(t || '').split(/[,;\n]/).map(function (x) { return x.trim(); }).filter(Boolean); }
+var PEN = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>';
+function eduRows(p, f) {
+  var rows = [], pen = function (k) { return '<button class="ppen" type="button" aria-label="Edit" data-edit="' + k + '">' + PEN + '</button>'; };
+  var hi = { diploma: 'Diploma or ITI', degree: 'Degree', pg: 'Master’s or higher' };
+  if (hi[f.eduLevel]) {
+    var hasDoc = (p.docs || []).some(function (d) { return /degree|college/i.test(d.label); });
+    var t = tagFor(p, ['eduLevel']);
+    rows.push('<div class="step"><i></i><div class="sb"><b>' + hi[f.eduLevel] + '</b>' + (t && t.c === 'a' && !hasDoc ? '<small>No certificate added</small>' : '') + '<div>' + tagHtml(t) + '</div></div>' + pen('eduLevel') + '</div>');
+  }
+  var m12 = has12(f) || f.eduLevel === '12';
+  if (m12) {
+    var sub = [f.stream12 ? showVal('stream12', f.stream12).replace(/^Science: /, '') : '', f.pct12 ? f.pct12 + '%' : '', f.year12 || '', f.board12 || '', f.passed12 === 'yes' ? 'Passed' : f.passed12 === 'no' ? 'Not passed' : ''].filter(Boolean).join(' · ');
+    var k12 = ['pct12', 'board12', 'stream12', 'year12', 'passed12'], t12 = tagFor(p, k12) || tagFor(p, ['eduLevel']);
+    rows.push('<div class="step"><i></i><div class="sb"><b>Class 12</b>' + (sub ? '<small>' + esc(sub) + '</small>' : '') + '<div>' + tagHtml(t12) + '</div></div>' + pen(k12.some(function (k) { return p.facts[k]; }) ? firstKey(p, k12) : 'eduLevel') + '</div>');
+  }
+  var m10 = has10(f) || f.eduLevel === '10';
+  if (m10) {
+    var sub10 = [f.board || '', f.pct ? f.pct + '%' : '', f.examYear || '', f.passed === 'yes' ? 'Passed' : f.passed === 'no' ? 'Not passed' : ''].filter(Boolean).join(' · ');
+    var k10 = ['pct', 'board', 'examYear', 'passed', 'core'], t10 = tagFor(p, k10) || tagFor(p, ['eduLevel']);
+    rows.push('<div class="step"><i></i><div class="sb"><b>Class 10</b>' + (sub10 ? '<small>' + esc(sub10) + '</small>' : '') + '<div>' + tagHtml(t10) + '</div></div>' + pen(k10.some(function (k) { return p.facts[k]; }) ? firstKey(p, k10) : 'eduLevel') + '</div>');
+  }
+  return rows;
+}
+function summaryLine(p, f) {
+  var er = eduRank(f), lab = { diploma: 'Diploma or ITI', degree: 'Degree', pg: 'Master’s or higher' }[f.eduLevel] || (er >= 2 ? 'Class 12' : er === 1 ? 'Class 10' : '');
+  var ex = parseFloat(f.exp); var parts = [lab, ex > 0 ? (ex < 1 ? Math.round(ex * 12) + ' months of work' : (Math.round(ex * 10) / 10) + (ex === 1 ? ' year of work' : ' years of work')) : '', f.city || ''].filter(Boolean);
+  return parts.length ? parts.join(' · ') : 'Nothing added yet';
+}
+function factsSheet(title, groups) {
+  var p = prof(), by = {}; FACTS.forEach(function (x) { if (p.facts[x.k] && (!groups || groups.indexOf(x.g) >= 0)) (by[x.g] = by[x.g] || []).push(x); });
+  var body = Object.keys(by).map(function (g) {
+    return '<div class="fgroup"><h3>' + g + '</h3>' + by[g].map(function (x) { var fct = p.facts[x.k]; return '<div class="fact"><div><div class="k">' + x.l + '</div><div class="v">' + esc(showVal(x.k, fct.v)) + '</div><div class="src">' + esc(srcLabel(p, fct)) + '</div></div><button class="btn sm" data-sedit="' + x.k + '" type="button">Edit</button></div>'; }).join('') + '</div>';
+  }).join('') || '<p class="note">Nothing added here yet.</p>';
+  sheet('<h2>' + esc(title) + '</h2><p class="note">Only what you added or confirmed is shown. Tap Edit to correct anything.</p>' + body + '<div class="row" style="margin-top:16px"><button class="btn" id="fsAdd" type="button">Add a detail by hand</button><button class="btn" id="fsx" type="button">Close</button></div>');
+  $('fsx').onclick = closeSheet; $('fsAdd').onclick = addFactSheet;
+  Array.prototype.forEach.call(document.querySelectorAll('[data-sedit]'), function (b) { b.onclick = function () { editSheet(b.getAttribute('data-sedit')); }; });
+}
+function addSkillSheet() {
+  sheet('<h2>Add a skill</h2><label class="field">Skill<input id="nsk" type="text" maxlength="40" placeholder="For example Tally"></label><div class="row" style="margin-top:16px"><button class="btn pri" id="nsok" type="button">Add</button><button class="btn" id="nsno" type="button">Cancel</button></div>');
+  $('nsno').onclick = closeSheet; $('nsok').onclick = function () { var v = $('nsk').value.trim(); if (!v) { toast('Type a skill first.'); return; } mergeFact('skills', v, 'typed'); closeSheet(); render(); };
+}
+function removeSkillSheet(sk) {
+  sheet('<h2>Remove “' + esc(sk) + '”?</h2><div class="row" style="margin-top:16px"><button class="btn danger" id="rsy" type="button">Remove</button><button class="btn" id="rsn" type="button">Keep</button></div>');
+  $('rsn').onclick = closeSheet; $('rsy').onclick = function () { var p = prof(), left = skillList(F()).filter(function (x) { return x !== sk; }); setFact('skills', left.join(', '), p.facts.skills ? p.facts.skills.src : 'typed'); closeSheet(); render(); };
+}
 function renderProfile() {
   var p = prof();
   if (!p) {
     $('app').innerHTML = '<div class="card empty"><h2 class="h2">Start a profile</h2><p>One profile for each person. It is built from their documents and stays on this phone.</p><button class="btn pri big" id="firstAdd" type="button">Add a person</button></div>';
     $('firstAdd').onclick = function () { addPersonSheet(false); }; return;
   }
-  var nf = Object.keys(p.facts).length;
-  var docs = (p.docs || []).length ? '<ul class="docs">' + p.docs.map(function (d) { return '<li><span>' + esc(d.label) + '<small>Added ' + fmt(new Date(d.at)) + ' · ' + (d.jobs ? d.jobs + (d.jobs === 1 ? ' job' : ' jobs') : d.keys.length + ' details') + ' read</small></span><button class="btn sm danger" data-deldoc="' + d.id + '" type="button">Remove</button></li>'; }).join('') + '</ul>' : '<p class="note" style="margin-top:10px">No documents yet.</p>';
-  var groups = {}; FACTS.forEach(function (x) { if (p.facts[x.k]) (groups[x.g] = groups[x.g] || []).push(x); });
-  var f = F();
-  var facts = Object.keys(groups).map(function (g) {
-    return '<div class="fgroup"><h3>' + g + '</h3>' + groups[g].map(function (x) {
-      var fct = p.facts[x.k];
-      return '<div class="fact"><div><div class="k">' + x.l + '</div>' + '<div class="v">' + esc(showVal(x.k, fct.v)) + '</div><div class="src">' + esc(srcLabel(p, fct)) + '</div></div><button class="btn sm" data-edit="' + x.k + '" type="button">Edit</button></div>';
-    }).join('') + '</div>';
-  }).join('');
-  $('app').innerHTML = '<div class="cols"><div class="stack">'
-    + gapCard(p) + '<div class="card"><h2 class="h2">' + esc(p.name) + '</h2><div class="note" style="margin-top:2px">' + (nf ? nf + (nf === 1 ? ' detail' : ' details') + ' from what you added' : 'Nothing added yet') + '</div>'
-    + '<div class="row" style="margin-top:14px"><button class="btn pri big" id="scanBtn" type="button">Scan a document</button><button class="btn big" id="goExplore" type="button">Explore</button></div>'
-    + '<p class="note" style="margin-top:10px">Photos are not kept. Only the details you confirm are saved, and they stay on this phone.</p></div>'
-    + '<div class="card"><h3 class="h3">Documents</h3>' + docs + '</div>' + jobCard(p) + '</div>'
-    + '<div class="card"><h3 class="h3">Details</h3><p class="note" style="margin-top:2px">' + (nf ? 'Only what you have added or confirmed is shown. Tap Edit to correct anything.' : 'Scan any document, or add a detail by hand. Only what you add is shown here.') + '</p>' + facts + '<div class="row" style="margin-top:12px"><button class="btn" id="addFact" type="button">Add a detail by hand</button><button class="btn" id="addJob" type="button">Add a job by hand</button></div></div></div>';
-  wireGap(p); wireJobs(p); $('addFact').onclick = addFactSheet;
+  var f = F(), nf = Object.keys(p.facts).length, er = eduRows(p, f);
+  var docs = (p.docs || []).length ? (p.docs || []).map(function (d) { return '<div class="pdoc"><span class="pdi"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/></svg></span><span class="pdt"><b>' + esc(d.label) + '</b><small>Added ' + fmt(new Date(d.at)) + '</small></span><button class="plink" data-deldoc="' + d.id + '" type="button">Remove</button></div>'; }).join('') : '<p class="note">No documents yet.</p>';
+  var sk = skillList(f), shown = SHOWSK ? sk : sk.slice(0, 8), roles = chipList(f.roles), langs = chipList(f.languages), ex = parseFloat(f.exp), hasWork = !isNaN(ex) || roles.length;
+  var pers = ['Identity', 'Eligibility', 'Now', 'Driving licence'], nper = FACTS.filter(function (x) { return p.facts[x.k] && pers.indexOf(x.g) >= 0; }).length;
+  var ageT = f.dob ? Math.floor(ageM(f) / 12) : null, persSub = [ageT !== null ? 'Age ' + ageT : '', f.state ? showVal('state', f.state) : '', f.cat ? showVal('cat', f.cat) : ''].filter(Boolean).join(' · ');
+  $('app').innerHTML = '<div class="pcol">'
+    + '<div class="pcard"><div class="phead"><span class="pav">' + initial(p.name) + '</span><div class="phn"><h2>' + esc(p.name) + '</h2><div class="note">' + esc(summaryLine(p, f)) + '</div></div></div>'
+    + '<div class="row" style="margin-top:16px;flex-wrap:nowrap"><button class="btn pri big" id="scanBtn" type="button" style="flex:1">Scan or add a file</button><button class="btn big" id="goExplore" type="button">Explore</button></div></div>'
+    + gapCard(p)
+    + '<div class="pcard"><div class="ptop"><h3>Education</h3><span class="note">Latest first</span></div>' + (er.length ? '<div class="tl">' + er.join('') + '</div>' : '<p class="note" style="margin-top:8px">No education added yet. Scan a marksheet or a resume.</p>') + '</div>'
+    + (hasWork ? '<div class="pcard"><div class="ptop"><h3>Work</h3>' + tagHtml(tagFor(p, ['expYears', 'roles'])) + '</div>'
+      + (!isNaN(ex) ? '<div class="pbig"><b>' + (ex < 1 && ex > 0 ? Math.round(ex * 12) : Math.round(ex * 10) / 10) + '</b><span>' + (ex === 0 ? 'Fresher, no work yet' : ex < 1 ? 'months of work' : ex === 1 ? 'year of work' : 'years of work') + '</span><button class="ppen" type="button" aria-label="Edit years" data-edit="expYears">' + PEN + '</button></div>' : '')
+      + (roles.length ? '<div class="plab">Job titles <button class="plink" type="button" data-edit="roles">Edit</button></div><div class="pchips">' + roles.map(function (r) { return '<span class="pchip">' + esc(r) + '</span>'; }).join('') + '</div>' : '') + '</div>' : '')
+    + jobCard(p)
+    + (sk.length || langs.length || p.facts.skills ? '<div class="pcard"><div class="ptop"><h3>Skills</h3>' + tagHtml(tagFor(p, ['skills'])) + '</div><div class="pchips" style="margin-top:12px">' + shown.map(function (k) { return '<button class="pchip" type="button" data-sk="' + esc(k) + '">' + esc(k) + '</button>'; }).join('')
+      + (sk.length > 8 ? '<button class="pchip dash" type="button" id="skAll">' + (SHOWSK ? 'Show fewer' : 'Show all ' + sk.length) + '</button>' : '') + '<button class="pchip add" type="button" id="skAdd">+ Add skill</button></div>'
+      + (langs.length ? '<div class="plab">Languages <button class="plink" type="button" data-edit="languages">Edit</button></div><div class="pchips">' + langs.map(function (r) { return '<span class="pchip">' + esc(r) + '</span>'; }).join('') + '</div>' : '') + '</div>' : '')
+    + '<button class="pcard prow2" type="button" id="persBtn"><span><b>Personal and eligibility</b><small>' + esc(persSub || (nper ? nper + (nper === 1 ? ' detail' : ' details') : 'Nothing added yet')) + ' · private to this phone</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>'
+    + '<div class="pcard"><h3 style="margin-bottom:6px">Documents added</h3>' + docs + '</div>'
+    + '<div class="row" style="justify-content:center"><button class="btn" id="allDet" type="button">See all details</button><button class="btn" id="addJob" type="button">Add a job by hand</button></div>'
+    + '<p class="note" style="padding:0 6px 20px">Photos and files are not kept. Only the details you confirm are saved, and they stay on this phone. A marksheet counts for more than a resume when both say something different.</p></div>';
+  wireGap(p); wireJobs(p);
   $('scanBtn').onclick = scanFlow; $('goExplore').onclick = function () { location.hash = '#explore'; };
+  $('persBtn').onclick = function () { factsSheet('Personal and eligibility', pers); };
+  $('allDet').onclick = function () { factsSheet('All details', null); };
+  if ($('skAdd')) $('skAdd').onclick = addSkillSheet; if ($('skAll')) $('skAll').onclick = function () { SHOWSK = !SHOWSK; renderProfile(); };
+  Array.prototype.forEach.call(document.querySelectorAll('[data-sk]'), function (b) { b.onclick = function () { removeSkillSheet(b.getAttribute('data-sk')); }; });
   Array.prototype.forEach.call(document.querySelectorAll('[data-edit]'), function (b) { b.onclick = function () { editSheet(b.getAttribute('data-edit')); }; });
   Array.prototype.forEach.call(document.querySelectorAll('[data-deldoc]'), function (b) { b.onclick = function () { delDoc(b.getAttribute('data-deldoc')); }; });
 }
@@ -275,7 +345,7 @@ function jobCard(p) {
     var dur = jobDone(j) ? ' · ' + expText(monthsBetween(pd(j.start), j.end ? pd(j.end) : TODAY)) : '';
     return '<li><span>' + esc(j.role || 'Job') + (j.org ? ' at ' + esc(j.org) : '') + '<small>' + span + dur + '</small></span><span class="row" style="gap:6px;flex-wrap:nowrap"><button class="btn sm" data-editjob="' + j.id + '" type="button">Edit</button><button class="btn sm danger" data-deljob="' + j.id + '" type="button">Remove</button></span></li>';
   }).join('') + '</ul>' + (tot ? '<p class="note" style="margin-top:8px">Total work experience: <b>' + expText(tot) + '</b> (overlapping jobs are counted once).</p>' : '') : '';
-  return '<div class="card"><h3 class="h3">Work experience</h3>' + list + '</div>';
+  return '<div class="pcard"><h3>Work letters</h3>' + list + '</div>';
 }
 function wireJobs(p) {
   var b = $('addJob'); if (b) b.onclick = function () { jobSheet(null, null, [], '', true); };
