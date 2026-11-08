@@ -27,7 +27,8 @@
     "NTA exam calendar (Dec 2026 cycle onwards)",
     "https://nta.ac.in/Download/Notice/ExamcalendarRevised.pdf"
    ],
-   "note": "Date is from the official NTA calendar and is tentative. Confirm on the NTA site."
+   "note": "Date is from the official NTA calendar and is tentative. Confirm on the NTA site.",
+   "off": true
   },
   {
    "id": "x-jee2",
@@ -53,7 +54,8 @@
     "NTA exam calendar (Dec 2026 cycle onwards)",
     "https://nta.ac.in/Download/Notice/ExamcalendarRevised.pdf"
    ],
-   "note": "Date is from the official NTA calendar and is tentative. Confirm on the NTA site."
+   "note": "Date is from the official NTA calendar and is tentative. Confirm on the NTA site.",
+   "off": true
   },
   {
    "id": "x-nift",
@@ -75,7 +77,8 @@
     "NTA exam calendar (Dec 2026 cycle onwards)",
     "https://nta.ac.in/Download/Notice/ExamcalendarRevised.pdf"
    ],
-   "note": "Date is from the official NTA calendar and is tentative. Confirm on the NTA site."
+   "note": "Date is from the official NTA calendar and is tentative. Confirm on the NTA site.",
+   "off": true
   },
   {
    "id": "x-kcet",
