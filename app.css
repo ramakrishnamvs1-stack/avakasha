@@ -431,3 +431,5 @@ button.pchip{cursor:pointer}.pchip.dash{background:none;border:1.5px dashed var(
 .svrow span{flex:1}
 .svrow small{font-size:13.5px;font-weight:600;color:var(--muted)}
 .svrow + .cs{margin-top:16px}
+.ic-s{background:#c4572b}.ic-h{background:#b8326b}
+.hics{gap:6px;justify-content:flex-start;overflow-x:auto;scrollbar-width:none;padding-bottom:4px}.hics::-webkit-scrollbar{display:none}.hic{flex:none;width:66px}
