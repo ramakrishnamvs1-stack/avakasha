@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '50';
+var APPVER = '51';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -485,13 +485,18 @@ var HICONS = [
   ['Govt Jobs', 'ic-g', '#govt', '<path d="M3 10l9-6 9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"/>'],
   ['Pvt Jobs', 'ic-v', '#pvt', '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/>'],
   ['Upcoming exams', 'ic-e', '#exams', '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M9 15.5l2 2 4-4"/>'],
-  ['Study paths', 'ic-s', '#study', '<path d="M4 19V6a2 2 0 0 1 2-2h12v15H6a2 2 0 0 0-2 2 2 2 0 0 0 2 2h12"/><path d="M9 9h6"/>'],
   ['Scholarships', 'ic-h', '#scholar', '<circle cx="12" cy="9" r="5"/><path d="M9 13.5L7.5 21l4.5-2.5 4.5 2.5L15 13.5"/>'],
   ['Trainings', 'ic-t', '#train', '<path d="M2 9l10-5 10 5-10 5-10-5z"/><path d="M6 11.5V16c0 1.4 2.7 3 6 3s6-1.6 6-3v-4.5M22 9v6"/>']
 ];
 function upExams() { return (EXTRA.exams || []).filter(function (x) { return pd(x.d) >= TODAY; }).sort(function (a, b) { return pd(a.d) - pd(b.d); }); }
 function dayTxt(x) { if (x.tent) return 'Expected ' + x.when; var n = daysBetween(TODAY, pd(x.d)); return n === 0 ? 'Today' : n === 1 ? '1 day to go' : n + ' days to go'; }
 function stopHome() { if (HOME.t) { clearInterval(HOME.t); HOME.t = null; } }
+function nextHtml() {
+  var p = prof(), f = F(); if (!p || !Object.keys(p.facts).length) return '';
+  var r = eduRank(f), c = r >= 3 ? ['After your degree', 'Government jobs open for graduates, and options for further study.', '#govt', 'See jobs'] : r === 2 ? ['After Class 12', 'Entrance exams and degree courses that fit your stream and marks.', '#study', 'See what next'] : r === 1 ? ['After Class 10', 'PUC, diploma or ITI: see which courses fit your marks.', '#study', 'See what next'] : null;
+  if (!c) return '';
+  return '<a class="nxt" href="' + c[2] + '"><span class="nxp">What next</span><b>' + c[0] + '</b><span class="nxs">' + c[1] + '</span><span class="nxg">' + c[3] + ' ›</span></a>';
+}
 function homeItems() {
   var out = upExams().filter(function (x) { return x.hero; }).slice(0, 3).map(function (x) { return { exam: x }; });
   if (!out.length) out.push({ note: NOTES[(Math.floor(TODAY.getTime() / 864e5)) % NOTES.length] });
@@ -513,7 +518,7 @@ function renderHome() {
   stopHome();
   HOME.items = homeItems(); if (HOME.i >= HOME.items.length) HOME.i = 0;
   var ics = HICONS.map(function (c) { return '<a class="hic" href="' + c[2] + '"><span class="hc ' + c[1] + '"><svg viewBox="0 0 24 24" aria-hidden="true">' + c[3] + '</svg></span><span class="hl">' + c[0].replace('Upcoming exams', 'Upcoming<br>exams') + '</span></a>'; }).join('');
-  $('app').innerHTML = '<div class="homew"><div id="hslot"></div><div class="hdots">' + HOME.items.map(function (x, k) { return '<button type="button" data-k="' + k + '" aria-label="Show card ' + (k + 1) + '"><i></i></button>'; }).join('') + '</div><div class="hics">' + ics + '</div>' + savedRowHtml() + closingSoonHtml() + '</div>';
+  $('app').innerHTML = '<div class="homew"><div id="hslot"></div><div class="hdots">' + HOME.items.map(function (x, k) { return '<button type="button" data-k="' + k + '" aria-label="Show card ' + (k + 1) + '"><i></i></button>'; }).join('') + '</div>' + nextHtml() + '<div class="hics">' + ics + '</div>' + savedRowHtml() + closingSoonHtml() + '</div>';
   drawHome();
   function go(k) { HOME.i = k; drawHome(); stopHome(); HOME.t = setInterval(next, 5500); }
   function next() { go((HOME.i + 1) % HOME.items.length); }
