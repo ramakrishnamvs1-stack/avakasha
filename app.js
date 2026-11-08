@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '36';
+var APPVER = '38';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -404,7 +404,8 @@ var HICONS = [
   ['Profile', 'ic-p', '#profile', '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/>'],
   ['Govt Jobs', 'ic-g', '#govt', '<path d="M3 10l9-6 9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"/>'],
   ['Pvt Jobs', 'ic-v', '#pvt', '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/>'],
-  ['Upcoming exams', 'ic-e', '#exams', '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M9 15.5l2 2 4-4"/>']
+  ['Upcoming exams', 'ic-e', '#exams', '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M9 15.5l2 2 4-4"/>'],
+  ['Trainings', 'ic-t', '#train', '<path d="M2 9l10-5 10 5-10 5-10-5z"/><path d="M6 11.5V16c0 1.4 2.7 3 6 3s6-1.6 6-3v-4.5M22 9v6"/>']
 ];
 function upExams() { return (EXTRA.exams || []).filter(function (x) { return pd(x.d) >= TODAY; }).sort(function (a, b) { return pd(a.d) - pd(b.d); }); }
 function dayTxt(x) { if (x.tent) return 'Expected ' + x.when; var n = daysBetween(TODAY, pd(x.d)); return n === 0 ? 'Today' : n === 1 ? '1 day to go' : n + ' days to go'; }
@@ -518,6 +519,60 @@ function renderPvt() {
   if ($('showCl')) $('showCl').onclick = function () { SHOWCL = !SHOWCL; renderPvt(); };
 }
 function whyBlock(x) { var p = prof(), f = F(); if (!p || !pvtSignals(f, p)) return ''; var m = pvtMatch(x, f, p), l = m.why.slice(); if (m.need) l.unshift(m.need + ' for this job.'); return l.length ? '<div class="dh">How it fits you</div><div class="dabout"><p>' + l.map(esc).join('</p><p>') + '</p></div>' : ''; }
+/* ---- trainings ---- */
+function trainFit(t, f) {
+  var am = ageM(f), er = eduRank(f), age = am === null ? null : Math.floor(am / 12), why = [], tag = '';
+  if (age !== null && t.ageMin && t.ageMax) {
+    if (age >= t.ageMin && age <= t.ageMax) why.push('Your age fits (' + t.ageMin + ' to ' + t.ageMax + ').');
+    else { tag = t.softAge ? 'Check age' : 'Age ' + t.ageMin + ' to ' + t.ageMax; why.push(t.softAge ? 'Freshers must be up to ' + t.ageMax + '. Other routes may allow more. Check the guidelines.' : 'The age range is ' + t.ageMin + ' to ' + t.ageMax + ', and you are ' + age + '.'); }
+  }
+  if (t.minEdu && !er && !tag) tag = 'Check eligibility';
+  var rule = !!(t.off && ((age !== null && t.ageMin && t.ageMax) || (t.minEdu && er >= t.minEdu)));
+  return { tag: tag || (t.free ? 'Free' : 'Check site'), fit: !tag && rule, why: why };
+}
+function skillGaps(f, p) {
+  var live = EXTRA.livePvt || [], have = listOf(f.skills), cnt = {}, needEdu = 0, needExp = 0;
+  live.forEach(function (x) {
+    var m = pvtMatch(x, f, p); if (m.g === 3) { if (/^Needs \d/.test(m.need)) needExp++; else needEdu++; }
+    (x.skills || []).forEach(function (k) { var kk = k.toLowerCase(); if (have.indexOf(kk) < 0) cnt[kk] = (cnt[kk] || 0) + 1; });
+  });
+  var top = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; }).filter(function (k) { return cnt[k] > 1; }).slice(0, 6);
+  return { skills: top, cnt: cnt, needEdu: needEdu, needExp: needExp };
+}
+function renderTrain() {
+  var l = EXTRA.trains || [], f = F(), p = prof(), sig = p && pvtSignals(f, p), gap = sig ? skillGaps(f, p) : null;
+  var items = l.map(function (t) { return { t: t, m: sig ? trainFit(t, f) : { tag: t.free ? 'Free' : 'Check site', fit: false, why: [] } }; });
+  items.sort(function (a, b) { return (b.m.fit ? 1 : 0) - (a.m.fit ? 1 : 0); });
+  var gb = '';
+  if (gap && (gap.skills.length || gap.needEdu || gap.needExp)) {
+    gb = '<div class="card" style="margin:12px 0"><h3 class="h3">What the open jobs ask for</h3>'
+      + (gap.skills.length ? '<p class="note" style="margin-top:4px">Skills several jobs ask for that are not on your profile:</p><div class="xt" style="margin-top:8px">' + gap.skills.map(function (k) { return '<span class="tg">' + esc(k) + ' · ' + gap.cnt[k] + (gap.cnt[k] === 1 ? ' job' : ' jobs') + '</span>'; }).join('') + '</div>' : '')
+      + (gap.needEdu ? '<p class="note" style="margin-top:8px">' + gap.needEdu + (gap.needEdu === 1 ? ' job needs' : ' jobs need') + ' more education than your profile shows. An ITI or a diploma can open these.</p>' : '')
+      + (gap.needExp ? '<p class="note" style="margin-top:8px">' + gap.needExp + (gap.needExp === 1 ? ' job asks' : ' jobs ask') + ' for more years of work. An apprenticeship builds experience while you earn.</p>' : '')
+      + '</div>';
+  }
+  $('app').innerHTML = subHead('Trainings', 'Free and government-run ways to learn a skill. Fees are shown.')
+    + gb + '<div class="xl">' + items.map(function (i) { return tcard(i.t, i.m); }).join('') + '</div>'
+    + '<p class="foot">Training under government schemes is not sold through agents. Never pay anyone to get a seat, a certificate or a job. Check every course on its official site.</p>';
+  wireBack('#home');
+}
+var CAP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9l10-5 10 5-10 5-10-5z"/><path d="M6 11.5V16c0 1.4 2.7 3 6 3s6-1.6 6-3v-4.5M22 9v6"/></svg>';
+function tcard(t, m) {
+  return '<a class="xc" href="#t/' + encodeURIComponent(t.id) + '"><div class="xi">' + CAP + '</div><div class="xb"><h3>' + esc(t.title) + '</h3><div class="org">' + esc(t.org) + '</div><div class="xt"><span class="tg ' + (m.fit ? 'og' : /^Free$/.test(m.tag) ? 'og' : 'w') + '">' + esc(m.fit ? 'Fits you' : m.tag) + '</span>' + (t.off ? '' : '<span class="tg">Details not read</span>') + '</div></div></a>';
+}
+function renderT(id) {
+  var t = (EXTRA.trains || []).filter(function (e) { return e.id === id; })[0]; if (!t) { location.hash = '#train'; return; }
+  var p = prof(), f = F(), m = p ? trainFit(t, f) : { why: [] };
+  var facts = t.facts.map(function (r) { return '<div class="dkv"><span>' + esc(r[0]) + '</span><span>' + esc(r[1]) + '</span></div>'; }).join('');
+  $('app').innerHTML = '<div class="dbar"><button type="button" id="dback" aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><b>Training details</b></div>'
+    + '<h1 class="dtitle">' + esc(t.title) + '</h1><div class="org" style="font-size:15px;margin-top:6px">' + esc(t.org) + '</div>'
+    + '<div class="dnote ' + (t.off ? 'g' : 'w') + '"><b>' + (t.off ? 'Read from the official guidelines.' : 'Details not read.') + '</b> ' + esc(t.note) + '</div>'
+    + '<div class="dh">Key facts</div><div class="dlist">' + facts + '</div>'
+    + (m.why.length ? '<div class="dh">How it fits you</div><div class="dabout"><p>' + m.why.map(esc).join('</p><p>') + '</p></div>' : '')
+    + '<div class="dh">About</div><div class="dabout"><p>' + esc(t.line) + '</p><p class="note">Source: <a href="' + t.src[1] + '" target="_blank" rel="noopener">' + esc(t.src[0]) + '</a>. Read on ' + esc(EXTRA.readOn || '') + '.</p></div>'
+    + '<p class="foot">Never pay an agent to get a seat, a certificate or a job. Apply only on the official site.</p><div class="dact"><a class="btn pri" href="' + t.go + '" target="_blank" rel="noopener">Open the official site ↗</a></div>';
+  wireBack(null);
+}
 function renderX(id) {
   var isE = true, x = (EXTRA.exams || []).filter(function (e) { return e.id === id; })[0];
   if (!x) { isE = false; x = (EXTRA.livePvt || []).concat(EXTRA.pvt || []).filter(function (e) { return e.id === id; })[0]; }
@@ -1097,7 +1152,7 @@ function showIntro(done) {
 }
 function firstRun() { if (!prof() && $('sheet').hidden) addPersonSheet(true); }
 var CHEVD = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
-function route() { var h = location.hash.replace('#', ''); if (h.indexOf('job/') === 0) return { r: 'job', id: decodeURIComponent(h.slice(4)) }; if (h.indexOf('x/') === 0) return { r: 'x', id: decodeURIComponent(h.slice(2)) }; if (h === 'explore' || h === 'profile' || h === 'exams' || h === 'govt' || h === 'pvt') return { r: h }; return { r: 'home' }; }
+function route() { var h = location.hash.replace('#', ''); if (h.indexOf('job/') === 0) return { r: 'job', id: decodeURIComponent(h.slice(4)) }; if (h.indexOf('x/') === 0) return { r: 'x', id: decodeURIComponent(h.slice(2)) }; if (h.indexOf('t/') === 0) return { r: 't', id: decodeURIComponent(h.slice(2)) }; if (h === 'train') return { r: 'train' }; if (h === 'explore' || h === 'profile' || h === 'exams' || h === 'govt' || h === 'pvt') return { r: h }; return { r: 'home' }; }
 function renderTop(r) {
   var p = prof(), b = $('avatar'), br = document.querySelector('.brand');
   br.innerHTML = r === 'profile' ? '<svg viewBox="0 0 24 24" aria-hidden="true" style="width:22px;height:22px;vertical-align:-4px;margin-right:8px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round"><path d="M15 5l-7 7 7 7"/></svg>Profile' : 'Avakasha'; br.style.color = r === 'profile' ? 'var(--ink)' : '';
@@ -1108,13 +1163,13 @@ function renderTop(r) {
 function render() {
   var rt = route(), h = rt.r;
   stopHome();
-  document.body.classList.toggle('is-detail', h === 'job' || h === 'x');
-  document.body.classList.toggle('is-sub', h === 'exams' || h === 'govt' || h === 'pvt');
+  document.body.classList.toggle('is-detail', h === 'job' || h === 'x' || h === 't');
+  document.body.classList.toggle('is-sub', h === 'exams' || h === 'govt' || h === 'pvt' || h === 'train');
   document.body.classList.toggle('is-home', h === 'home');
   $('nav-home').setAttribute('aria-current', h === 'home' ? 'page' : 'false'); $('nav-explore').setAttribute('aria-current', h === 'explore' ? 'page' : 'false');
   renderTop(h);
   if (!DATA) return;
-  if (h === 'job') renderDetail(rt.id); else if (h === 'x') renderX(rt.id); else if (h === 'exams') renderExams(); else if (h === 'govt') renderGovt(); else if (h === 'pvt') renderPvt(); else if (h === 'explore') renderExplore(); else if (h === 'profile') renderProfile(); else renderHome();
+  if (h === 'job') renderDetail(rt.id); else if (h === 'x') renderX(rt.id); else if (h === 't') renderT(rt.id); else if (h === 'train') renderTrain(); else if (h === 'exams') renderExams(); else if (h === 'govt') renderGovt(); else if (h === 'pvt') renderPvt(); else if (h === 'explore') renderExplore(); else if (h === 'profile') renderProfile(); else renderHome();
 }
 window.addEventListener('hashchange', function () { render(); window.scrollTo(0, 0); });
 $('nav-scan').onclick = function () { if (!prof()) { addPersonSheet(true, scanFlow); return; } scanFlow(); };

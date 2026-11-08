@@ -299,5 +299,196 @@
     ]
    ]
   }
+ ],
+ "trains": [
+  {
+   "id": "t-pmkvy",
+   "title": "Free short skill training (PMKVY 4.0)",
+   "org": "Skill India, Ministry of Skill Development",
+   "line": "Short job-skill courses that are free for candidates, with a government certificate when you pass the assessment.",
+   "free": true,
+   "ageMin": 15,
+   "ageMax": 45,
+   "minEdu": 0,
+   "off": true,
+   "facts": [
+    [
+     "Cost",
+     "Free for candidates"
+    ],
+    [
+     "Age",
+     "15 to 45 years"
+    ],
+    [
+     "Length",
+     "300 to 600 hours, with on-the-job training"
+    ],
+    [
+     "Certificate",
+     "Digital certificate after you pass the assessment"
+    ],
+    [
+     "You need",
+     "Aadhaar, and more than 70% attendance to sit the assessment"
+    ],
+    [
+     "How to join",
+     "Register on Skill India Digital and choose a course and centre"
+    ]
+   ],
+   "src": [
+    "PMKVY 4.0 guidelines",
+    "https://www.msde.gov.in/static/uploads/2024/02/PMKVY-4.0-Guidelines_final-copy.pdf"
+   ],
+   "go": "https://www.skillindiadigital.gov.in/",
+   "note": "Courses, centres and dates change, so check the site for what is open now."
+  },
+  {
+   "id": "t-naps",
+   "title": "Apprenticeship with pay (NAPS)",
+   "org": "Apprenticeship India, Ministry of Skill Development",
+   "line": "Learn on the job at a company and earn a stipend. The government shares part of the stipend with the employer.",
+   "free": true,
+   "ageMin": 14,
+   "ageMax": 21,
+   "softAge": true,
+   "minEdu": 0,
+   "off": true,
+   "facts": [
+    [
+     "Cost",
+     "You earn a stipend paid by the employer"
+    ],
+    [
+     "Age",
+     "14 or older. Freshers up to 21"
+    ],
+    [
+     "Length",
+     "Freshers: 3 months of basic training, then 1 to 2 years on the job. ITI pass-outs: 1 to 2 years on the job"
+    ],
+    [
+     "Government share",
+     "25% of the stipend, up to ₹1,500 a month"
+    ],
+    [
+     "You need",
+     "Aadhaar and a registration on the apprenticeship portal"
+    ]
+   ],
+   "src": [
+    "NAPS guidelines",
+    "https://www.msde.gov.in/static/uploads/2024/04/Guidelines-for-NAPS.pdf"
+   ],
+   "go": "https://www.apprenticeshipindia.gov.in/",
+   "note": "Courses, centres and dates change, so check the site for what is open now."
+  },
+  {
+   "id": "t-swayam",
+   "title": "Free online courses (SWAYAM)",
+   "org": "Government of India",
+   "line": "Video courses from Class 9 to postgraduate level, free to learn. A certificate needs a paid exam.",
+   "free": true,
+   "minEdu": 0,
+   "off": true,
+   "facts": [
+    [
+     "Cost",
+     "Courses are free. The certificate exam has a fee"
+    ],
+    [
+     "Levels",
+     "Class 9 to postgraduate"
+    ],
+    [
+     "Who",
+     "Anyone can learn"
+    ],
+    [
+     "Certificate",
+     "Take a proctored exam at a centre on set dates"
+    ]
+   ],
+   "src": [
+    "About SWAYAM",
+    "https://swayam.gov.in/about"
+   ],
+   "go": "https://swayam.gov.in/",
+   "note": "Courses, centres and dates change, so check the site for what is open now."
+  },
+  {
+   "id": "t-sidh",
+   "title": "Free online courses (Skill India Digital)",
+   "org": "Skill India",
+   "line": "Free online courses and the place to register for Skill India training.",
+   "free": true,
+   "minEdu": 0,
+   "off": false,
+   "facts": [
+    [
+     "Cost",
+     "The site offers free online courses"
+    ],
+    [
+     "Also",
+     "Register here for PMKVY training batches"
+    ]
+   ],
+   "src": [
+    "Skill India Digital Hub",
+    "https://www.skillindiadigital.gov.in/free-online-courses/"
+   ],
+   "go": "https://www.skillindiadigital.gov.in/",
+   "note": "The official site blocks automated reading, so the details were not checked. Open it to see courses, eligibility and fees."
+  },
+  {
+   "id": "t-ksdc",
+   "title": "Karnataka skill training (Kaushalya Karnataka)",
+   "org": "Karnataka Skill Development Corporation",
+   "line": "The Karnataka government's skill training schemes, including the Chief Minister’s Kaushalya Karnataka Yojane and online courses on e-Kaushalya.",
+   "minEdu": 0,
+   "off": false,
+   "facts": [
+    [
+     "Run by",
+     "Karnataka Skill Development Corporation"
+    ],
+    [
+     "Schemes",
+     "Chief Minister’s Kaushalya Karnataka Yojane (CMKKY) and e-Kaushalya online courses"
+    ]
+   ],
+   "src": [
+    "CMKKY, Karnataka Skill Development Corporation",
+    "https://kaushalkar.karnataka.gov.in/info-2/Chief+Minister%E2%80%99s+Kaushalya+Karnataka+Yojane+(CMKKY)/en"
+   ],
+   "go": "https://online.kaushalkar.com/",
+   "note": "The official site blocks automated reading, so the details were not checked. Open it to see courses, eligibility and fees."
+  },
+  {
+   "id": "t-iti",
+   "title": "ITI courses in Karnataka",
+   "org": "Dept. of Industrial Training and Employment, Karnataka",
+   "line": "Trade courses at government, aided and private ITIs approved by NCVT. The department lists the institutes by division.",
+   "minEdu": 1,
+   "off": false,
+   "facts": [
+    [
+     "Run by",
+     "Dept. of Industrial Training and Employment, Karnataka"
+    ],
+    [
+     "Institutes",
+     "Listed by division, such as Bengaluru and Hubli"
+    ]
+   ],
+   "src": [
+    "NCVT-affiliated ITIs, Bengaluru division",
+    "https://itiemp.karnataka.gov.in/page/AFFILIATION+INFO/NCVT%20Affiliated%20industrial%20Training%20Institutes%20(Govt%20GIA%20and%20Private)/Bengaluru+Division/en"
+   ],
+   "go": "https://itiemp.karnataka.gov.in/",
+   "note": "The official site blocks automated reading, so the details were not checked. Open it to see courses, eligibility and fees."
+  }
  ]
 }
