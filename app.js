@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '43';
+var APPVER = '44';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -698,19 +698,22 @@ function renderExplore() {
   if (!SHOWALL) all = all.filter(function (e) { return e.grp < 2; });
   var tabs = [['work', 'Jobs'], ['exp', 'With experience'], ['study', 'Study'], ['scholar', 'Scholarships']];
   tabs = tabs.filter(function (t) { return all.some(function (e) { return e.r.tab === t[0]; }); });
+  var pvAll = pvtSignals(f, p) ? (EXTRA.livePvt || []).map(function (x) { return { x: x, m: pvtMatch(x, f, p) }; }).filter(function (i) { return i.m.g < 3; }).sort(function (a, b) { return a.m.g - b.m.g || b.m.score - a.m.score; }) : [];
+  if (pvAll.length) tabs.splice(Math.min(1, tabs.length), 0, ['pvt', 'Private jobs']);
   if (!tabs.length && hiddenN && !SHOWALL) {
     $('app').innerHTML = '<div class="chips" style="margin:4px 0 14px">' + chips.map(function (c) { return '<span class="chip">' + esc(c) + '</span>'; }).join('') + '</div><div class="card"><h3 class="h3">Nothing is open for you right now</h3><p class="note" style="margin-top:4px">' + hiddenN + (hiddenN === 1 ? ' record matches' : ' records match') + ' this profile but ' + (hiddenN === 1 ? 'is' : 'are') + ' closed, not open yet, or not eligible yet.</p><div class="row" style="margin-top:10px"><button class="btn" id="showAll" type="button">Show them</button></div></div>';
     $('showAll').onclick = function () { SHOWALL = true; renderExplore(); };
     return;
   }
   if (!tabs.length) {
-    $('app').innerHTML = '<div class="chips" style="margin:4px 0 14px">' + chips.map(function (c) { return '<span class="chip">' + esc(c) + '</span>'; }).join('') + '</div><div class="card"><h3 class="h3">Nothing to match yet</h3><p class="note" style="margin-top:4px">Results appear for the kinds of details a profile holds: Class 10 details, a driving licence or work experience. ' + (jobsOf(p).length || Object.keys(p.facts).length ? 'This profile has none of those that match the records available so far. More kinds of jobs are being added.' : 'Scan a document or add a detail on the Profile tab.') + '</p></div><p class="foot">Records so far cover Karnataka and central government posts open to Class 10 pass candidates, driver posts, and study and scholarship routes after Class 10.</p>';
+    $('app').innerHTML = '<div class="chips" style="margin:4px 0 14px">' + chips.map(function (c) { return '<span class="chip">' + esc(c) + '</span>'; }).join('') + '</div><div class="card"><h3 class="h3">Nothing to match yet</h3><p class="note" style="margin-top:4px">Results appear for the kinds of details a profile holds: Class 10 or 12 details, a driving licence, work experience or a resume. ' + (jobsOf(p).length || Object.keys(p.facts).length ? (pvtSignals(f, p) ? 'No government record matches this profile, and no private job has been added yet. Private jobs appear here once the daily search has found some and they have been checked.' : 'This profile has none of those that match the records available so far. More kinds of jobs are being added.') : 'Scan a document or add a detail on the Profile tab.') + '</p></div><p class="foot">Records so far cover Karnataka and central government posts open to Class 10 pass candidates, driver posts, and study and scholarship routes after Class 10.</p>';
     return;
   }
   if (!tabs.some(function (t) { return t[0] === TAB; })) TAB = tabs[0][0];
-  var tabsH = tabs.map(function (t) { var n = all.filter(function (e) { return e.r.tab === t[0] && e.grp < 2; }).length; return '<button role="tab" class="tb" data-t="' + t[0] + '" aria-selected="' + (t[0] === TAB) + '">' + t[1] + ' <span>' + n + '</span></button>'; }).join('');
+  var tabsH = tabs.map(function (t) { var n = t[0] === 'pvt' ? pvAll.length : all.filter(function (e) { return e.r.tab === t[0] && e.grp < 2; }).length; return '<button role="tab" class="tb" data-t="' + t[0] + '" aria-selected="' + (t[0] === TAB) + '">' + t[1] + ' <span>' + n + '</span></button>'; }).join('');
   var list = all.filter(function (e) { return e.r.tab === TAB; });
   var h = gapCard(p);
+  if (TAB === 'pvt') { list = []; h += '<div class="banner"><b>Not from an official page.</b> These were found on job sites and checked by Avakasha, not by the employer. Check the employer first, and never pay anyone to get a job.</div>'; [1, 2].forEach(function (g) { var it = pvAll.filter(function (i) { return i.m.g === g; }); if (it.length) h += '<section class="group"><h2>' + (g === 1 ? 'Suits you' : 'You can apply') + ' <span class="note">(' + it.length + ')</span></h2><div class="xl" style="margin-top:8px">' + it.map(function (i) { return xcard(i.x, "pvt", i.m); }).join('') + '</div></section>'; }); }
   var qs = questions(list, f);
   if (qs.length) {
     h += '<details class="q" id="qd" style="margin-top:14px"' + (QOPEN ? ' open' : '') + '><summary><b>Optional: narrow these results</b></summary>' + qs.map(function (q) { var x = FD[q.k]; return '<div class="qrow"><span>' + x.l + '<small>Settles ' + q.n + (q.n === 1 ? ' record' : ' records') + ' here</small></span><span class="in">' + ctl(x, '', 'q-' + q.k) + '</span></div>'; }).join('') + '</details>';
