@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '55';
+var APPVER = '56';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -482,7 +482,6 @@ var ARTS = {
   biz: '<svg viewBox="0 0 190 300" aria-hidden="true"><path d="M10 300V252Q10 205 55 195L135 195Q180 205 180 252V300Z" fill="#102530"/><path d="M78 192L95 244L112 192Z" fill="#fff"/><path d="M91 205H99L103 250L95 264L87 250Z" fill="#f6b73c"/><path d="M62 196L90 250M128 196L100 250" stroke="#2b4a5c" stroke-width="3"/><rect x="85" y="165" width="20" height="28" fill="#d99a6c"/><ellipse cx="95" cy="135" rx="33" ry="39" fill="#e9b58a"/><path d="M62 128Q62 88 95 88Q128 88 128 128Q118 104 95 104Q72 104 62 128Z" fill="#3a3a3a"/><rect x="74" y="132" width="18" height="13" rx="4" fill="none" stroke="#17323f" stroke-width="2.4"/><rect x="98" y="132" width="18" height="13" rx="4" fill="none" stroke="#17323f" stroke-width="2.4"/><path d="M92 138H98" stroke="#17323f" stroke-width="2.4"/><path d="M86 154Q95 160 104 154" fill="none" stroke="#8a4b2a" stroke-width="2.4" stroke-linecap="round"/><rect x="120" y="244" width="58" height="42" rx="7" fill="#9a6a33"/><path d="M137 244V237a5 5 0 0 1 5-5h14a5 5 0 0 1 5 5v7" fill="none" stroke="#9a6a33" stroke-width="5"/><rect x="146" y="258" width="8" height="9" rx="2" fill="#f6b73c"/></svg>'
 };
 var HICONS = [
-  ['Profile', 'ic-p', '#profile', '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/>'],
   ['Govt Jobs', 'ic-g', '#govt', '<path d="M3 10l9-6 9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"/>'],
   ['Pvt Jobs', 'ic-v', '#pvt', '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/>'],
   ['Upcoming exams', 'ic-e', '#exams', '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M9 15.5l2 2 4-4"/>'],
@@ -496,6 +495,10 @@ function nextInfo() {
   var p = prof(), f = F(); if (!p || !Object.keys(p.facts).length) return '';
   var r = eduRank(f), c = r >= 3 ? ['After your degree', 'Government jobs open for graduates, and options for further study.', '#govt', 'See jobs'] : r === 2 ? ['After Class 12', 'Entrance exams and degree courses that fit your stream and marks.', '#study', 'See what next'] : r === 1 ? ['After Class 10', 'PUC, diploma or ITI: see which courses fit your marks.', '#study', 'See what next'] : null;
   return c;
+}
+function homeTop() {
+  var p = prof(), n = savedList().length;
+  return '<div class="htop"><span class="hhi">' + (p ? 'Hi, ' + esc(p.name) : 'Avakasha') + '</span>' + (p && n ? '<a class="hsv" href="#saved" aria-label="Saved, ' + n + '">' + HEART + '<b>' + n + '</b></a>' : '') + '<a class="hav" href="#profile" aria-label="Open profile">' + (p ? initial(p.name) : '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>') + '</a></div>';
 }
 function homeItems() {
   var out = upExams().filter(function (x) { return x.hero; }).slice(0, 3).map(function (x) { return { exam: x }; }), nx = nextInfo();
@@ -520,7 +523,7 @@ function renderHome() {
   stopHome();
   HOME.items = homeItems(); if (HOME.i >= HOME.items.length) HOME.i = 0;
   var ics = HICONS.map(function (c) { return '<a class="hic" href="' + c[2] + '"><span class="hc ' + c[1] + '"><svg viewBox="0 0 24 24" aria-hidden="true">' + c[3] + '</svg></span><span class="hl">' + c[0].replace('Upcoming exams', 'Upcoming<br>exams') + '</span></a>'; }).join('');
-  $('app').innerHTML = '<div class="homew"><div id="hslot"></div><div class="hdots">' + HOME.items.map(function (x, k) { return '<button type="button" data-k="' + k + '" aria-label="Show card ' + (k + 1) + '"><i></i></button>'; }).join('') + '</div><div class="hics">' + ics + '</div>' + savedRowHtml() + closingSoonHtml() + '</div>';
+  $('app').innerHTML = '<div class="homew">' + homeTop() + '<div id="hslot"></div><div class="hdots">' + HOME.items.map(function (x, k) { return '<button type="button" data-k="' + k + '" aria-label="Show card ' + (k + 1) + '"><i></i></button>'; }).join('') + '</div><div class="hics">' + ics + '</div>' + savedRowHtml() + closingSoonHtml() + '</div>';
   drawHome();
   function go(k) { HOME.i = k; drawHome(); stopHome(); HOME.t = setInterval(next, 5500); }
   function next() { go((HOME.i + 1) % HOME.items.length); }
