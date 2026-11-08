@@ -464,7 +464,11 @@
    "facts": [
     [
      "Run by",
-     "Karnataka Skill Development Corporation"
+     "Karnataka Skill Development Corporation, Government of Karnataka"
+    ],
+    [
+     "Aim",
+     "Technical and vocational skill training for youth from all regions of the state, so they can work locally and globally"
     ],
     [
      "Schemes",
@@ -475,8 +479,8 @@
     "CMKKY, Karnataka Skill Development Corporation",
     "https://kaushalkar.karnataka.gov.in/info-2/Chief+Minister%E2%80%99s+Kaushalya+Karnataka+Yojane+(CMKKY)/en"
    ],
-   "go": "https://online.kaushalkar.com/",
-   "note": "The official site blocks automated reading, so the details were not checked. Open it to see courses, eligibility and fees."
+   "go": "https://kaushalkar.karnataka.gov.in/en",
+   "note": "Eligibility, fees and course lists were not read yet. Open the Schemes section on the site to see them."
   },
   {
    "id": "t-iti",
