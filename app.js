@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '57';
+var APPVER = '58';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -525,10 +525,10 @@ function renderHome() {
   var ics = HICONS.map(function (c) { return '<a class="hic" href="' + c[2] + '"><span class="hc ' + c[1] + '"><svg viewBox="0 0 24 24" aria-hidden="true">' + c[3] + '</svg></span><span class="hl">' + c[0].replace('Upcoming exams', 'Upcoming<br>exams') + '</span></a>'; }).join('');
   $('app').innerHTML = '<div class="homew">' + homeTop() + '<div id="hslot"></div><div class="hdots">' + HOME.items.map(function (x, k) { return '<button type="button" data-k="' + k + '" aria-label="Show card ' + (k + 1) + '"><i></i></button>'; }).join('') + '</div><div class="hics">' + ics + '</div>' + savedRowHtml() + closingSoonHtml() + '</div>';
   drawHome();
-  function go(k) { HOME.i = k; drawHome(); stopHome(); HOME.t = setInterval(next, 5500); }
+  function go(k) { HOME.i = k; drawHome(); stopHome(); HOME.t = setInterval(next, 9000); }
   function next() { go((HOME.i + 1) % HOME.items.length); }
   Array.prototype.forEach.call(document.querySelectorAll('.hdots button'), function (b) { b.onclick = function () { go(+b.getAttribute('data-k')); }; });
-  if (HOME.items.length > 1) HOME.t = setInterval(next, 5500);
+  if (HOME.items.length > 1) HOME.t = setInterval(next, 9000);
 }
 /* ---- list screens: exams, govt jobs, private jobs ---- */
 function subHead(title, sub) {
