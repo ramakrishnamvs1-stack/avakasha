@@ -441,3 +441,6 @@ button.pchip{cursor:pointer}.pchip.dash{background:none;border:1.5px dashed var(
 .nxt + .hics{padding-top:14px}
 .sumtxt{white-space:pre-wrap;word-break:break-word;font:inherit;font-size:15px;line-height:1.5;margin:0;color:var(--ink)}
 .hcard .tbar{display:none}
+.hcard.hn{background:linear-gradient(145deg,#7a4fb5,#4a2d7a)}
+.hcard.hn h2{font-size:30px}
+.hcard.hn .hs{max-width:92%;font-size:17px;line-height:1.35;margin-top:10px}

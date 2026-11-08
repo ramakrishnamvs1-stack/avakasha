@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '54';
+var APPVER = '55';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -492,18 +492,19 @@ var HICONS = [
 function upExams() { return (EXTRA.exams || []).filter(function (x) { return pd(x.d) >= TODAY; }).sort(function (a, b) { return pd(a.d) - pd(b.d); }); }
 function dayTxt(x) { if (x.tent) return 'Expected ' + x.when; var n = daysBetween(TODAY, pd(x.d)); return n === 0 ? 'Today' : n === 1 ? '1 day to go' : n + ' days to go'; }
 function stopHome() { if (HOME.t) { clearInterval(HOME.t); HOME.t = null; } }
-function nextHtml() {
+function nextInfo() {
   var p = prof(), f = F(); if (!p || !Object.keys(p.facts).length) return '';
   var r = eduRank(f), c = r >= 3 ? ['After your degree', 'Government jobs open for graduates, and options for further study.', '#govt', 'See jobs'] : r === 2 ? ['After Class 12', 'Entrance exams and degree courses that fit your stream and marks.', '#study', 'See what next'] : r === 1 ? ['After Class 10', 'PUC, diploma or ITI: see which courses fit your marks.', '#study', 'See what next'] : null;
-  if (!c) return '';
-  return '<a class="nxt" href="' + c[2] + '"><span class="nxp">What next</span><b>' + c[0] + '</b><span class="nxs">' + c[1] + '</span><span class="nxg">' + c[3] + ' ›</span></a>';
+  return c;
 }
 function homeItems() {
-  var out = upExams().filter(function (x) { return x.hero; }).slice(0, 3).map(function (x) { return { exam: x }; });
+  var out = upExams().filter(function (x) { return x.hero; }).slice(0, 3).map(function (x) { return { exam: x }; }), nx = nextInfo();
+  if (nx) out.unshift({ next: nx });
   if (!out.length) out.push({ note: NOTES[(Math.floor(TODAY.getTime() / 864e5)) % NOTES.length] });
   return out;
 }
 function homeCard(it) {
+  if (it.next) return '<a class="hcard hx hn" id="hc" href="' + it.next[2] + '"><span class="hp">WHAT NEXT</span><h2>' + esc(it.next[0]) + '</h2><div class="hs">' + esc(it.next[1]) + '</div><span class="hgo hbtn">' + esc(it.next[3]) + ' ›</span></a>';
   if (it.note) return '<div class="hcard note" id="hc" aria-live="polite"><i class="tbar"></i><span class="hp">Career note</span><h2>' + esc(it.note[0]) + '</h2><div class="hs">' + esc(it.note[1]) + '</div></div>';
   var x = it.exam, d = pd(x.d);
   return '<a class="hcard hx g-' + x.art + '" id="hc" href="#x/' + encodeURIComponent(x.id) + '"><i class="tbar"></i><div class="hart">' + ARTS[x.art] + '</div><span class="hp">UPCOMING EXAM</span><h2>' + esc(x.short) + '</h2><div class="hs">' + esc(x.sub) + '</div>'
@@ -519,7 +520,7 @@ function renderHome() {
   stopHome();
   HOME.items = homeItems(); if (HOME.i >= HOME.items.length) HOME.i = 0;
   var ics = HICONS.map(function (c) { return '<a class="hic" href="' + c[2] + '"><span class="hc ' + c[1] + '"><svg viewBox="0 0 24 24" aria-hidden="true">' + c[3] + '</svg></span><span class="hl">' + c[0].replace('Upcoming exams', 'Upcoming<br>exams') + '</span></a>'; }).join('');
-  $('app').innerHTML = '<div class="homew"><div id="hslot"></div><div class="hdots">' + HOME.items.map(function (x, k) { return '<button type="button" data-k="' + k + '" aria-label="Show card ' + (k + 1) + '"><i></i></button>'; }).join('') + '</div>' + nextHtml() + '<div class="hics">' + ics + '</div>' + savedRowHtml() + closingSoonHtml() + '</div>';
+  $('app').innerHTML = '<div class="homew"><div id="hslot"></div><div class="hdots">' + HOME.items.map(function (x, k) { return '<button type="button" data-k="' + k + '" aria-label="Show card ' + (k + 1) + '"><i></i></button>'; }).join('') + '</div><div class="hics">' + ics + '</div>' + savedRowHtml() + closingSoonHtml() + '</div>';
   drawHome();
   function go(k) { HOME.i = k; drawHome(); stopHome(); HOME.t = setInterval(next, 5500); }
   function next() { go((HOME.i + 1) % HOME.items.length); }
