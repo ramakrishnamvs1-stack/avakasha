@@ -1,5 +1,5 @@
 /* Offline cache. Bump VERSION whenever any file changes so phones pick up the update. */
-var VERSION = 'pa10-v59';
+var VERSION = 'pa10-v60';
 var SHELL = [
   './', './index.html', './app.css', './app.js', './config.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png',
@@ -8,7 +8,7 @@ var SHELL = [
   './vendor/tesseract/eng.traineddata.gz'
 ];
 self.addEventListener('install', function (e) {
-  e.waitUntil(caches.open(VERSION).then(function (c) { return c.addAll(SHELL); }).then(function () { return self.skipWaiting(); }));
+  e.waitUntil(caches.open(VERSION).then(function (c) { return c.addAll(SHELL); }).then(function () { return caches.open('pa10-data').then(function (d) { return d.addAll(['./data/records.json', './data/extra.json']).catch(function () {}); }); }).then(function () { return self.skipWaiting(); }));
 });
 self.addEventListener('activate', function (e) {
   e.waitUntil(caches.keys().then(function (ks) {

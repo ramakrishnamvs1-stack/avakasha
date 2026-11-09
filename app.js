@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '59';
+var APPVER = '60';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -81,7 +81,9 @@ function mergeFact(k, v, src) {
   else if (k === 'expYears') setFact(k, Math.max(parseFloat(v) || 0, parseFloat(old.v) || 0), src);
   else setFact(k, v, src);
 }
-function F() { var p = prof(), o = {}; if (!p) return o; for (var k in p.facts) o[k] = p.facts[k].v; if (o.passed12 === 'yes' && !o.passed) o.passed = 'yes';
+function F() { var p = prof(), o = {}; if (!p) return o; for (var k in p.facts) o[k] = p.facts[k].v; if ((o.eduLevel === '12' || o.eduLevel === 'degree' || o.eduLevel === 'pg') && !o.passed12) o.passed12 = 'yes';
+  if ((o.eduLevel === '12' || o.eduLevel === 'diploma' || o.eduLevel === 'degree' || o.eduLevel === 'pg') && !o.passed) o.passed = 'yes';
+  if (o.passed12 === 'yes' && !o.passed) o.passed = 'yes';
   if (jobsOf(p).some(jobDone)) { var ey = Math.round(expMonths(p) / 12 * 10) / 10; if (!(parseFloat(o.expYears) > ey)) o.exp = String(ey); else o.exp = o.expYears; } else if (o.expYears !== undefined) o.exp = o.expYears; return o; }
 function setFact(k, v, src) {
   var p = prof(); if (!p) return;
