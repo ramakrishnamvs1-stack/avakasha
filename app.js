@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '58';
+var APPVER = '59';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
