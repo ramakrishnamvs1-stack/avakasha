@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '60';
+var APPVER = '61';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -1056,9 +1056,9 @@ function readIt() {
 }
 function reshow() { if (scan.canvas) review(); else reviewFile(); }
 function consentSheet() {
-  sheet('<h2>Read this with Claude?</h2><p>To read the document accurately, the photo or file is sent over the internet to Claude, an AI service run by Anthropic. This app does not keep it. Only the details you tick afterwards are saved, and they stay on this phone.</p>'
+  sheet('<h2>Read this with AI?</h2><p>To read the document accurately, the photo or file is sent securely over the internet to an AI service. This app does not keep it. Only the details you tick afterwards are saved, and they stay on this phone.</p>'
     + '<p style="margin-top:10px"><b>If the person in the document is under 18, a parent or guardian must agree.</b></p>'
-    + '<label class="field" style="flex-direction:row;align-items:flex-start;gap:10px;font-weight:500"><input type="checkbox" id="cg" style="width:22px;height:22px;flex:none"><span>I am an adult, or a parent or guardian agrees to this photo being read by Claude.</span></label>'
+    + '<label class="field" style="flex-direction:row;align-items:flex-start;gap:10px;font-weight:500"><input type="checkbox" id="cg" style="width:22px;height:22px;flex:none"><span>I am an adult, or a parent or guardian agrees to this photo being read by an AI service.</span></label>'
     + '<div class="row" style="margin-top:16px"><button class="btn pri big" id="cy" type="button" disabled>Agree and read</button>' + (scan.pdf || scan.text ? '' : '<button class="btn" id="cl" type="button">Read on this phone instead</button>') + '<button class="btn" id="cn" type="button">Cancel</button></div>'
     + '' + (scan.pdf || scan.text ? '' : '<p class="note" style="margin-top:10px">Reading on this phone keeps the photo here but misses more details.</p>') + '');
   $('cg').onchange = function () { $('cy').disabled = !$('cg').checked; };
@@ -1071,10 +1071,10 @@ function downscale(src, max) {
   c.width = Math.round(src.width * s); c.height = Math.round(src.height * s); c.getContext('2d').drawImage(src, 0, 0, c.width, c.height); return c;
 }
 function blobToB64(b) { return new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(String(r.result).split(',')[1]); }; r.onerror = rej; r.readAsDataURL(b); }); }
-var SERR = { daily_limit: 'You have used today’s free scans. Try again tomorrow, or read on this phone.', bad_key: 'Claude refused the key saved on this phone. Check it in Backup.', credit: 'The Anthropic account has no credit left for this key. Add credit in the Anthropic console.', forbidden: 'The reading server refused this app. Tell whoever set it up.', not_configured: 'The reading server is not finished being set up.', too_large: 'The photo is too large. Retake it a little farther away.', rate_limited: 'Too many photos just now. Wait a minute and try again.', upstream: 'The reading service did not answer. Try again in a moment.', unreadable: 'The photo could not be read. Try a clearer photo.', bad_request: 'The app sent something the server did not understand.' };
+var SERR = { daily_limit: 'You have used today’s free scans. Try again tomorrow, or read on this phone.', bad_key: 'Reading is not available right now. Try again later, or read on this phone.', credit: 'Reading is not available right now. Try again later, or read on this phone.', forbidden: 'The reading server refused this app. Tell whoever set it up.', not_configured: 'The reading server is not finished being set up.', too_large: 'The photo is too large. Retake it a little farther away.', rate_limited: 'Too many photos just now. Wait a minute and try again.', upstream: 'The reading service did not answer. Try again in a moment.', unreadable: 'The photo could not be read. Try a clearer photo.', bad_request: 'The app sent something the server did not understand.' };
 async function readRemote() {
   var box = $('sm');
-  box.innerHTML = '<div class="status"><span class="note">Reading with Claude. This takes about 10 to 30 seconds.</span><div class="bar"><i style="width:60%"></i></div></div>';
+  box.innerHTML = '<div class="status"><span class="note">Reading your document with AI. This takes about 10 to 30 seconds.</span><div class="bar"><i style="width:60%"></i></div></div>';
   $('rd').disabled = true; $('rt').disabled = true;
   var ctlr = new AbortController(), timer = setTimeout(function () { ctlr.abort(); }, 70000);
   try {
