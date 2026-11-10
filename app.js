@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '63';
+var APPVER = '64';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -471,11 +471,14 @@ function mergeLive(j) {
   if (!j || !DATA) return;
   DATA.records = DATA.records.filter(function (r) { return !LIVEIDS[r.id]; });
   EXTRA.exams = (EXTRA.exams || []).filter(function (x) { return !LIVEIDS[x.id]; });
+  EXTRA.trains = (EXTRA.trains || []).filter(function (x) { return !LIVEIDS[x.id]; });
   LIVEIDS = {};
   var tl = {}; DATA.records.forEach(function (r) { tl[r.title.toLowerCase()] = 1; });
   (j.records || []).forEach(function (r) { if (r && r.id && r.title && !tl[r.title.toLowerCase()]) { DATA.records.push(r); LIVEIDS[r.id] = 1; tl[r.title.toLowerCase()] = 1; } });
   EXTRA.livePvt = (j.pvt || []).filter(function (x) { return x && x.id && x.title && x.org && Array.isArray(x.src) && Array.isArray(x.facts); });
   EXTRA.liveSch = (j.sch || []).filter(function (x) { return x && x.id && x.title && x.org && Array.isArray(x.src) && Array.isArray(x.facts); });
+  var tt = {}; (EXTRA.trains || []).forEach(function (x) { tt[x.title.toLowerCase()] = 1; });
+  (j.train || []).forEach(function (x) { if (x && x.id && x.title && x.org && Array.isArray(x.src) && Array.isArray(x.facts) && !tt[x.title.toLowerCase()]) { (EXTRA.trains = EXTRA.trains || []).push(x); LIVEIDS[x.id] = 1; tt[x.title.toLowerCase()] = 1; } });
   var te = {}; (EXTRA.exams || []).forEach(function (x) { te[x.title.toLowerCase()] = 1; });
   (j.exams || []).forEach(function (x) { if (x && x.id && x.title && !te[x.title.toLowerCase()]) { (EXTRA.exams = EXTRA.exams || []).push(x); LIVEIDS[x.id] = 1; te[x.title.toLowerCase()] = 1; } });
 }

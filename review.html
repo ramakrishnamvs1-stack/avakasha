@@ -19,96 +19,140 @@ label{font-size:13px;color:var(--mu);display:flex;flex-direction:column;gap:2px}
 button.tb{border-radius:999px;min-height:40px;padding:8px 14px}button.tb.on{background:var(--ac);border-color:var(--ac);color:#fff}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 4px}
 ul{margin:8px 0 0;padding-left:18px}li{margin:2px 0}a{color:var(--ac)}
 .err{color:var(--bad);font-weight:600}
+
+.top{display:flex;align-items:center;gap:8px}.top h1{flex:1;margin:0}.pill{font-size:12.5px;font-weight:700;padding:5px 10px;border-radius:12px;background:var(--s);box-shadow:inset 0 0 0 1px var(--ln)}
+.kc h3{display:flex;align-items:center;gap:8px}.kc h3 span:first-child{flex:1}.wt{font-size:12px;font-weight:700;padding:3px 9px;border-radius:9px;background:var(--wb);color:var(--warn)}
+.sch{display:flex;align-items:center;gap:8px;margin-top:4px;font-size:13px;color:var(--mu)}.sch span{flex:1}.lnk{background:none;border:0;color:var(--ac);font-weight:700;padding:0 0 0 8px;min-height:32px;cursor:pointer}
+.ok{color:#17653a;font-weight:600;font-size:12.5px}.wr{color:var(--warn);font-weight:600;font-size:12.5px}.chks{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
+.bulk{display:flex;align-items:center;gap:10px}.bulk span{flex:1;font-size:13px;line-height:1.35}
+.sheetbg{position:fixed;inset:0;background:rgba(20,33,43,.45);display:flex;align-items:flex-end;justify-content:center;z-index:9}
+.sheet{background:var(--s);width:100%;max-width:640px;border-radius:22px 22px 0 0;padding:16px 18px 22px;box-shadow:0 -6px 24px rgba(20,33,43,.2)}
+.seg{display:flex;gap:4px;padding:4px;border-radius:14px;background:#eef2f5;margin-top:14px}.seg button{flex:1;border:0;background:none;min-height:40px;border-radius:10px;padding:0}.seg button.on{background:var(--ac);color:#fff}
+.days{display:flex;gap:6px;margin-top:8px}.days button{flex:1;min-height:44px;border-radius:22px;padding:0}.days button.on{background:var(--ac);border-color:var(--ac);color:#fff}
+.fl{display:flex;gap:8px;margin:10px 0 0;flex-wrap:wrap}
+select{font:inherit;border:1px solid var(--ln);border-radius:8px;padding:8px;background:var(--s)}
 </style>
 </head>
 <body>
-<h1>Review</h1>
-<p class="mu">New finds from the daily search wait here. Nothing reaches users until you approve it. Check each against its notice link, fix any number, then approve or reject.</p>
+<div class="top"><h1>Review</h1><span class="pill" id="spend" hidden></span></div>
+<p class="mu" id="sub">Nothing reaches students until you approve it.</p>
 <div id="login" class="c"><label>Admin key<input class="w" id="key" type="password" autocomplete="off"></label><div class="row"><button class="p" id="go" type="button">Open</button></div><div id="lerr" class="err"></div></div>
 <div id="main" hidden>
-  <div class="row"><button id="run" type="button">Search now</button><button id="runfam" type="button">Test role families</button><button id="runsch" type="button">Search scholarships</button><button id="reload" type="button">Reload</button><span class="mu" id="info"></span></div>
   <div id="msg" class="mu"></div>
-  <div class="tabs" id="tabs"></div>
-  <div id="list"></div>
+  <div id="view"></div>
 </div>
+<div id="sheetroot"></div>
 <script>
 var URLW='https://avakasha-reader.ramakrishnamvs1.workers.dev/', KEY='';
 function $(i){return document.getElementById(i)}
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 async function api(a){var r=await fetch(URLW,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({admin:Object.assign({key:KEY},a)})});var j=null;try{j=await r.json()}catch(e){}if(!r.ok||!j){var er=new Error((j&&j.error)||'failed');er.detail=j&&(j.stop||j.status||j.tail)?JSON.stringify({stop:j.stop,status:j.status,len:j.len,tail:j.tail}):'';throw er}return j}
-var DRAFT=[],TAB='g',LASTJ=null;try{TAB=sessionStorage.getItem('rt')||'g'}catch(e){}
+var LASTJ=null,VIEW='home',TAB='govt',FILT='all',DRAFT=[];
+var KN={govt:'Govt jobs',exam:'Exams',pvt:'Private',course:'Courses',sch:'Scholarships',train:'Trainings'},KORDER=['govt','exam','pvt','course','sch','train'];
+var DN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],DL=['M','T','W','T','F','S','S'],DI=[1,2,3,4,5,6,0];
+function kindOf(x){return x.k==='exam'?'exam':x.k==='pvt'?'pvt':x.k==='sch'?'sch':x.k==='train'?'train':(x.k==='rec'&&x.tab==='study')?'course':'govt'}
 function ruleText(r){if(r.t==='age')return null;if(r.t==='passed')return 'Class 10 pass';if(r.t==='passed12')return 'Class 12 pass';if(r.t==='pct12')return 'At least '+r.min+'% in Class 12';if(r.t==='pctmin')return 'At least '+r.min+'% in Class 10';if(r.t==='exp')return r.min+' years of experience';if(r.t==='static')return r.title+': '+r.detail;return r.t}
+function sel(f,cur,opts){return '<select data-f="'+f+'">'+opts.map(function(o){return '<option value="'+o[0]+'"'+(String(cur)===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select>'}
+var EDUO=[['','Not stated'],['10','Class 10'],['12','Class 12'],['diploma','Diploma or ITI'],['degree','Degree'],['pg','Master\'s']];
+function chk(t,ok){return '<span class="'+(ok?'ok':'wr')+'">'+(ok?'✓ ':'! ')+t+'</span>'}
+function checks(x){var k=kindOf(x),c=[];c.push(chk(x.official||x.off?'Official site':'Not an official site',!!(x.official||x.off)));
+  var d=x.closes||x.d;if(k!=='train')c.push(chk(d?'Date found':'No date found',!!d));
+  c.push(chk('No fee words',true));return '<div class="chks">'+c.join('')+'</div>'}
+function good(x){var k=kindOf(x);if(x.lead)return false;if(k==='govt'||k==='course')return !!(x.official&&x.closes);if(k==='exam')return !!(x.official&&x.d);if(k==='sch')return !!(x.official&&x.closes);if(k==='train')return !!x.off;return false}
 function card(x,i){
-  var h='<div class="c" data-i="'+i+'"><h3>'+esc(x.title)+'</h3><div class="mu">'+esc(x.org)+'</div><div class="row"><span class="t '+(x.official?'':'w')+'">'+(x.k==='sch'?(x.gov?'Govt scholarship':'Private scholarship · not official · never pay to apply'):x.k==='pvt'?'Private job · '+esc(x.via||'')+' · never pay to get a job':x.lead?'Lead: official notice not found':x.official?'Official site':'Not an official site')+'</span><span class="t">'+(x.k==='exam'?'Exam':x.k==='sch'?'Scholarship':'Job')+'</span></div><p>'+esc(x.line)+'</p>';
-  if(x.lead)h+='<label>Official notice link (gov.in, nic.in, ibps.in, ac.in or edu.in)<input class="w" data-f="olink" type="url" placeholder="https://..."></label>';
-  if(x.k==='pvt'){h+='<div class="row"><label>Apply by<input data-f="closes" type="date" value="'+esc(x.closes||'')+'"></label><label>Years needed<input data-f="minExp" type="number" value="'+esc(x.minExp||0)+'"></label><label>Qualification<select data-f="edu">'+[['','Not stated'],['10','Class 10'],['12','Class 12'],['diploma','Diploma or ITI'],['degree','Degree'],['pg','Master\'s']].map(function(o){return '<option value="'+o[0]+'"'+((x.edu||'')===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select></label></div><p class="mu">Where: '+esc(x.place||'')+'</p>'}
-  else if(x.k==='sch'){h+='<div class="row"><label>Last date<input data-f="closes" type="date" value="'+esc(x.closes||'')+'"></label><label>Level<select data-f="level">'+[['','Not stated'],['10','Class 10'],['12','Class 12'],['diploma','Diploma or ITI'],['degree','Degree'],['pg','Master\'s']].map(function(o){return '<option value="'+o[0]+'"'+((x.level||'')===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select></label><label>Offered by<select data-f="gov"><option value="1"'+(x.gov?' selected':'')+'>Government</option><option value="0"'+(x.gov?'':' selected')+'>Private</option></select></label></div><p class="mu">Amount: '+esc(x.amount||'not stated')+' · Who: '+esc(x.who||'not stated')+'</p>'}
-  else if(x.k==='exam'){h+='<div class="row"><label>Exam date<input data-f="d" type="date" value="'+esc(x.d)+'"></label></div>'}
-  else{
-    var age=(x.rules||[]).filter(function(r){return r.t==='age'})[0]||{};
-    h+='<div class="row"><label>Closes<input data-f="closes" type="date" value="'+esc(x.closes||'')+'"></label><label>Age from<input data-f="amin" type="number" value="'+esc(age.min==null?'':age.min)+'"></label><label>Age to<input data-f="amax" type="number" value="'+esc(age.max==null?'':age.max)+'"></label><label>OBC to<input data-f="aobc" type="number" value="'+esc((age.maxByCat||{}).OBC==null?'':age.maxByCat.OBC)+'"></label><label>SC/ST to<input data-f="asc" type="number" value="'+esc((age.maxByCat||{}).SC==null?'':age.maxByCat.SC)+'"></label></div>';
-    h+='<ul>'+(x.rules||[]).map(ruleText).filter(Boolean).map(function(t){return '<li>'+esc(t)+'</li>'}).join('')+'</ul>';
-  }
+  var k=kindOf(x),tag=k==='sch'?(x.gov?'Govt scholarship':'Private scholarship · not official · never pay to apply'):k==='pvt'?'Private job · '+esc(x.via||'')+' · never pay to get a job':k==='train'?(x.off?'Official site':'Not an official site'):x.lead?'Lead: official notice not found':x.official?'Official site':'Not an official site';
+  var h='<div class="c" data-i="'+i+'"><div class="row" style="margin:0 0 6px"><span class="t '+((x.official||x.off)&&!x.lead&&k!=='pvt'?'':'w')+'">'+tag+'</span></div><h3>'+esc(x.title)+'</h3><div class="mu">'+esc(x.org)+'</div><p>'+esc(x.line)+'</p>'+checks(x);
+  if(x.lead)h+='<label style="margin-top:8px">Official notice link (gov.in, nic.in, ibps.in, ac.in or edu.in)<input class="w" data-f="olink" type="url" placeholder="https://..."></label>';
+  if(k==='pvt'){h+='<div class="fl"><label>Apply by<input data-f="closes" type="date" value="'+esc(x.closes||'')+'"></label><label>Years needed<input data-f="minExp" type="number" value="'+esc(x.minExp||0)+'"></label><label>Qualification'+sel('edu',x.edu||'',EDUO)+'</label></div><p class="mu">Where: '+esc(x.place||'')+'</p>'}
+  else if(k==='sch'){h+='<div class="fl"><label>Last date<input data-f="closes" type="date" value="'+esc(x.closes||'')+'"></label><label>Level'+sel('level',x.level||'',EDUO)+'</label><label>Offered by'+sel('gov',x.gov?'1':'0',[['1','Government'],['0','Private']])+'</label></div><p class="mu">Amount: '+esc(x.amount||'not stated')+' · Who: '+esc(x.who||'not stated')+'</p>'}
+  else if(k==='train'){h+='<div class="fl"><label>Cost'+sel('free',x.free?'1':'0',[['1','Free'],['0','Paid or unclear']])+'</label><label>Needs'+sel('minEdu',String(x.minEdu||0),[['0','No qualification'],['1','Class 10'],['2','Class 12'],['3','Degree']])+'</label><label>Age from<input data-f="ageMin" type="number" value="'+esc(x.ageMin||'')+'"></label><label>Age to<input data-f="ageMax" type="number" value="'+esc(x.ageMax||'')+'"></label></div>'}
+  else if(k==='exam'){h+='<div class="fl"><label>Exam date<input data-f="d" type="date" value="'+esc(x.d)+'"></label></div>'}
+  else{var age=(x.rules||[]).filter(function(r){return r.t==='age'})[0]||{};
+    h+='<div class="fl"><label>Closes<input data-f="closes" type="date" value="'+esc(x.closes||'')+'"></label><label>Age from<input data-f="amin" type="number" value="'+esc(age.min==null?'':age.min)+'"></label><label>Age to<input data-f="amax" type="number" value="'+esc(age.max==null?'':age.max)+'"></label><label>OBC to<input data-f="aobc" type="number" value="'+esc((age.maxByCat||{}).OBC==null?'':age.maxByCat.OBC)+'"></label><label>SC/ST to<input data-f="asc" type="number" value="'+esc((age.maxByCat||{}).SC==null?'':age.maxByCat.SC)+'"></label></div>';
+    h+='<ul>'+(x.rules||[]).map(ruleText).filter(Boolean).map(function(t){return '<li>'+esc(t)+'</li>'}).join('')+'</ul>'}
   h+='<ul>'+(x.facts||[]).map(function(f){return '<li><b>'+esc(f[0])+':</b> '+esc(f[1])+'</li>'}).join('')+'</ul>';
   h+='<p class="mu">'+esc(x.cyc||'')+'</p><p><a href="'+esc(x.src[1])+'" target="_blank" rel="noopener">'+(x.lead?'Where it was seen: ':'Open the notice: ')+esc(x.src[0])+'</a></p><div class="row"><button class="p" data-a="ok">Approve</button><button class="d" data-a="no">Reject</button></div></div>';
   return h}
 function collect(i){
-  var x=JSON.parse(JSON.stringify(DRAFT[i])),el=document.querySelector('[data-i="'+i+'"]');
+  var x=JSON.parse(JSON.stringify(DRAFT[i])),el=document.querySelector('[data-i="'+i+'"]'),k=kindOf(x);
   function v(f){var e=el.querySelector('[data-f="'+f+'"]');return e?e.value:''}
   if(x.lead){var ol=v('olink').trim();if(!/^https:\/\/([a-z0-9-]+\.)*(gov\.in|nic\.in|ibps\.in|ac\.in|edu\.in)(\/|$)/i.test(ol)){alert('Paste the official notice link first (it must be on gov.in, nic.in, ibps.in, ac.in or edu.in).');return null}x.src=['Official notice',ol]}
-  if(x.k==='sch'){x.closes=v('closes')||null;x.level=v('level')||null;x.gov=v('gov')==='1';return x}
-  if(x.k==='pvt'){x.closes=v('closes')||null;x.minExp=parseFloat(v('minExp'))||0;x.edu=v('edu')||null;return x}
-  if(x.k==='exam'){x.d=v('d');x.when=x.d;return x}
+  if(k==='pvt'){x.closes=v('closes')||null;x.minExp=parseFloat(v('minExp'))||0;x.edu=v('edu')||null;return x}
+  if(k==='sch'){x.closes=v('closes')||null;x.level=v('level')||null;x.gov=v('gov')==='1';return x}
+  if(k==='train'){x.free=v('free')==='1';x.level=({'0':'none','1':'10','2':'12','3':'degree'})[v('minEdu')]||'none';x.ageMin=parseFloat(v('ageMin'))||null;x.ageMax=parseFloat(v('ageMax'))||null;return x}
+  if(k==='exam'){x.d=v('d');x.when=x.d;return x}
   x.closes=v('closes')||null;if(!x.closes){x.stat={k:'unk',t:'Dates not confirmed'}}else{delete x.stat}
   var age=x.rules.filter(function(r){return r.t==='age'})[0];
   var mn=parseFloat(v('amin')),mx=parseFloat(v('amax')),ob=parseFloat(v('aobc')),sc=parseFloat(v('asc'));
   x.rules=x.rules.filter(function(r){return r.t!=='age'&&!(r.t==='static'&&r.title==='Age limit')});
   if(!isNaN(mn)){var a={t:'age',min:mn,relax:1};if(!isNaN(mx))a.max=mx;var m={};if(!isNaN(ob))m.OBC=ob;if(!isNaN(sc)){m.SC=sc;m.ST=sc}if(Object.keys(m).length)a.maxByCat=m;x.rules.unshift(a)}
   return x}
+/* ---- schedule helpers ---- */
+function nextRun(s){var n=new Date(),d=new Date(Date.UTC(n.getUTCFullYear(),n.getUTCMonth(),n.getUTCDate()));if(n.getUTCHours()>=2)d.setUTCDate(d.getUTCDate()+1);
+  for(var i=0;i<8;i++){if(s.days.indexOf(d.getUTCDay())>=0)return d;d.setUTCDate(d.getUTCDate()+1)}return null}
+function nextTxt(s){var d=nextRun(s);if(!d)return '';var n=new Date(),t=new Date(Date.UTC(n.getUTCFullYear(),n.getUTCMonth(),n.getUTCDate())),diff=Math.round((d-t)/864e5);return (diff===0?'Today':diff===1?'Tomorrow':DN[d.getUTCDay()]+' '+d.getUTCDate()+' '+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()])+', 7:30 am'}
+function schedTxt(s){if(s.mode==='daily')return 'Every day · 7:30 am';return s.days.map(function(d){return DN[d]}).join(', ')+' · 7:30 am'}
+function kindStats(j,k){var steps=k.steps,lg=j.runlog||[],tot=0,have=0,last=0;steps.forEach(function(st){var es=lg.filter(function(e){return e.step===st&&e.ok&&e.inr!=null}).slice(0,6);if(es.length){tot+=es.reduce(function(a,e){return a+e.inr},0)/es.length;have++}var e0=lg.filter(function(e){return e.step===st&&e.ok})[0];if(e0&&e0.at>last)last=e0.at});
+  return {cost:have?Math.round(tot):null,last:last}}
+function fmtLast(t){if(!t)return 'not yet';var d=new Date(t),n=new Date(),same=d.toDateString()===n.toDateString();return (same?'today ':DN[d.getDay()]+' '+d.getDate()+' ')+d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}
+function counts(){var c={};KORDER.forEach(function(k){c[k]=0});DRAFT.forEach(function(x){c[kindOf(x)]++});return c}
+/* ---- screens ---- */
+function drawHome(j){
+  var c=counts(),h='<div class="mu" style="margin:4px 2px 8px;font-weight:700;letter-spacing:.6px">SEARCHES</div>';
+  (j.kinds||[]).forEach(function(k){var s=j.sched[k.id],st=kindStats(j,k);
+    h+='<div class="c kc"><h3><span>'+esc(k.name)+'</span><span class="wt">'+c[k.id]+' waiting</span></h3><div class="sch"><span>'+esc(schedTxt(s))+'</span><button type="button" class="lnk" data-sched="'+k.id+'">Change</button></div><div style="font-size:13px;margin-top:2px">Last run '+esc(fmtLast(st.last))+(st.cost!=null?' · <b>about ₹'+st.cost+'</b>':'')+'</div>'+(s.mode!=='daily'?'<div class="wr" style="margin-top:4px">Next run: '+esc(nextTxt(s))+'</div>':'')+'<div class="row"><button type="button" data-run="'+k.id+'">Run now</button><button type="button" class="p" data-open="'+k.id+'">Review '+c[k.id]+'</button></div></div>'});
+  var lv=j.live||{},nl=(lv.records||[]).length+(lv.exams||[]).length+(lv.pvt||[]).length+(lv.sch||[]).length+(lv.train||[]).length;
+  h+='<div class="row" style="justify-content:center"><button type="button" data-runall="1">Run all now</button><button type="button" id="reload">Reload</button></div><div class="row" style="justify-content:center"><button type="button" class="lnk" data-view="live">Live now ('+nl+')</button><button type="button" class="lnk" data-view="hist">Run history</button></div><p class="mu">Costs are estimates from recent runs. Nothing runs on a day you have not picked, and Run now works any time.</p>';
+  $('view').innerHTML=h}
+function drawQueue(j){
+  var c=counts(),tabs=KORDER.map(function(k){return '<button type="button" class="tb'+(k===TAB?' on':'')+'" data-tab="'+k+'">'+KN[k]+' ('+c[k]+')</button>'}).join('');
+  var items=[];DRAFT.forEach(function(x,i){if(kindOf(x)===TAB)items.push([x,i])});
+  var nOff=items.filter(function(p){return good(p[0])}).length,nLead=items.filter(function(p){return p[0].lead}).length,fil='';
+  if(TAB==='govt'||TAB==='course'){fil='<div class="tabs" style="margin-top:8px">'+[['all','All',items.length],['good','Official link',nOff],['lead','Leads',nLead]].map(function(f){return '<button type="button" class="tb'+(FILT===f[0]?' on':'')+'" data-filt="'+f[0]+'">'+f[1]+' ('+f[2]+')</button>'}).join('')+'</div>'}
+  else FILT='all';
+  var shown=items.filter(function(p){return FILT==='all'||(FILT==='good'&&good(p[0]))||(FILT==='lead'&&p[0].lead)});
+  var bulk=nOff?'<div class="c bulk"><span>'+nOff+' find'+(nOff===1?' has':'s have')+' an official link and a date, and none mention a fee.</span><button type="button" class="p" data-bulk="1">Approve those '+nOff+'</button></div>':'';
+  var note={govt:'Check each against its notice, fix any number, then approve or reject. Leads need an official notice link before they can be approved.',exam:'Check the date against the official notice.',pvt:'Found on job sites. Open each listing, check the employer is real and nothing asks for a fee, then approve.',course:'Admissions found on official sites. Check the last date, then approve.',sch:'Government and private scholarships. Check the provider is real and nothing asks for a fee, fix level and last date, then approve.',train:'Skill programs. Check the cost and the age range on the page, then approve.'}[TAB];
+  $('view').innerHTML='<div class="row" style="margin:0"><button type="button" class="lnk" data-view="home">‹ Searches</button></div><div class="tabs">'+tabs+'</div>'+fil+bulk+'<p class="mu">'+note+'</p>'+(shown.length?shown.map(function(p){return card(p[0],p[1])}).join(''):'<div class="c mu">Nothing waiting here.</div>')}
+function drawLive(j){var l=j.live||{},all=[].concat(l.records||[],l.exams||[],l.pvt||[],l.sch||[],l.train||[]);
+  $('view').innerHTML='<div class="row" style="margin:0"><button type="button" class="lnk" data-view="home">‹ Searches</button></div><h3 style="margin:10px 2px">Live now</h3>'+(all.map(function(x){return '<div class="c"><b>'+esc(x.title)+'</b> <span class="mu">'+esc(x.closes||x.d||'')+'</span><div class="row"><button class="d" data-rm="'+esc(x.id)+'">Remove</button></div></div>'}).join('')||'<div class="c mu">Nothing live yet.</div>')}
+function drawHist(j){var SN={A:'Govt jobs: official sites',B:'Govt jobs: other sites',C:'Private jobs',E:'Exams',K:'Courses',S:'Scholarships',T:'Trainings'};
+  $('view').innerHTML='<div class="row" style="margin:0"><button type="button" class="lnk" data-view="home">‹ Searches</button></div><h3 style="margin:10px 2px">Run history</h3><p class="mu">Every search, newest first. Found is what the search returned; Added is what reached the waiting list; the rest were duplicates or dropped (fee, no link, closed). Cost is an estimate.</p>'+((j.runlog||[]).map(function(r){var d=new Date(r.at);return '<div class="c"><b>'+esc(r.label||SN[r.step]||r.step)+'</b> <span class="mu">'+d.toLocaleDateString()+' '+d.toLocaleTimeString()+' · '+(r.src==='daily'?'automatic':'manual')+'</span><div class="mu">'+(r.ok?'Found '+(r.raw==null?'?':r.raw)+' · Added '+(r.added==null?'?':r.added)+' · Duplicates '+(r.dup||0)+' · Dropped '+(r.bad||0)+' · Went live '+(r.live||0)+' · Rejected '+(r.rej||0):'<span class="err">Failed: '+esc(r.error||'')+'</span>')+(r.inr!=null?' · about ₹'+r.inr:'')+'</div></div>'}).join('')||'<div class="c mu">No runs yet.</div>')}
 function draw(j){
-  LASTJ=j;
-  DRAFT=(j.draft&&j.draft.items)||[];
-  $('info').textContent=j.draft&&j.draft.at?'Last search '+new Date(j.draft.at).toLocaleString():'No search yet';
-  var main=[],leads=[],pv=[],sc=[];DRAFT.forEach(function(x,i){(x.k==='sch'?sc:x.k==='pvt'?pv:x.lead?leads:main).push(card(x,i))});
-  var l=j.live||{records:[],exams:[]},lv=l.records.concat(l.exams).concat(l.pvt||[]).concat(l.sch||[]);
-  var TABS=[['g','Govt and exams',main.length],['l','Leads',leads.length],['p','Private jobs',pv.length],['s','Scholarships',sc.length],['n','Live now',lv.length],['h','Run history',(j.runlog||[]).length]];
-  if(!TABS.some(function(t){return t[0]===TAB}))TAB='g';
-  $('tabs').innerHTML=TABS.map(function(t){return '<button type="button" class="tb'+(t[0]===TAB?' on':'')+'" data-tab="'+t[0]+'">'+t[1]+' ('+t[2]+')</button>'}).join('');
-  var body='';
-  if(TAB==='g')body=main.length?'<p class="mu">Finds from official government sites. Check each against its notice, fix any number, then approve or reject.</p>'+main.join(''):'<div class="c mu">Nothing waiting.</div>';
-  else if(TAB==='l')body=leads.length?'<p class="mu">Seen on other sites, but no official notice was found. Find the notice on the official site and paste its link to approve, or reject.</p>'+leads.join(''):'<div class="c mu">No leads waiting.</div>';
-  else if(TAB==='h'){var SN={A:'Official sites',B:'Other govt posts',C:'Private jobs',S:'Scholarships'};body=(j.runlog||[]).length?'<p class="mu">Every search, newest first. Found is what the search returned; Added is what reached the waiting list; Went live and Rejected count what you decided later; the rest were duplicates or dropped (fee, no link, closed). Cost is an estimate.</p>'+(j.runlog||[]).map(function(r){var d=new Date(r.at);return '<div class="c"><b>'+esc(r.label||SN[r.step]||r.step)+'</b> <span class="mu">'+d.toLocaleDateString()+' '+d.toLocaleTimeString()+' · '+(r.src==='daily'?'7:30 am auto run':'manual')+'</span><div class="mu">'+(r.ok?'Found '+(r.raw==null?'?':r.raw)+' · Added '+(r.added==null?'?':r.added)+' · Duplicates '+(r.dup||0)+' · Dropped '+(r.bad||0)+(r.id&&r.added!=null?'<div><b>Went live '+(r.live||0)+'</b> · Rejected '+(r.rej||0)+' · Not decided '+Math.max(0,r.added-(r.live||0)-(r.rej||0)):'')+(r.id&&r.added!=null?'</div>':''):'<span class="err">Failed: '+esc(r.error||'')+'</span>')+' · about ₹'+Math.round(r.inr||0)+(r.model?' · '+esc(r.model)+(r.fellBack?' (fell back)':''):'')+'</div></div>'}).join(''):'<div class="c mu">No runs recorded yet. Runs from now on will appear here.</div>'}
-  else if(TAB==='s')body=sc.length?'<p class="mu">Scholarships found by the weekly search, government and private. Open each page, check the provider is real and nothing asks for a fee, fix the level, offered-by and last date, then approve.</p>'+sc.join(''):'<div class="c mu">No scholarships waiting. Press Search scholarships.</div>';
-  else if(TAB==='p')body=pv.length?'<p class="mu">Found on job sites. Open each listing, check the employer is real and nothing asks for a fee, fix the qualification and years, then approve.</p>'+pv.join(''):'<div class="c mu">No private jobs waiting.</div>';
-  else body=(lv.map(function(x){return '<div class="c"><b>'+esc(x.title)+'</b> <span class="mu">'+esc(x.closes||x.d||'')+'</span><div class="row"><button class="d" data-rm="'+esc(x.id)+'">Remove</button></div></div>'}).join(''))||'<div class="c mu">Nothing live yet.</div>';
-  $('list').innerHTML=body;
-  var L=j.last;$('msg').innerHTML=L?(L.ok?'Last run: '+L.n+' finds ('+(L.leads||0)+' leads).':'<span class="err">Last run failed: '+esc(L.error||'')+'</span> <span class="mu">'+esc(JSON.stringify({stop:L.stop,status:L.status,tail:L.tail}))+'</span>')+' <span class="mu">'+new Date(L.at).toLocaleString()+'</span>'+(L.usage&&L.usage.inr?' <span class="mu">Cost of the last step about ₹'+Math.round(L.usage.inr)+(L.usage.fellBack?' (cheaper model unavailable, used the main one)':'')+'.</span>':''):'';
-  if(j.spend!=null)$('msg').innerHTML+=' <span class="mu">This month so far about ₹'+j.spend+' (estimate).</span>';
-}
-async function load(a){$('msg').textContent='Working…';try{var j=await api(a||{action:'list'});draw(j);$('msg').textContent=''}catch(e){$('msg').innerHTML='<span class="err">'+esc(e.message)+'</span>'}}
+  LASTJ=j;DRAFT=(j.draft&&j.draft.items)||[];
+  if(j.spend!=null){$('spend').hidden=false;$('spend').textContent='This month ₹'+j.spend}
+  var L=j.last;$('msg').innerHTML=L&&!L.ok?'<span class="err">Last automatic run failed: '+esc(L.error||'')+'</span> <span class="mu">'+esc(JSON.stringify({stop:L.stop,status:L.status}))+'</span>':'';
+  if(VIEW==='queue')drawQueue(j);else if(VIEW==='live')drawLive(j);else if(VIEW==='hist')drawHist(j);else drawHome(j)}
+/* ---- schedule sheet ---- */
+var SH=null;
+function drawSheet(){var k=SH&&SH.k,mu=document.getElementById('sheetroot');if(!k){mu.innerHTML='';return}
+  var j=LASTJ,kd=j.kinds.filter(function(x){return x.id===k})[0],st=kindStats(j,kd),s=SH.s,nr=nextRun(s);
+  var per=st.cost!=null?Math.round(st.cost*s.days.length*4.3):null;
+  mu.innerHTML='<div class="sheetbg" data-x="1"><div class="sheet"><h3 style="margin:0">'+esc(kd.name)+': when to search</h3><p class="mu" style="margin:4px 0 0">Each search runs by itself at 7:30 am India time on the days you pick.</p><div class="seg">'+[['daily','Daily'],['weekly','Weekly'],['custom','Custom days']].map(function(m){return '<button type="button" class="'+(s.mode===m[0]?'on':'')+'" data-mode="'+m[0]+'">'+m[1]+'</button>'}).join('')+'</div>'+(s.mode==='daily'?'':'<div class="mu" style="margin-top:14px;font-weight:700;letter-spacing:.6px">'+(s.mode==='weekly'?'DAY (PICK ONE)':'DAYS')+'</div><div class="days">'+DI.map(function(d,i){return '<button type="button" class="'+(s.days.indexOf(d)>=0?'on':'')+'" data-day="'+d+'" aria-label="'+DN[d]+'">'+DL[i]+'</button>'}).join('')+'</div>')+'<p class="ok" style="margin:12px 0 0">'+(s.days.length?'Next run: '+esc(nextTxt(s)):'Pick at least one day.')+'</p><p class="mu" style="margin:4px 0 0">'+(per!=null?'About ₹'+st.cost+' a run, so roughly ₹'+per+' a month on these days. ':'')+'You can also press Run now at any time.</p><div class="row" style="margin-top:14px"><button type="button" data-x="1">Cancel</button><button type="button" class="p" style="flex:1" data-save="1"'+(s.days.length?'':' disabled')+'>Save schedule</button></div></div></div>'}
+function openSheet(k){var s=LASTJ.sched[k];SH={k:k,s:{mode:s.mode,days:s.days.slice()}};drawSheet()}
+/* ---- running ---- */
+var BUSY=false;
+async function runKind(k){var kd=LASTJ.kinds.filter(function(x){return x.id===k})[0];for(var i=0;i<kd.steps.length;i++){$('msg').textContent='Searching '+kd.name.toLowerCase()+' (step '+(i+1)+' of '+kd.steps.length+')… keep this page open.';await api({action:'runstep',step:kd.steps[i]})}}
+async function doRuns(kinds){if(BUSY)return;BUSY=true;try{for(var i=0;i<kinds.length;i++)await runKind(kinds[i]);$('msg').textContent=''}catch(e){$('msg').innerHTML='<span class="err">'+esc(e.message==='too_soon'?'The govt jobs search ran less than an hour ago. Try again later.':e.message)+'</span> <span class="mu">'+esc(e.detail||'')+'</span>'}BUSY=false;try{draw(await api({action:'list'}))}catch(x){}}
+async function load(a){$('msg').textContent='Working…';try{var j=await api(a||{action:'list'});draw(j);if(!(j.last&&!j.last.ok))$('msg').textContent=''}catch(e){$('msg').innerHTML='<span class="err">'+esc(e.message)+'</span>'}}
 $('go').onclick=async function(){KEY=$('key').value;try{var j=await api({action:'list'});try{sessionStorage.setItem('ak',KEY)}catch(e){}$('login').hidden=true;$('main').hidden=false;draw(j)}catch(e){$('lerr').textContent=e.message==='forbidden'?'Wrong key.':e.message}};
-$('reload').onclick=function(){load()};
-$('runfam').onclick=async function(){var F=(LASTJ&&LASTJ.fams)||[];if(!F.length){alert('Press Reload first, then try again.');return}
-  if(!confirm('Search private jobs for '+F.length+' role families ('+F.map(function(f){return f.name}).join(', ')+')? About ₹'+(F.length*16)+' to ₹'+(F.length*25)+' in all and 3 to 6 minutes. Keep this page open.'))return;
-  var t0=Date.now(),tick=setInterval(function(){var s=$('msg').getAttribute('data-s')||'';$('msg').textContent=s+' ('+Math.round((Date.now()-t0)/1000)+' s)'},1000);
-  function st(t){$('msg').setAttribute('data-s',t);$('msg').textContent=t}
-  try{for(var i=0;i<F.length;i++){st('Family '+(i+1)+' of '+F.length+': '+F[i].name+'…');await api({action:'runfam',fam:F[i].id})}}
-  catch(e){clearInterval(tick);$('msg').innerHTML='<span class="err">'+esc(e.message)+'</span> <span class="mu">'+esc(e.detail||'')+'</span>';try{draw(await api({action:'list'}))}catch(x){}return}
-  clearInterval(tick);TAB='h';try{sessionStorage.setItem('rt','h')}catch(x){}load()};
-$('runsch').onclick=async function(){if(!confirm('Search Karnataka scholarships (government and private) now? About ₹15 to ₹30 and 1 to 2 minutes. Keep this page open.'))return;
-  $('msg').textContent='Searching scholarships…';
-  try{await api({action:'runsch'})}catch(e){$('msg').innerHTML='<span class="err">'+esc(e.message)+'</span> <span class="mu">'+esc(e.detail||'')+'</span>';try{draw(await api({action:'list'}))}catch(x){}return}
-  TAB='s';try{sessionStorage.setItem('rt','s')}catch(x){}load()};
-$('run').onclick=async function(){if(!confirm('Run the search now? It costs roughly ₹50 to ₹75 (the real cost shows afterwards) and takes 3 to 6 minutes. Keep this page open.'))return;
-  var t0=Date.now(),tick=setInterval(function(){var s=$('msg').getAttribute('data-s')||'';$('msg').textContent=s+' ('+Math.round((Date.now()-t0)/1000)+' s)'},1000);
-  function st(t){$('msg').setAttribute('data-s',t);$('msg').textContent=t}
-  try{st('Step 1 of 3: searching official sites…');await api({action:'run'});st('Step 2 of 3: looking for other govt posts…');await api({action:'run2'});st('Step 3 of 3: looking for private jobs…');await api({action:'run3'})}
-  catch(e){clearInterval(tick);$('msg').innerHTML='<span class="err">'+esc(e.message)+'</span> <span class="mu">'+esc(e.detail||'')+'</span>';try{draw(await api({action:'list'}))}catch(x){}return}
-  clearInterval(tick);load()};
-document.addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;
-  if(b.dataset.tab){TAB=b.dataset.tab;try{sessionStorage.setItem('rt',TAB)}catch(x){}if(LASTJ)draw(LASTJ);return}var c=b.closest('[data-i]');
-  if(b.dataset.a&&c){var i=+c.dataset.i;if(b.dataset.a==='ok'){var it=collect(i);if(it)load({action:'approve',items:[it]})}elseload({action:'reject',ids:[DRAFT[i].id]})}
-  if(b.dataset.rm&&confirm('Remove from live?'))load({action:'remove',ids:[b.dataset.rm]})});
+document.addEventListener('click',function(e){var b=e.target.closest('button,[data-x]');if(!b)return;var d=b.dataset;
+  if(d.x&&(b.tagName==='BUTTON'||e.target===b)){SH=null;drawSheet();return}
+  if(d.sched){openSheet(d.sched);return}
+  if(d.mode&&SH){SH.s.mode=d.mode;if(d.mode==='daily')SH.s.days=[0,1,2,3,4,5,6];else if(d.mode==='weekly')SH.s.days=SH.s.days.length===7?[1]:SH.s.days.slice(0,1);else if(SH.s.days.length===7)SH.s.days=[1,3];drawSheet();return}
+  if(d.day&&SH){var n=+d.day,i=SH.s.days.indexOf(n);if(SH.s.mode==='weekly')SH.s.days=[n];else if(i>=0)SH.s.days.splice(i,1);else SH.s.days.push(n);SH.s.days.sort();drawSheet();return}
+  if(d.save&&SH){var q=SH;SH=null;drawSheet();load({action:'setsched',kind:q.k,mode:q.s.mode,days:q.s.days});return}
+  if(d.run){doRuns([d.run]);return}
+  if(d.runall){if(confirm('Run every search now? About ₹'+(KORDER.length*20)+' in all and several minutes. Keep this page open.'))doRuns(KORDER);return}
+  if(d.open){TAB=d.open;FILT='all';VIEW='queue';draw(LASTJ);window.scrollTo(0,0);return}
+  if(d.view){VIEW=d.view;draw(LASTJ);window.scrollTo(0,0);return}
+  if(d.tab){TAB=d.tab;FILT='all';draw(LASTJ);return}
+  if(d.filt){FILT=d.filt;draw(LASTJ);return}
+  if(b.id==='reload'){load();return}
+  if(d.bulk){var sel=[];DRAFT.forEach(function(x,i){if(kindOf(x)===TAB&&good(x))sel.push(x)});if(sel.length&&confirm('Approve '+sel.length+' finds that have an official link and a date? Open a few first if you have not checked them.'))load({action:'approve',items:sel});return}
+  var c=b.closest('[data-i]');
+  if(d.a&&c){var i2=+c.dataset.i;if(d.a==='ok'){var it=collect(i2);if(it)load({action:'approve',items:[it]})}else load({action:'reject',ids:[DRAFT[i2].id]});return}
+  if(d.rm&&confirm('Remove from live?'))load({action:'remove',ids:[d.rm]})});
 try{var k=sessionStorage.getItem('ak');if(k){$('key').value=k}}catch(e){}
 </script>
 </body>

@@ -49,3 +49,9 @@ Pass A searches official government sites only (gov.in, nic.in, ibps.in, ac.in, 
 - A fourth step looks for scholarships open to Karnataka students: government schemes and private ones (foundations, trusts, companies). It runs by itself after the daily steps on **Mondays**, and on demand from the review page with **Search scholarships** (about ₹15 to ₹30 a run).
 - Finds wait on the review page under **Scholarships**. Open each page, check the provider is real and nothing asks for a fee, fix the level, the offered-by choice (Government or Private) and the last date, then approve. Nothing reaches users before that.
 - In the app, **Explore → Scholarships** has two tabs, Govt and Private. The worker must be redeployed (paste the new `worker.js`) before the search and the approved list reach the app.
+
+### Six searches and the schedule (v64)
+- The review page now runs six searches: Govt jobs, Private jobs, Exams, Courses, Scholarships and Trainings. Each has its own **Run now** button and its own schedule: **Daily**, **Weekly** or **Custom** (pick days with the M T W T F S S chips). Press **Change** on a search to set it.
+- Searches are spread over three cron slots so they do not all run at once. In Cloudflare, open the Worker → Triggers → Cron Triggers and have all three: `0 2 * * *`, `20 2 * * *` and `40 2 * * *`.
+- Approved Courses show under **Explore → Courses**, and approved Trainings under **Explore → Trainings**. Nothing reaches users before you approve it. **Approve all** on a list approves every item that has the required checks done.
+- Redeploy `worker.js` (paste the new file) for the new searches and schedules to work. The review page and app update by themselves.
