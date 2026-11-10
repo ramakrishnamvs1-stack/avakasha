@@ -26,7 +26,7 @@ ul{margin:8px 0 0;padding-left:18px}li{margin:2px 0}a{color:var(--ac)}
 <p class="mu">New finds from the daily search wait here. Nothing reaches users until you approve it. Check each against its notice link, fix any number, then approve or reject.</p>
 <div id="login" class="c"><label>Admin key<input class="w" id="key" type="password" autocomplete="off"></label><div class="row"><button class="p" id="go" type="button">Open</button></div><div id="lerr" class="err"></div></div>
 <div id="main" hidden>
-  <div class="row"><button id="run" type="button">Search now</button><button id="runfam" type="button">Test role families</button><button id="reload" type="button">Reload</button><span class="mu" id="info"></span></div>
+  <div class="row"><button id="run" type="button">Search now</button><button id="runfam" type="button">Test role families</button><button id="runsch" type="button">Search scholarships</button><button id="reload" type="button">Reload</button><span class="mu" id="info"></span></div>
   <div id="msg" class="mu"></div>
   <div class="tabs" id="tabs"></div>
   <div id="list"></div>
@@ -39,9 +39,10 @@ async function api(a){var r=await fetch(URLW,{method:'POST',headers:{'Content-Ty
 var DRAFT=[],TAB='g',LASTJ=null;try{TAB=sessionStorage.getItem('rt')||'g'}catch(e){}
 function ruleText(r){if(r.t==='age')return null;if(r.t==='passed')return 'Class 10 pass';if(r.t==='passed12')return 'Class 12 pass';if(r.t==='pct12')return 'At least '+r.min+'% in Class 12';if(r.t==='pctmin')return 'At least '+r.min+'% in Class 10';if(r.t==='exp')return r.min+' years of experience';if(r.t==='static')return r.title+': '+r.detail;return r.t}
 function card(x,i){
-  var h='<div class="c" data-i="'+i+'"><h3>'+esc(x.title)+'</h3><div class="mu">'+esc(x.org)+'</div><div class="row"><span class="t '+(x.official?'':'w')+'">'+(x.k==='pvt'?'Private job · '+esc(x.via||'')+' · never pay to get a job':x.lead?'Lead: official notice not found':x.official?'Official site':'Not an official site')+'</span><span class="t">'+(x.k==='exam'?'Exam':'Job')+'</span></div><p>'+esc(x.line)+'</p>';
+  var h='<div class="c" data-i="'+i+'"><h3>'+esc(x.title)+'</h3><div class="mu">'+esc(x.org)+'</div><div class="row"><span class="t '+(x.official?'':'w')+'">'+(x.k==='sch'?(x.gov?'Govt scholarship':'Private scholarship · not official · never pay to apply'):x.k==='pvt'?'Private job · '+esc(x.via||'')+' · never pay to get a job':x.lead?'Lead: official notice not found':x.official?'Official site':'Not an official site')+'</span><span class="t">'+(x.k==='exam'?'Exam':x.k==='sch'?'Scholarship':'Job')+'</span></div><p>'+esc(x.line)+'</p>';
   if(x.lead)h+='<label>Official notice link (gov.in, nic.in, ibps.in, ac.in or edu.in)<input class="w" data-f="olink" type="url" placeholder="https://..."></label>';
   if(x.k==='pvt'){h+='<div class="row"><label>Apply by<input data-f="closes" type="date" value="'+esc(x.closes||'')+'"></label><label>Years needed<input data-f="minExp" type="number" value="'+esc(x.minExp||0)+'"></label><label>Qualification<select data-f="edu">'+[['','Not stated'],['10','Class 10'],['12','Class 12'],['diploma','Diploma or ITI'],['degree','Degree'],['pg','Master\'s']].map(function(o){return '<option value="'+o[0]+'"'+((x.edu||'')===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select></label></div><p class="mu">Where: '+esc(x.place||'')+'</p>'}
+  else if(x.k==='sch'){h+='<div class="row"><label>Last date<input data-f="closes" type="date" value="'+esc(x.closes||'')+'"></label><label>Level<select data-f="level">'+[['','Not stated'],['10','Class 10'],['12','Class 12'],['diploma','Diploma or ITI'],['degree','Degree'],['pg','Master\'s']].map(function(o){return '<option value="'+o[0]+'"'+((x.level||'')===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select></label><label>Offered by<select data-f="gov"><option value="1"'+(x.gov?' selected':'')+'>Government</option><option value="0"'+(x.gov?'':' selected')+'>Private</option></select></label></div><p class="mu">Amount: '+esc(x.amount||'not stated')+' · Who: '+esc(x.who||'not stated')+'</p>'}
   else if(x.k==='exam'){h+='<div class="row"><label>Exam date<input data-f="d" type="date" value="'+esc(x.d)+'"></label></div>'}
   else{
     var age=(x.rules||[]).filter(function(r){return r.t==='age'})[0]||{};
@@ -55,6 +56,7 @@ function collect(i){
   var x=JSON.parse(JSON.stringify(DRAFT[i])),el=document.querySelector('[data-i="'+i+'"]');
   function v(f){var e=el.querySelector('[data-f="'+f+'"]');return e?e.value:''}
   if(x.lead){var ol=v('olink').trim();if(!/^https:\/\/([a-z0-9-]+\.)*(gov\.in|nic\.in|ibps\.in|ac\.in|edu\.in)(\/|$)/i.test(ol)){alert('Paste the official notice link first (it must be on gov.in, nic.in, ibps.in, ac.in or edu.in).');return null}x.src=['Official notice',ol]}
+  if(x.k==='sch'){x.closes=v('closes')||null;x.level=v('level')||null;x.gov=v('gov')==='1';return x}
   if(x.k==='pvt'){x.closes=v('closes')||null;x.minExp=parseFloat(v('minExp'))||0;x.edu=v('edu')||null;return x}
   if(x.k==='exam'){x.d=v('d');x.when=x.d;return x}
   x.closes=v('closes')||null;if(!x.closes){x.stat={k:'unk',t:'Dates not confirmed'}}else{delete x.stat}
@@ -67,15 +69,16 @@ function draw(j){
   LASTJ=j;
   DRAFT=(j.draft&&j.draft.items)||[];
   $('info').textContent=j.draft&&j.draft.at?'Last search '+new Date(j.draft.at).toLocaleString():'No search yet';
-  var main=[],leads=[],pv=[];DRAFT.forEach(function(x,i){(x.k==='pvt'?pv:x.lead?leads:main).push(card(x,i))});
-  var l=j.live||{records:[],exams:[]},lv=l.records.concat(l.exams).concat(l.pvt||[]);
-  var TABS=[['g','Govt and exams',main.length],['l','Leads',leads.length],['p','Private jobs',pv.length],['n','Live now',lv.length],['h','Run history',(j.runlog||[]).length]];
+  var main=[],leads=[],pv=[],sc=[];DRAFT.forEach(function(x,i){(x.k==='sch'?sc:x.k==='pvt'?pv:x.lead?leads:main).push(card(x,i))});
+  var l=j.live||{records:[],exams:[]},lv=l.records.concat(l.exams).concat(l.pvt||[]).concat(l.sch||[]);
+  var TABS=[['g','Govt and exams',main.length],['l','Leads',leads.length],['p','Private jobs',pv.length],['s','Scholarships',sc.length],['n','Live now',lv.length],['h','Run history',(j.runlog||[]).length]];
   if(!TABS.some(function(t){return t[0]===TAB}))TAB='g';
   $('tabs').innerHTML=TABS.map(function(t){return '<button type="button" class="tb'+(t[0]===TAB?' on':'')+'" data-tab="'+t[0]+'">'+t[1]+' ('+t[2]+')</button>'}).join('');
   var body='';
   if(TAB==='g')body=main.length?'<p class="mu">Finds from official government sites. Check each against its notice, fix any number, then approve or reject.</p>'+main.join(''):'<div class="c mu">Nothing waiting.</div>';
   else if(TAB==='l')body=leads.length?'<p class="mu">Seen on other sites, but no official notice was found. Find the notice on the official site and paste its link to approve, or reject.</p>'+leads.join(''):'<div class="c mu">No leads waiting.</div>';
-  else if(TAB==='h'){var SN={A:'Official sites',B:'Other govt posts',C:'Private jobs'};body=(j.runlog||[]).length?'<p class="mu">Every search, newest first. Found is what the search returned; Added is what reached the waiting list; Went live and Rejected count what you decided later; the rest were duplicates or dropped (fee, no link, closed). Cost is an estimate.</p>'+(j.runlog||[]).map(function(r){var d=new Date(r.at);return '<div class="c"><b>'+esc(r.label||SN[r.step]||r.step)+'</b> <span class="mu">'+d.toLocaleDateString()+' '+d.toLocaleTimeString()+' · '+(r.src==='daily'?'7:30 am auto run':'manual')+'</span><div class="mu">'+(r.ok?'Found '+(r.raw==null?'?':r.raw)+' · Added '+(r.added==null?'?':r.added)+' · Duplicates '+(r.dup||0)+' · Dropped '+(r.bad||0)+(r.id&&r.added!=null?'<div><b>Went live '+(r.live||0)+'</b> · Rejected '+(r.rej||0)+' · Not decided '+Math.max(0,r.added-(r.live||0)-(r.rej||0)):'')+(r.id&&r.added!=null?'</div>':''):'<span class="err">Failed: '+esc(r.error||'')+'</span>')+' · about ₹'+Math.round(r.inr||0)+(r.model?' · '+esc(r.model)+(r.fellBack?' (fell back)':''):'')+'</div></div>'}).join(''):'<div class="c mu">No runs recorded yet. Runs from now on will appear here.</div>'}
+  else if(TAB==='h'){var SN={A:'Official sites',B:'Other govt posts',C:'Private jobs',S:'Scholarships'};body=(j.runlog||[]).length?'<p class="mu">Every search, newest first. Found is what the search returned; Added is what reached the waiting list; Went live and Rejected count what you decided later; the rest were duplicates or dropped (fee, no link, closed). Cost is an estimate.</p>'+(j.runlog||[]).map(function(r){var d=new Date(r.at);return '<div class="c"><b>'+esc(r.label||SN[r.step]||r.step)+'</b> <span class="mu">'+d.toLocaleDateString()+' '+d.toLocaleTimeString()+' · '+(r.src==='daily'?'7:30 am auto run':'manual')+'</span><div class="mu">'+(r.ok?'Found '+(r.raw==null?'?':r.raw)+' · Added '+(r.added==null?'?':r.added)+' · Duplicates '+(r.dup||0)+' · Dropped '+(r.bad||0)+(r.id&&r.added!=null?'<div><b>Went live '+(r.live||0)+'</b> · Rejected '+(r.rej||0)+' · Not decided '+Math.max(0,r.added-(r.live||0)-(r.rej||0)):'')+(r.id&&r.added!=null?'</div>':''):'<span class="err">Failed: '+esc(r.error||'')+'</span>')+' · about ₹'+Math.round(r.inr||0)+(r.model?' · '+esc(r.model)+(r.fellBack?' (fell back)':''):'')+'</div></div>'}).join(''):'<div class="c mu">No runs recorded yet. Runs from now on will appear here.</div>'}
+  else if(TAB==='s')body=sc.length?'<p class="mu">Scholarships found by the weekly search, government and private. Open each page, check the provider is real and nothing asks for a fee, fix the level, offered-by and last date, then approve.</p>'+sc.join(''):'<div class="c mu">No scholarships waiting. Press Search scholarships.</div>';
   else if(TAB==='p')body=pv.length?'<p class="mu">Found on job sites. Open each listing, check the employer is real and nothing asks for a fee, fix the qualification and years, then approve.</p>'+pv.join(''):'<div class="c mu">No private jobs waiting.</div>';
   else body=(lv.map(function(x){return '<div class="c"><b>'+esc(x.title)+'</b> <span class="mu">'+esc(x.closes||x.d||'')+'</span><div class="row"><button class="d" data-rm="'+esc(x.id)+'">Remove</button></div></div>'}).join(''))||'<div class="c mu">Nothing live yet.</div>';
   $('list').innerHTML=body;
@@ -92,6 +95,10 @@ $('runfam').onclick=async function(){var F=(LASTJ&&LASTJ.fams)||[];if(!F.length)
   try{for(var i=0;i<F.length;i++){st('Family '+(i+1)+' of '+F.length+': '+F[i].name+'…');await api({action:'runfam',fam:F[i].id})}}
   catch(e){clearInterval(tick);$('msg').innerHTML='<span class="err">'+esc(e.message)+'</span> <span class="mu">'+esc(e.detail||'')+'</span>';try{draw(await api({action:'list'}))}catch(x){}return}
   clearInterval(tick);TAB='h';try{sessionStorage.setItem('rt','h')}catch(x){}load()};
+$('runsch').onclick=async function(){if(!confirm('Search Karnataka scholarships (government and private) now? About ₹15 to ₹30 and 1 to 2 minutes. Keep this page open.'))return;
+  $('msg').textContent='Searching scholarships…';
+  try{await api({action:'runsch'})}catch(e){$('msg').innerHTML='<span class="err">'+esc(e.message)+'</span> <span class="mu">'+esc(e.detail||'')+'</span>';try{draw(await api({action:'list'}))}catch(x){}return}
+  TAB='s';try{sessionStorage.setItem('rt','s')}catch(x){}load()};
 $('run').onclick=async function(){if(!confirm('Run the search now? It costs roughly ₹50 to ₹75 (the real cost shows afterwards) and takes 3 to 6 minutes. Keep this page open.'))return;
   var t0=Date.now(),tick=setInterval(function(){var s=$('msg').getAttribute('data-s')||'';$('msg').textContent=s+' ('+Math.round((Date.now()-t0)/1000)+' s)'},1000);
   function st(t){$('msg').setAttribute('data-s',t);$('msg').textContent=t}

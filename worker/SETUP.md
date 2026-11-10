@@ -44,3 +44,8 @@ Pass A searches official government sites only (gov.in, nic.in, ibps.in, ac.in, 
 - Private job search uses a cheaper model (default `claude-haiku-5-5`). To change it, add a Worker variable `PVT_MODEL`. If that model cannot be used, the search falls back to the main model and the review page says so.
 - `USD_INR` (default 90) sets the exchange rate used for the estimate.
 - Each private search is capped at 10 jobs.
+
+### Scholarship search (weekly, Karnataka first)
+- A fourth step looks for scholarships open to Karnataka students: government schemes and private ones (foundations, trusts, companies). It runs by itself after the daily steps on **Mondays**, and on demand from the review page with **Search scholarships** (about ₹15 to ₹30 a run).
+- Finds wait on the review page under **Scholarships**. Open each page, check the provider is real and nothing asks for a fee, fix the level, the offered-by choice (Government or Private) and the last date, then approve. Nothing reaches users before that.
+- In the app, **Explore → Scholarships** has two tabs, Govt and Private. The worker must be redeployed (paste the new `worker.js`) before the search and the approved list reach the app.

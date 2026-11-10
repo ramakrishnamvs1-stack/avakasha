@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '62';
+var APPVER = '63';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -475,6 +475,7 @@ function mergeLive(j) {
   var tl = {}; DATA.records.forEach(function (r) { tl[r.title.toLowerCase()] = 1; });
   (j.records || []).forEach(function (r) { if (r && r.id && r.title && !tl[r.title.toLowerCase()]) { DATA.records.push(r); LIVEIDS[r.id] = 1; tl[r.title.toLowerCase()] = 1; } });
   EXTRA.livePvt = (j.pvt || []).filter(function (x) { return x && x.id && x.title && x.org && Array.isArray(x.src) && Array.isArray(x.facts); });
+  EXTRA.liveSch = (j.sch || []).filter(function (x) { return x && x.id && x.title && x.org && Array.isArray(x.src) && Array.isArray(x.facts); });
   var te = {}; (EXTRA.exams || []).forEach(function (x) { te[x.title.toLowerCase()] = 1; });
   (j.exams || []).forEach(function (x) { if (x && x.id && x.title && !te[x.title.toLowerCase()]) { (EXTRA.exams = EXTRA.exams || []).push(x); LIVEIDS[x.id] = 1; te[x.title.toLowerCase()] = 1; } });
 }
@@ -710,9 +711,21 @@ function renderT(id) {
     + '<p class="foot">Never pay an agent to get a seat, a certificate or a job. Apply only on the official site.</p><div class="dact"><a class="btn pri" href="' + t.go + '" target="_blank" rel="noopener">Open the official site ↗</a></div>';
   wireBack(null);
 }
+function renderSchX(x) {
+  var facts = x.facts.map(function (r) { return '<div class="dkv"><span>' + esc(r[0]) + '</span><span>' + esc(r[1]) + '</span></div>'; }).join('');
+  $('app').innerHTML = '<div class="dbar"><button type="button" id="dback" aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><b>Scholarship details</b>' + heart('x', x.id) + '</div>'
+    + '<div class="pills" style="margin-top:8px"><span class="tg ' + (x.gov ? 'og' : 'w') + '">' + (x.gov ? 'Government' : 'Private') + '</span></div>'
+    + '<h1 class="dtitle">' + esc(x.title) + '</h1><div class="org" style="font-size:15px;margin-top:6px">' + esc(x.org) + '</div>'
+    + '<div class="dnote ' + (x.gov && x.official ? 'g' : 'w') + '"><b>' + (x.gov ? (x.official ? 'From an official page.' : 'Not from an official page.') : 'Private scholarship. Not from an official page.') + '</b> ' + esc(x.note) + '</div>'
+    + '<div class="dh">Key facts</div><div class="dlist">' + facts + '</div>'
+    + (x.closes ? calBlock('x-' + x.id, x.title, x.closes, x.src[1], 'Add last date to calendar') : '')
+    + '<div class="dh">About</div><div class="dabout"><p>' + esc(x.line) + '</p><p class="note">Source: <a href="' + esc(x.src[1]) + '" target="_blank" rel="noopener">' + esc(x.src[0]) + '</a>. Found on ' + esc(x.found || '') + '.</p></div>'
+    + '<p class="foot">Never pay anyone to get a scholarship. Apply only on the provider’s own site' + (x.gov ? ' or the official portal' : '') + '.</p><div class="dact"><a class="btn pri" href="' + esc(x.src[1]) + '" target="_blank" rel="noopener">Open the page ↗</a></div>';
+  wireBack(null);
+}
 function renderX(id) {
   var isE = true, x = (EXTRA.exams || []).filter(function (e) { return e.id === id; })[0];
-  if (!x) { isE = false; x = (EXTRA.livePvt || []).concat(EXTRA.pvt || []).filter(function (e) { return e.id === id; })[0]; }
+  if (!x) { isE = false; x = (EXTRA.liveSch || []).filter(function (e) { return e.id === id; })[0]; if (x) { renderSchX(x); return; } x = (EXTRA.livePvt || []).concat(EXTRA.pvt || []).filter(function (e) { return e.id === id; })[0]; }
   if (!x) { location.hash = '#home'; return; }
   var facts = x.facts.map(function (r) { return '<div class="dkv"><span>' + esc(r[0]) + '</span><span>' + esc(r[1]) + '</span></div>'; }).join('');
   $('app').innerHTML = '<div class="dbar"><button type="button" id="dback" aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><b>' + (isE ? 'Exam details' : 'Job details') + '</b>' + heart('x', x.id) + '</div>'
@@ -755,8 +768,8 @@ function relevant(r, f, p) {
 /* ---- Explore: "I hold" level row + "Show me" type row, one list ---- */
 var XLV = { a: 0, '1': 1, '2': 2, d: 2, '3': 3 }, XLAB = { 1: '10th pass', 2: '12th pass', 3: 'Degree' };
 var XTYPES = [['govt', 'Govt', 'Govt job', 'g'], ['pvt', 'Private', 'Private job', 'p'], ['exam', 'Exams', 'Exam', 'e'], ['course', 'Courses', 'Course', 'c'], ['sch', 'Scholarships', 'Scholarship', 's'], ['train', 'Trainings', 'Training', 't']];
-var XQ = { lvl: null, types: null };
-try { var xs = JSON.parse(localStorage.getItem('pa10.xq') || 'null'); if (xs) XQ = { lvl: xs.lvl || null, types: xs.types && xs.types.length ? xs.types : null }; } catch (e) {}
+var XQ = { lvl: null, types: null, sch: 'govt' };
+try { var xs = JSON.parse(localStorage.getItem('pa10.xq') || 'null'); if (xs) XQ = { lvl: xs.lvl || null, types: xs.types && xs.types.length ? xs.types : null, sch: xs.sch === 'private' ? 'private' : 'govt' }; } catch (e) {}
 function xsave() { try { localStorage.setItem('pa10.xq', JSON.stringify(XQ)); } catch (e) {} }
 function ownLvl() { var p = prof(); if (!p || !Object.keys(p.facts).length) return 0; return Math.min(3, Math.max(1, eduRank(F()) || 1)); }
 function ownKey(f, own) { return own === 3 ? '3' : own === 2 ? (f.eduLevel === 'diploma' ? 'd' : '2') : own === 1 ? '1' : 'a'; }
@@ -776,7 +789,7 @@ function xItems(f, p) {
     else if (e.grp < 2) g = e.grp;
     else if (e.grp === 2 && type === 'course' && e.st.k !== 'closed') g = 1;
     else g = 3;
-    out.push({ type: type, min: min, g: g, ord: open ? dd(r.closes) : 90000, e: e, r: r, title: r.title, org: r.org, when: e.st.t, fit: e.verdict === 'yes' ? 'Likely eligible' : e.verdict === 'no' ? 'Not eligible' : e.verdict === 'later' ? 'After Class 12' : 'Check details', ok: e.verdict === 'yes', href: '#job/' + encodeURIComponent(r.id), sk: 'job', id: r.id });
+    out.push({ type: type, gov: true, min: min, g: g, ord: open ? dd(r.closes) : 90000, e: e, r: r, title: r.title, org: r.org, when: e.st.t, fit: e.verdict === 'yes' ? 'Likely eligible' : e.verdict === 'no' ? 'Not eligible' : e.verdict === 'later' ? 'After Class 12' : 'Check details', ok: e.verdict === 'yes', href: '#job/' + encodeURIComponent(r.id), sk: 'job', id: r.id });
   });
   upExams().forEach(function (x) {
     var min = examMin(x), g = !hasF ? 1 : min > own ? 2 : 0;
@@ -787,11 +800,17 @@ function xItems(f, p) {
     var pm = sig && x.live ? pvtMatch(x, f, p) : null, min = Math.min(3, EDUR[x.edu] || 1), g = !pm ? 1 : pm.g === 1 ? 0 : pm.g === 2 ? 1 : 3;
     out.push({ type: 'pvt', min: min, g: g, ord: 50000, title: x.title, org: x.org, when: x.live ? (x.via || 'Not official') + ' · ' + x.place : 'Sample listing · ' + x.place, fit: pm && pm.need ? pm.need : g === 0 ? 'Matches your profile' : x.live ? 'Check with the employer' : 'Example, not a real opening', ok: g === 0, href: '#x/' + encodeURIComponent(x.id), sk: 'x', id: x.id });
   });
+  (EXTRA.liveSch || []).forEach(function (x) { out.push(schItem(x, f, p)); });
   (EXTRA.trains || []).forEach(function (t) {
     var tm = hasF && pvtSignals(f, p) ? trainFit(t, f) : { tag: t.free ? 'Free' : 'Check site', fit: false }, g = tm.fit ? 0 : /^Age /.test(tm.tag) ? 3 : 1;
     out.push({ type: 'train', min: Math.max(1, t.minEdu || 1), g: g, ord: 60000, title: t.title, org: t.org, when: t.free ? 'Free for candidates' : 'Check the official site', fit: tm.fit ? 'Fits you' : tm.tag, ok: tm.fit, href: '#t/' + encodeURIComponent(t.id), sk: 't', id: t.id });
   });
   return out;
+}
+function schItem(x, f, p) {
+  var hasF = !!(p && Object.keys(p.facts).length), own = ownLvl(), min = Math.min(3, EDUR[x.level] || 1), g;
+  if (!hasF) g = 1; else if (min > own) g = 2; else if (min === own) g = 0; else g = 3;
+  return { type: 'sch', gov: !!x.gov, min: min, g: g, ord: x.closes ? daysBetween(TODAY, pd(x.closes)) : 70000, title: x.title, org: x.org + (x.gov ? ' · Government' : ' · Private'), when: x.closes ? 'Last date ' + fmt(pd(x.closes)) : 'Last date not found', fit: g === 0 ? 'Level matches your studies' : g === 2 ? 'Needs ' + XLAB[min] : 'Check who can apply', ok: g === 0, href: '#x/' + encodeURIComponent(x.id), sk: 'x', id: x.id };
 }
 function xState(f, p) {
   var own = ownLvl(), key = XQ.lvl || ownKey(f, own), sel = XLV[key], all = xItems(f, p), L = all.filter(function (i) { return !sel || i.min <= sel; });
@@ -814,7 +833,7 @@ function renderExplore() {
   var lvls = [['1', '10th'], ['2', '12th'], ['d', 'ITI / Diploma'], ['3', 'Degree'], ['a', 'All']];
   var r1 = lvls.map(function (c) { return '<button type="button" class="qc" data-l="' + c[0] + '" aria-pressed="' + (S.key === c[0]) + '">' + c[1] + (hasF && ownKey(f, S.own) === c[0] ? '<i title="Your level"></i>' : '') + '</button>'; }).join('');
   var r2 = '<button type="button" class="qc" data-t="all" aria-pressed="' + (!types) + '">All</button>' + XTYPES.map(function (t) { return '<button type="button" class="qc" data-t="' + t[0] + '" aria-pressed="' + (!!types && on(t[0])) + '">' + t[1] + '<b>' + xcount(L, t[0]) + '</b></button>'; }).join('');
-  var V = L.filter(function (i) { return on(i.type); }), shown = V.filter(function (i) { return i.g !== 3; }), hid = V.filter(function (i) { return i.g === 3; });
+  var subSch = !!types && types.length === 1 && types[0] === 'sch', V = L.filter(function (i) { return on(i.type) && !(subSch && (XQ.sch === 'govt') !== !!i.gov); }), shown = V.filter(function (i) { return i.g !== 3; }), hid = V.filter(function (i) { return i.g === 3; });
   var by = function (g) { return shown.filter(function (i) { return i.g === g; }).sort(function (a, b) { return a.ord - b.ord; }); };
   var h = hasF ? gapCard(p) : '<div class="banner">Scan a marksheet to see which of these fit you.</div>';
   if (hasF && S.sel > S.own) h += '<div class="banner lkn">You have ' + (S.own === 1 ? 'Class 10' : S.own === 2 ? 'Class 12' : 'a degree') + ' today. Items marked “After Class ' + (S.sel === 3 ? 'graduation' : '12') + '” are for later, so you can plan ahead.</div>';
@@ -823,10 +842,11 @@ function renderExplore() {
   function sec(t, a) { return a.length ? '<section class="group xg"><h2>' + t + ' <span class="note">(' + a.length + ')</span></h2><div class="xcl">' + a.map(ecard).join('') + '</div></section>' : ''; }
   var g0 = by(0), g1 = by(1), g2 = by(2);
   h += hasF ? sec('Fits you', g0) + sec('Check details', g1) + sec(S.sel === 3 ? 'After graduation' : 'After Class 12', g2) : sec('Open now', g1.concat(g0, g2));
-  if (!shown.length) h += '<div class="card" style="margin-top:14px"><h3 class="h3">Nothing here right now</h3><p class="note" style="margin-top:4px">Try another level or kind, or tap “All”.' + (hasF ? '' : ' Scan a marksheet to match these to you.') + '</p></div>';
+  if (!shown.length) h += '<div class="card" style="margin-top:14px"><h3 class="h3">Nothing here right now</h3><p class="note" style="margin-top:4px">' + (subSch && XQ.sch === 'private' ? 'No private scholarships have been added yet. They are searched for every week, and each one is checked before it appears here. ' : '') + 'Try another level or kind, or tap “All”.' + (hasF ? '' : ' Scan a marksheet to match these to you.') + '</p></div>';
   if (hid.length) h += '<div class="row" style="margin-top:18px"><button class="btn" id="showAll" type="button">' + (SHOWALL ? 'Hide closed and not-eligible ones' : 'Show ' + hid.length + ' closed or not-eligible') + '</button></div>' + (SHOWALL ? sec('Closed or not eligible', hid.sort(function (a, b) { return a.ord - b.ord; })) : '');
   $('app').innerHTML = (chips.length ? '<div class="chips" style="margin:4px 0 6px">' + chips.map(function (c) { return '<span class="chip">' + esc(c) + '</span>'; }).join('') + '</div>' : '')
     + '<div class="ql">I hold</div><div class="qr" id="qlv">' + r1 + '</div><div class="ql">Show me</div><div class="qr" id="qty">' + r2 + '</div>'
+    + (subSch ? '<div class="ql">Scholarships from</div><div class="qr" id="qsc">' + [['govt', 'Govt', true], ['private', 'Private', false]].map(function (c) { return '<button type="button" class="qc" data-s="' + c[0] + '" aria-pressed="' + (XQ.sch === c[0]) + '">' + c[1] + '<b>' + L.filter(function (i) { return i.type === 'sch' && i.g !== 3 && !!i.gov === c[2]; }).length + '</b></button>'; }).join('') + '</div>' : '')
     + '<div class="qres">' + shown.length + (shown.length === 1 ? ' match' : ' matches') + '</div>' + h
     + '<p class="foot">Records marked “Read from the official notice” were taken from the government’s own notice. The others come from news or listing pages and have not been checked against an official notice, so open the official site first. Private jobs were found on job sites, not by the employer, and the sample listings are examples. Check dates, age limits and fees before you apply, and never pay an agent to apply or to get a job. Dates were read on ' + esc(DATA.readOn) + '.</p>';
   Array.prototype.forEach.call(document.querySelectorAll('#qlv .qc'), function (b) { b.onclick = function () { XQ.lvl = b.getAttribute('data-l'); xsave(); renderExplore(); }; });
@@ -838,6 +858,7 @@ function renderExplore() {
       xsave(); renderExplore();
     };
   });
+  Array.prototype.forEach.call(document.querySelectorAll('#qsc .qc'), function (b) { b.onclick = function () { XQ.sch = b.getAttribute('data-s'); xsave(); renderExplore(); }; });
   wireGap(p);
   if ($('showAll')) $('showAll').onclick = function () { SHOWALL = !SHOWALL; renderExplore(); };
   if ($('qd')) $('qd').ontoggle = function () { QOPEN = $('qd').open; };
@@ -1448,6 +1469,8 @@ function savedEntry(s) {
   if (s.k === 'x') {
     var x = (EXTRA.exams || []).filter(function (e) { return e.id === s.id; })[0];
     if (x) return { iso: x.tent ? null : x.d, title: x.short || x.title, kind: 'Exam', href: '#x/' + id, html: xcard(x, 'exam') };
+    var sx = (EXTRA.liveSch || []).filter(function (e) { return e.id === s.id; })[0];
+    if (sx) return { iso: sx.closes || null, title: sx.title, kind: 'Scholarship', href: '#x/' + id, html: ecard(schItem(sx, f, p)) };
     x = (EXTRA.livePvt || []).concat(EXTRA.pvt || []).filter(function (e) { return e.id === s.id; })[0];
     return x ? { iso: x.closes || null, title: x.title, kind: 'Private job', href: '#x/' + id, html: xcard(x, 'pvt', x.live && p && pvtSignals(f, p) ? pvtMatch(x, f, p) : null) } : null;
   }
