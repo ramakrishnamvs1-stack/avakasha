@@ -100,7 +100,7 @@ function cleanRecord(x, seen, today, tab) {
   var url = cleanS(x && x.url, 400).split('#')[0], host;
   try { var u = new URL(url); if (u.protocol !== 'https:') return null; host = u.hostname; } catch (e) { return null; }
   if (seen && !seen[url]) return null;
-  var title = cleanS(x.title, 120); if (!title) return null;
+  var title = cleanS(x.title, 120); if (!title || junky(title)) return null;
   var closes = okDate(x.closes); if (closes && closes < today) return null;
   var facts = (Array.isArray(x.facts) ? x.facts : []).slice(0, 6).map(function (f) { return Array.isArray(f) && f.length > 1 ? [cleanS(f[0], 40), cleanS(f[1], 200)] : null; }).filter(function (f) { return f && f[0] && f[1]; });
   var off = OFFICIAL.test(host);
@@ -115,7 +115,7 @@ function cleanExam(x, seen, today) {
   var url = cleanS(x && x.url, 400).split('#')[0], host;
   try { var u = new URL(url); if (u.protocol !== 'https:') return null; host = u.hostname; } catch (e) { return null; }
   if (seen && !seen[url]) return null;
-  var title = cleanS(x.title, 120), d = okDate(x.date); if (!title || !d || d < today) return null;
+  var title = cleanS(x.title, 120), d = okDate(x.date); if (!title || junky(title) || !d || d < today) return null;
   var facts = (Array.isArray(x.facts) ? x.facts : []).slice(0, 5).map(function (f) { return Array.isArray(f) && f.length > 1 ? [cleanS(f[0], 40), cleanS(f[1], 200)] : null; }).filter(function (f) { return f && f[0] && f[1]; });
   if (!facts.length) facts = [['Exam', d]];
   var off = OFFICIAL.test(host);
@@ -133,7 +133,7 @@ function cleanPvt(x, seen, today) {
   var url = cleanS(x && x.url, 400).split('#')[0], host;
   try { var u = new URL(url); if (u.protocol !== 'https:') return null; host = u.hostname; } catch (e) { return null; }
   if (seen && !seen[url]) return null;
-  var title = cleanS(x.title, 100), org = cleanS(x.company || x.org, 80); if (!title || !org) return null;
+  var title = cleanS(x.title, 100), org = cleanS(x.company || x.org, 80); if (!title || !org || junky(title)) return null;
   if (FEEWORDS.test(title + ' ' + cleanS(x.line, 300) + ' ' + cleanS(x.pay, 80))) return null;
   var closes = okDate(x.closes); if (closes && closes < today) return null;
   var city = cleanS(x.city || x.place, 40) || 'Karnataka', skills = (Array.isArray(x.skills) ? x.skills : []).map(function (s) { return cleanS(s, 30); }).filter(Boolean).slice(0, 8);
@@ -150,7 +150,7 @@ function cleanSch(x, seen, today) {
   var url = cleanS(x && x.url, 400).split('#')[0], host;
   try { var u = new URL(url); if (u.protocol !== 'https:') return null; host = u.hostname; } catch (e) { return null; }
   if (seen && !seen[url]) return null;
-  var title = cleanS(x.title, 120), org = cleanS(x.provider || x.org, 80); if (!title || !org) return null;
+  var title = cleanS(x.title, 120), org = cleanS(x.provider || x.org, 80); if (!title || !org || junky(title)) return null;
   if (FEEWORDS.test(title + ' ' + cleanS(x.line, 300) + ' ' + cleanS(x.who, 300))) return null;
   var closes = okDate(x.closes); if (closes && closes < today) return null;
   var edu = EDU_NAME[x.level] ? x.level : null, amount = cleanS(x.amount, 80), who = cleanS(x.who, 220), off = OFFICIAL.test(host), gov = !!(x.gov === true || x.gov === 'true') || off;
@@ -212,27 +212,87 @@ async function searchPass(env, prompt, domains, maxUses, model) {
   if (!o) return { error: 'unreadable', u: u, stop: stop, len: text.length, tail: text.slice(-240) };
   return { ok: true, o: o, seen: seen, u: u };
 }
+
+/* Who the app is for, and what to skip. Added to every search so results fit Class 10, Class 12, ITI, diploma and degree students and job seekers. */
+var AUD = ' Audience: Class 10 pass, Class 12 pass, ITI or diploma, and degree holders in Karnataka. Skip postgraduate-only, doctoral, faculty or professor posts and anything needing senior experience. Skip pages that are only results, answer keys, admit cards, merit lists, seat allotments or cut-offs; I want live notices people can still act on. Prefer the notice page itself over a home page or a list page.';
+var JUNK = /\b(neet[\s-]*pg|md\/ms|m\.?d\.?\s*\/\s*m\.?s|ph\.?\s?d|post[\s-]?doctoral|assistant professor|associate professor|professor|answer\s+key|admit\s+card|hall\s+ticket|results?|merit\s+list|seat\s+allotment|allotment|cut[\s-]?off|counselling|corrigendum|cancelled|cancellation)\b/i;
+function junky(title) { return JUNK.test(String(title || '')); }
+var MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+function normText(t) { return String(t).toLowerCase().replace(/(\d)(st|nd|rd|th)\b/g, '$1').replace(/[,.]/g, ' ').replace(/\s+/g, ' '); }
+function dateForms(iso) {
+  var p = String(iso).split('-'); if (p.length !== 3) return [];
+  var y = p[0], m = +p[1], d = +p[2], dd = ('0' + d).slice(-2), mm = ('0' + m).slice(-2), mn = MONTHS[m - 1]; if (!mn) return [];
+  var ab = mn.slice(0, 3);
+  return [iso, dd + '/' + mm + '/' + y, dd + '-' + mm + '-' + y, dd + ' ' + mm + ' ' + y, d + '/' + m + '/' + y, d + '-' + m + '-' + y, d + ' ' + mn + ' ' + y, d + ' ' + ab + ' ' + y, dd + ' ' + mn + ' ' + y, dd + ' ' + ab + ' ' + y, mn + ' ' + d + ' ' + y, ab + ' ' + d + ' ' + y, d + '-' + ab + '-' + y, dd + '-' + ab + '-' + y].map(function (f) { return normText(f); });
+}
+var TSTOP = { with: 1, from: 1, that: 1, this: 1, have: 1, post: 1, posts: 1, recruitment: 1, notification: 1, applications: 1, application: 1, invited: 1, various: 1, other: 1, admission: 1, admissions: 1, karnataka: 1, india: 1, government: 1, department: 1, scheme: 1, programme: 1, program: 1, 2026: 1, 2027: 1 };
+/* Opens the notice page itself and returns its text. Many government sites block or time out; that is reported, not treated as a failure of the find. */
+async function peek(url) {
+  var ctl = new AbortController(), tm = setTimeout(function () { ctl.abort(); }, 9000);
+  try {
+    var r = await fetch(url, { signal: ctl.signal, redirect: 'follow', headers: { 'user-agent': 'Mozilla/5.0 (compatible; AvakashaCheck/1.0)', accept: 'text/html,application/xhtml+xml,*/*;q=0.5' } });
+    if (!r.ok) return { s: 'none', t: 'The page did not open (' + r.status + ').' };
+    var ct = (r.headers.get('content-type') || '').toLowerCase();
+    if (ct.indexOf('pdf') >= 0 || /\.pdf($|\?)/i.test(url)) return { s: 'none', t: 'A PDF. Avakasha did not read it, so open it and check.' };
+    var tx = (await r.text()).slice(0, 500000);
+    tx = tx.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;|&#160;/g, ' ').replace(/&amp;/g, '&');
+    return { s: 'page', text: normText(tx) };
+  } catch (e) { return { s: 'none', t: 'The page could not be reached from here, so open it and check.' }; }
+  finally { clearTimeout(tm); }
+}
+function pageCheck(x, text) {
+  var toks = normText(x.title).replace(/[^a-z0-9 ]/g, ' ').split(' ').filter(function (t) { return t.length >= 4 && !TSTOP[t]; });
+  var hit = toks.filter(function (t) { return text.indexOf(t) >= 0; }).length, ratio = toks.length ? hit / toks.length : 1;
+  var date = x.closes || x.d || null, seen = date ? dateForms(date).some(function (f) { return f && text.indexOf(f) >= 0; }) : null;
+  if (ratio < 0.5) return { s: 'no', t: 'The page opened but does not clearly mention this title. Open it and check.' };
+  if (date && !seen) return { s: 'part', t: 'The page matches the title, but the date ' + date + ' was not seen on it. Check the date.' };
+  return { s: 'ok', t: date ? 'The page matches the title and shows the date ' + date + '.' : 'The page matches the title. No date to check.' };
+}
+function hostOfItem(x) { try { return new URL(x.src[1]).hostname; } catch (e) { return ''; } }
+/* A 0 to 100 score so the review page can show the strongest finds first. It does not replace checking. */
+function trustOf(x) {
+  var s = 20, why = [], off = !!(x.official || x.off), u = null;
+  try { u = new URL(x.src[1]); } catch (e) {}
+  if (off) { s += 30; why.push('Official government page'); }
+  else if (x.via === 'Employer\'s own page') { s += 20; why.push('Employer\'s own page'); }
+  else if (x.via === 'Job board') { s += 8; why.push('Job board listing'); }
+  else why.push('Not an official page');
+  if (u && (u.pathname.replace(/\/+$/, '').length > 1 && (u.pathname.split('/').filter(Boolean).length >= 2 || u.search))) { s += 8; why.push('Link goes to a specific page'); } else { s -= 10; why.push('Link goes to a home or list page'); }
+  var hasDate = x.k === 'train' ? true : !!(x.closes || x.d);
+  if (hasDate) { if (x.k !== 'train') { s += 12; why.push('Date found'); } } else { s -= 8; why.push('No date found'); }
+  var v = x.ver && x.ver.s;
+  if (v === 'ok') { s += 30; why.push('Page checked: matches'); } else if (v === 'part') { s += 12; why.push('Page checked: date not seen'); } else if (v === 'no') { s -= 8; why.push('Page checked: title not clear'); } else why.push('Page not checked');
+  s = Math.max(0, Math.min(100, s));
+  return { trust: s, tl: s >= 70 ? 'High' : s >= 45 ? 'Medium' : 'Low', why: why };
+}
+/* Checks up to 14 pages at the same time, then scores every item. */
+async function vet(items) {
+  var todo = items.slice(0, 14), res = await Promise.all(todo.map(function (x) { return peek(x.src[1]); }));
+  todo.forEach(function (x, i) { var r = res[i]; x.ver = r.s === 'page' ? pageCheck(x, r.text) : { s: 'none', t: r.t }; });
+  items.forEach(function (x) { var t = trustOf(x); x.trust = t.trust; x.tl = t.tl; x.why = t.why; });
+  return items;
+}
 function nkey(t) { return String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40); }
 function sameTitle(a, b) { return a && b && Math.min(a.length, b.length) >= 10 && (a.indexOf(b) === 0 || b.indexOf(a) === 0); }
 function promptA(today) {
-  return 'Today is ' + today + '. You help job seekers in India (Karnataka first, then central government).\nUse web search, which is limited to official government sites, to find government job recruitments that are open to apply for right now, in Karnataka or central government, at any qualification level (Class 10, Class 12, ITI or diploma, degree). Check these official sites by name: KEA (cetonline.karnataka.gov.in), KPSC (kpsc.kar.nic.in), Karnataka School Education Department, Karnataka Forest Department, Staff Selection Commission (ssc.gov.in), UPSC (upsc.gov.in), IBPS (ibps.in), the Railway Recruitment Boards, India Post (indiapost.gov.in), ISRO and BEL.\nRules: list only what you saw on a page in the search results, and use that page\'s own address as url. Never invent a date or a number. Skip anything already closed. Up to 12 jobs. Keep every field short.\n' + RULES_TEXT + '\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[' + JOB_SHAPE + ']}</json>';
+  return 'Today is ' + today + '. You help job seekers in India (Karnataka first, then central government).\nUse web search, which is limited to official government sites, to find government job recruitments that are open to apply for right now, in Karnataka or central government, at any qualification level (Class 10, Class 12, ITI or diploma, degree). Check these official sites by name: KEA (cetonline.karnataka.gov.in), KPSC (kpsc.kar.nic.in), Karnataka School Education Department, Karnataka Forest Department, Staff Selection Commission (ssc.gov.in), UPSC (upsc.gov.in), IBPS (ibps.in), the Railway Recruitment Boards, India Post (indiapost.gov.in), ISRO and BEL.\nRules: list only what you saw on a page in the search results, and use that page\'s own address as url. Never invent a date or a number. Skip anything already closed. Up to 12 jobs. Keep every field short.' + AUD + '\n' + RULES_TEXT + '\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[' + JOB_SHAPE + ']}</json>';
 }
 function promptE(today) {
-  return 'Today is ' + today + '. You help students and job seekers in India (Karnataka first, then national).\nUse web search, which is limited to official government sites, to find government and entrance exams coming in the next 8 months (for example KCET, NEET, JEE, CUET, SSC, UPSC, KPSC, KEA, IBPS, railway and state exams). List only what you saw on a page in the search results, and use that page\'s own address as url. Never invent a date. Skip anything already held. Up to 8 exams. Keep every field short; include the qualification needed as a fact.\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"exams":[{"title":"","org":"","date":"YYYY-MM-DD","line":"","facts":[["Exam","..."],["Qualification","..."]],"srcName":"","url":""}]}</json>';
+  return 'Today is ' + today + '. You help students and job seekers in India (Karnataka first, then national).\nUse web search, which is limited to official government sites, to find government and entrance exams coming in the next 8 months (for example KCET, NEET, JEE, CUET, SSC, UPSC, KPSC, KEA, IBPS, railway and state exams). List only what you saw on a page in the search results, and use that page\'s own address as url. Never invent a date. Skip anything already held. Up to 8 exams. Keep every field short; include the qualification needed as a fact.' + AUD + '\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"exams":[{"title":"","org":"","date":"YYYY-MM-DD","line":"","facts":[["Exam","..."],["Qualification","..."]],"srcName":"","url":""}]}</json>';
 }
 function promptK(today) {
-  return 'Today is ' + today + '. You help students in Karnataka, India find courses to join.\nUse web search, which is limited to official government and university sites, to find course admissions that are open or opening soon for Karnataka students: PUC (Class 11) admissions, diploma and polytechnic admissions, ITI admissions, and degree admissions through state bodies (for example the Karnataka Department of Technical Education, the Department of Pre-University Education, the Department of Skill Development, KEA and Karnataka state universities). Up to 8 items. List only what you saw on a page in the search results, with that page\'s own address as url. Never invent a date or a number. Skip anything whose last date has passed. Set closes to the last date to apply. Keep every field short.\n' + RULES_TEXT + '\nUse lvl 12 only when Class 12 is needed to join. Reply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[' + JOB_SHAPE + ']}</json>';
+  return 'Today is ' + today + '. You help students in Karnataka, India find courses to join.\nUse web search, which is limited to official government and university sites, to find course admissions that are open or opening soon for Karnataka students: PUC (Class 11) admissions, diploma and polytechnic admissions, ITI admissions, and degree admissions through state bodies (for example the Karnataka Department of Technical Education, the Department of Pre-University Education, the Department of Skill Development, KEA and Karnataka state universities). Up to 8 items. List only what you saw on a page in the search results, with that page\'s own address as url. Never invent a date or a number. Skip anything whose last date has passed. Set closes to the last date to apply. Keep every field short.' + AUD + '\n' + RULES_TEXT + '\nUse lvl 12 only when Class 12 is needed to join. Reply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[' + JOB_SHAPE + ']}</json>';
 }
 var TRAIN_SHAPE = '{"title":"","provider":"who runs it","free":true,"cost":"as printed, or empty","ageMin":15,"ageMax":45,"level":"none or 10 or 12 or degree","length":"how long","who":"who can join in one sentence","line":"one short sentence","srcName":"site name","url":""}';
 function promptT(today) {
-  return 'Today is ' + today + '. You help young people in Karnataka, India find skill training.\nUse web search on any site to find skill training programs open to join for candidates in Karnataka, preferring government schemes (for example Kaushalya Karnataka, the Karnataka Skill Development Corporation, Skill India Digital, PMKVY, NSDC, the Government Tool Rooms and training centres, and ITI short courses) and also a few well known free or low-cost private programs. Up to 8 programs. List only what you saw on a page in the search results, with that page\'s own address as url, preferring the official page. Never invent a cost, an age limit or a provider. Skip anything that asks the applicant to pay a registration fee or deposit to be considered. Keep every field short.\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"programs":[' + TRAIN_SHAPE + ']}</json>';
+  return 'Today is ' + today + '. You help young people in Karnataka, India find skill training.\nUse web search on any site to find skill training programs open to join for candidates in Karnataka, preferring government schemes (for example Kaushalya Karnataka, the Karnataka Skill Development Corporation, Skill India Digital, PMKVY, NSDC, the Government Tool Rooms and training centres, and ITI short courses) and also a few well known free or low-cost private programs. Up to 8 programs. List only what you saw on a page in the search results, with that page\'s own address as url, preferring the official page. Never invent a cost, an age limit or a provider. Skip anything that asks the applicant to pay a registration fee or deposit to be considered. Keep every field short.' + AUD + '\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"programs":[' + TRAIN_SHAPE + ']}</json>';
 }
 function promptB(today) {
-  return 'Today is ' + today + '. You help job seekers in India (Karnataka first, then central government).\nUse web search on any site to find government job recruitments that are open to apply for right now, in Karnataka or central government, at any qualification level. Up to 10 jobs. List only what you saw on a page in the search results, with that page\'s own address as url. Never invent a date or a number. Skip anything already closed. Keep every field short.\n' + RULES_TEXT + '\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[' + JOB_SHAPE + ']}</json>';
+  return 'Today is ' + today + '. You help job seekers in India (Karnataka first, then central government).\nUse web search on any site to find government job recruitments that are open to apply for right now, in Karnataka or central government, at any qualification level. Up to 10 jobs. List only what you saw on a page in the search results, with that page\'s own address as url. Never invent a date or a number. Skip anything already closed. Keep every field short.' + AUD + '\n' + RULES_TEXT + '\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[' + JOB_SHAPE + ']}</json>';
 }
 var PVT_SHAPE = '{"title":"","company":"","city":"","line":"one short sentence","pay":"as printed, or empty","minExp":0,"edu":"10 or 12 or diploma or degree or pg","skills":[],"closes":"YYYY-MM-DD or null","srcName":"site name","url":""}';
 function promptC(today) {
-  return 'Today is ' + today + '. You help job seekers in India.\nUse web search on any site to find private-sector jobs that are open right now in Bengaluru and elsewhere in Karnataka. Cover a mix: entry-level and fresher roles, Class 10 or Class 12 pass roles (delivery, retail, office assistant, driver, technician, security), diploma or ITI roles, and graduate roles. Up to 10 jobs. List only what you saw on a page in the search results, and use that page\'s own address as url, preferring the employer\'s own careers page over a job board. Never invent a company, pay or date. Skip anything that asks the applicant to pay any fee or deposit, anything vague about the employer, and anything already closed. Keep every field short; edu is the lowest qualification asked for, and minExp is the years of experience asked for (0 if freshers can apply).\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[' + PVT_SHAPE + ']}</json>';
+  return 'Today is ' + today + '. You help job seekers in India.\nUse web search on any site to find private-sector jobs that are open right now in Bengaluru and elsewhere in Karnataka. Cover a mix: entry-level and fresher roles, Class 10 or Class 12 pass roles (delivery, retail, office assistant, driver, technician, security), diploma or ITI roles, and graduate roles. Up to 10 jobs. List only what you saw on a page in the search results, and use that page\'s own address as url, preferring the employer\'s own careers page over a job board. Never invent a company, pay or date. Skip anything that asks the applicant to pay any fee or deposit, anything vague about the employer, and anything already closed. Keep every field short; edu is the lowest qualification asked for, and minExp is the years of experience asked for (0 if freshers can apply). Skip jobs with no named employer or no apply link, and pay that looks too good to be true.' + AUD + '\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[' + PVT_SHAPE + ']}</json>';
 }
 /* Role families for private jobs. Each is its own search, so roles like software and Agile get looked for by name. */
 var FAMILIES = [
@@ -241,11 +301,11 @@ var FAMILIES = [
   { id: 'acc', name: 'Accounts and finance', roles: 'Accountant, Accounts Executive, Tally, GST or Taxation Executive, Bookkeeper, Finance Analyst, Banking or Loan Officer', levels: 'freshers, 1 to 3 years, and 3 to 8 years' }
 ];
 function promptF(today, f) {
-  return 'Today is ' + today + '. You help job seekers in India.\nUse web search on any site, job boards included (for example Naukri, LinkedIn, Indeed, Foundit and company career pages), to find ' + f.name + ' jobs that are open right now in Bengaluru and elsewhere in Karnataka. Roles to look for: ' + f.roles + '. Include a spread of levels: ' + f.levels + '. Up to 10 jobs. List only what you saw on a page in the search results, and use that page\'s own address as url. Never invent a company, pay or date. Skip anything that asks the applicant to pay any fee or deposit, anything vague about the employer, and anything already closed. Keep every field short; edu is the lowest qualification asked for, and minExp is the years of experience asked for (0 if freshers can apply).\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[' + PVT_SHAPE + ']}</json>';
+  return 'Today is ' + today + '. You help job seekers in India.\nUse web search on any site, job boards included (for example Naukri, LinkedIn, Indeed, Foundit and company career pages), to find ' + f.name + ' jobs that are open right now in Bengaluru and elsewhere in Karnataka. Roles to look for: ' + f.roles + '. Include a spread of levels: ' + f.levels + '. Up to 10 jobs. List only what you saw on a page in the search results, and use that page\'s own address as url. Never invent a company, pay or date. Skip anything that asks the applicant to pay any fee or deposit, anything vague about the employer, and anything already closed. Keep every field short; edu is the lowest qualification asked for, and minExp is the years of experience asked for (0 if freshers can apply). Skip jobs with no named employer or no apply link, and pay that looks too good to be true.' + AUD + '\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[' + PVT_SHAPE + ']}</json>';
 }
 var SCH_SHAPE = '{"title":"","provider":"who offers it","gov":true,"level":"10 or 12 or diploma or degree or pg","amount":"as printed, or empty","who":"who can apply in one sentence, with income limit, category or marks if stated","line":"one short sentence","closes":"YYYY-MM-DD or null","srcName":"site name","url":""}';
 function promptS(today) {
-  return 'Today is ' + today + '. You help students in Karnataka, India find scholarships.\nUse web search on any site to find scholarships that are open to apply for right now (or open soon) for students in Karnataka: (1) government schemes, state and central (for example through the State Scholarship Portal, the National Scholarship Portal, Karnataka Social Welfare, Backward Classes, Minorities and other departments, and AICTE or UGC schemes), and (2) private scholarships offered by foundations, trusts and companies (for example Reliance Foundation, Tata, HDFC, Azim Premji, Buddy4Study listings). Cover a mix of levels: Class 10 pass students going to PUC, ITI or diploma, Class 12 pass students, and degree students. Up to 12 scholarships, about half government and half private. List only what you saw on a page in the search results, with that page\'s own address as url, preferring the provider\'s own page. Set gov to true only for government schemes. Never invent an amount, a date or a provider. Skip anything that asks the applicant to pay any fee, and anything already closed. Keep every field short.\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"scholarships":[' + SCH_SHAPE + ']}</json>';
+  return 'Today is ' + today + '. You help students in Karnataka, India find scholarships.\nUse web search on any site to find scholarships that are open to apply for right now (or open soon) for students in Karnataka: (1) government schemes, state and central (for example through the State Scholarship Portal, the National Scholarship Portal, Karnataka Social Welfare, Backward Classes, Minorities and other departments, and AICTE or UGC schemes), and (2) private scholarships offered by foundations, trusts and companies (for example Reliance Foundation, Tata, HDFC, Azim Premji, Buddy4Study listings). Cover a mix of levels: Class 10 pass students going to PUC, ITI or diploma, Class 12 pass students, and degree students. Up to 12 scholarships, about half government and half private. List only what you saw on a page in the search results, with that page\'s own address as url, preferring the provider\'s own page. Set gov to true only for government schemes. Never invent an amount, a date or a provider. Skip anything that asks the applicant to pay any fee, and anything already closed. Keep every field short.' + AUD + '\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"scholarships":[' + SCH_SHAPE + ']}</json>';
 }
 function addUsage(a, b) { return { input_tokens: (a.input_tokens || 0) + (b.input_tokens || 0), output_tokens: (a.output_tokens || 0) + (b.output_tokens || 0), searches: (a.searches || 0) + (b.searches || 0), inr: (a.inr || 0) + (b.inr || 0), fellBack: !!(a.fellBack || b.fellBack) }; }
 /* The daily job has two steps so each fits in one request. Step A searches official government sites only and starts a fresh draft. Step B searches anywhere for posts step A missed; those are "leads" that need an official notice link before they can be approved. Nothing reaches users until it is approved. */
@@ -268,7 +328,7 @@ async function runStep(env, step, runId, fam) {
     if (!A.ok) return { error: A.error, stop: A.stop, len: A.len, tail: A.tail, status: A.status, usage: A.u };
     var rawA = Array.isArray(A.o.jobs) ? A.o.jobs.length : 0, itemsA = [];
     (Array.isArray(A.o.jobs) ? A.o.jobs : []).forEach(function (x) { var c = cleanRecord(x, A.seen, today); if (c && !known[c.id]) { c.run = runId; itemsA.push(c); } });
-    var mA = await mergeDraft(dedupeTitles(itemsA), A.u);
+    var mA = await mergeDraft(await vet(dedupeTitles(itemsA)), A.u);
     return { ok: true, n: mA.n, leads: mA.leads, usage: A.u, stats: { raw: rawA, added: mA.added } };
   }
   if (step === 'E') {
@@ -276,7 +336,7 @@ async function runStep(env, step, runId, fam) {
     if (!E.ok) return { error: E.error, stop: E.stop, len: E.len, tail: E.tail, status: E.status, usage: E.u };
     var rawE = Array.isArray(E.o.exams) ? E.o.exams.length : 0, itemsE = [];
     (Array.isArray(E.o.exams) ? E.o.exams : []).forEach(function (x) { var c = cleanExam(x, E.seen, today); if (c && !known[c.id]) { c.run = runId; itemsE.push(c); } });
-    var mE = await mergeDraft(dedupeTitles(itemsE), E.u);
+    var mE = await mergeDraft(await vet(dedupeTitles(itemsE)), E.u);
     return { ok: true, n: mE.n, leads: mE.leads, usage: E.u, stats: { raw: rawE, added: mE.added } };
   }
   if (step === 'K') {
@@ -284,7 +344,7 @@ async function runStep(env, step, runId, fam) {
     if (!K.ok) return { error: K.error, stop: K.stop, len: K.len, tail: K.tail, status: K.status, usage: K.u };
     var rawK = Array.isArray(K.o.jobs) ? K.o.jobs.length : 0, itemsK = [];
     (Array.isArray(K.o.jobs) ? K.o.jobs : []).slice(0, 10).forEach(function (x) { var c = cleanRecord(x, K.seen, today, 'study'); if (c && !known[c.id]) { c.run = runId; itemsK.push(c); } });
-    var mK = await mergeDraft(dedupeTitles(itemsK), K.u);
+    var mK = await mergeDraft(await vet(dedupeTitles(itemsK)), K.u);
     return { ok: true, n: mK.n, leads: mK.leads, usage: K.u, stats: { raw: rawK, added: mK.added } };
   }
   if (step === 'T') {
@@ -292,7 +352,7 @@ async function runStep(env, step, runId, fam) {
     if (!T.ok) return { error: T.error, stop: T.stop, len: T.len, tail: T.tail, status: T.status, usage: T.u };
     var rawT = Array.isArray(T.o.programs) ? T.o.programs.length : 0, itemsT = [], kt = {}; (live.train || []).forEach(function (x) { kt[x.id] = 1; });
     (Array.isArray(T.o.programs) ? T.o.programs : []).slice(0, 10).forEach(function (x) { var c = cleanTrain(x, T.seen, today); if (c && !kt[c.id]) { c.run = runId; itemsT.push(c); } });
-    var mT = await mergeDraft(dedupeTitles(itemsT), T.u);
+    var mT = await mergeDraft(await vet(dedupeTitles(itemsT)), T.u);
     return { ok: true, n: mT.n, leads: mT.leads, usage: T.u, stats: { raw: rawT, added: mT.added } };
   }
   if (step === 'S') {
@@ -305,6 +365,7 @@ async function runStep(env, step, runId, fam) {
       raws++; var c = cleanSch(x, S.seen, today); if (!c) { bads++; return; } c.run = runId;
       var nk = nkey(c.org + c.title); if (ids3[c.id] || ts.indexOf(nk) >= 0) { dups++; return; } ts.push(nk); ids3[c.id] = 1; ds.items.push(c); adds++;
     });
+    await vet(ds.items.filter(function (x) { return x.run === runId && !x.trust; }));
     ds.usage = addUsage(ds.usage || {}, S.u); ds.at = Date.now();
     await env.LIMITS.put('draft', JSON.stringify(ds));
     return { ok: true, n: ds.items.length, leads: ds.items.filter(function (x) { return x.lead; }).length, usage: S.u, stats: { raw: raws, added: adds, dup: dups, bad: bads } };
@@ -319,6 +380,7 @@ async function runStep(env, step, runId, fam) {
       rawc++; var c = cleanPvt(x, C.seen, today); if (!c) { badc++; return; } c.run = runId; if (fam) c.fam = fam.id; if (idc[c.id]) { dupc++; return; }
       var nk = nkey(c.org + c.title); if (tc.indexOf(nk) >= 0) { dupc++; return; } tc.push(nk); idc[c.id] = 1; dc.items.push(c); addc++;
     });
+    await vet(dc.items.filter(function (x) { return x.run === runId && !x.trust; }));
     dc.usage = addUsage(dc.usage || {}, C.u); dc.passC = 'ok'; dc.at = Date.now();
     await env.LIMITS.put('draft', JSON.stringify(dc));
     return { ok: true, n: dc.items.length, leads: dc.items.filter(function (x) { return x.lead; }).length, pvt: addc, usage: C.u, stats: { raw: rawc, added: addc, dup: dupc, bad: badc } };
@@ -333,6 +395,7 @@ async function runStep(env, step, runId, fam) {
     if (!c.official) c.lead = true;
     titles2.push(nk); ids[c.id] = 1; d.items.push(c); added++;
   });
+  await vet(d.items.filter(function (x) { return x.run === runId && !x.trust; }));
   d.usage = addUsage(d.usage || {}, B.u); d.passB = 'ok'; d.at = Date.now();
   await env.LIMITS.put('draft', JSON.stringify(d));
   return { ok: true, n: d.items.length, leads: d.items.filter(function (x) { return x.lead; }).length, usage: B.u, stats: { raw: rawb, added: added, dup: dupb, bad: badb } };

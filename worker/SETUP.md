@@ -55,3 +55,9 @@ Pass A searches official government sites only (gov.in, nic.in, ibps.in, ac.in, 
 - Searches are spread over three cron slots so they do not all run at once. In Cloudflare, open the Worker → Triggers → Cron Triggers and have all three: `0 2 * * *`, `20 2 * * *` and `40 2 * * *`.
 - Approved Courses show under **Explore → Courses**, and approved Trainings under **Explore → Trainings**. Nothing reaches users before you approve it. **Approve all** on a list approves every item that has the required checks done.
 - Redeploy `worker.js` (paste the new file) for the new searches and schedules to work. The review page and app update by themselves.
+
+### Better, more genuine finds (search optimisation)
+- Every search now tells the model who the app is for (Class 10, Class 12, ITI or diploma, degree) and to skip results pages, answer keys, admit cards, seat allotments and postgraduate-only posts. A title filter in the Worker also drops those.
+- After each search, the Worker opens every notice page itself (up to 14 at a time) and checks that the title and the last date really appear on it. Government sites sometimes block this; those finds are marked "not checked" and are not dropped.
+- Each find gets a **Trust score** (0 to 100): official page, a link to the specific notice, a date found, and the page check. The review page shows the score with the reasons, lists the strongest finds first, and **Approve those** only includes finds scoring 60 or more whose page check did not fail. The score helps you decide; it does not replace opening the notice.
+- Redeploy `worker.js` for this to work. The review page updates by itself.

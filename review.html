@@ -19,6 +19,7 @@ label{font-size:13px;color:var(--mu);display:flex;flex-direction:column;gap:2px}
 button.tb{border-radius:999px;min-height:40px;padding:8px 14px}button.tb.on{background:var(--ac);border-color:var(--ac);color:#fff}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 4px}
 ul{margin:8px 0 0;padding-left:18px}li{margin:2px 0}a{color:var(--ac)}
 .err{color:var(--bad);font-weight:600}
+.tr{margin:6px 0;padding:6px 8px;border-left:3px solid var(--ln);background:var(--bg);border-radius:6px}
 #msg:not(:empty){position:sticky;top:0;z-index:20;background:var(--s);border:1px solid var(--ln);border-radius:10px;padding:10px 12px;margin:6px 0;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.15)}
 
 .top{display:flex;align-items:center;gap:8px}.top h1{flex:1;margin:0}.pill{font-size:12.5px;font-weight:700;padding:5px 10px;border-radius:12px;background:var(--s);box-shadow:inset 0 0 0 1px var(--ln)}
@@ -59,10 +60,11 @@ function chk(t,ok){return '<span class="'+(ok?'ok':'wr')+'">'+(ok?'✓ ':'! ')+t
 function checks(x){var k=kindOf(x),c=[];c.push(chk(x.official||x.off?'Official site':'Not an official site',!!(x.official||x.off)));
   var d=x.closes||x.d;if(k!=='train')c.push(chk(d?'Date found':'No date found',!!d));
   c.push(chk('No fee words',true));return '<div class="chks">'+c.join('')+'</div>'}
-function good(x){var k=kindOf(x);if(x.lead)return false;if(k==='govt'||k==='course')return !!(x.official&&x.closes);if(k==='exam')return !!(x.official&&x.d);if(k==='sch')return !!(x.official&&x.closes);if(k==='train')return !!x.off;return false}
+function good(x){var k=kindOf(x);if(x.lead)return false;if(x.trust!=null&&x.trust<60)return false;if(x.ver&&x.ver.s==='no')return false;if(k==='govt'||k==='course')return !!(x.official&&x.closes);if(k==='exam')return !!(x.official&&x.d);if(k==='sch')return !!(x.official&&x.closes);if(k==='train')return !!x.off;return false}
+function trustBox(x){if(x.trust==null)return '';var c=x.tl==='High'?'ok':x.tl==='Low'?'err':'wr';return '<div class="tr"><span class="'+c+'"><b>Trust '+x.trust+' · '+esc(x.tl)+'</b></span>'+(x.ver&&x.ver.t?'<div class="mu" style="margin-top:2px">'+esc(x.ver.t)+'</div>':'')+'<div class="mu" style="font-size:12px">'+(x.why||[]).map(esc).join(' · ')+'</div></div>'}
 function card(x,i){
   var k=kindOf(x),tag=k==='sch'?(x.gov?'Govt scholarship':'Private scholarship · not official · never pay to apply'):k==='pvt'?'Private job · '+esc(x.via||'')+' · never pay to get a job':k==='train'?(x.off?'Official site':'Not an official site'):x.lead?'Lead: official notice not found':x.official?'Official site':'Not an official site';
-  var h='<div class="c" data-i="'+i+'"><div class="row" style="margin:0 0 6px"><span class="t '+((x.official||x.off)&&!x.lead&&k!=='pvt'?'':'w')+'">'+tag+'</span></div><h3>'+esc(x.title)+'</h3><div class="mu">'+esc(x.org)+'</div><p>'+esc(x.line)+'</p>'+checks(x);
+  var h='<div class="c" data-i="'+i+'"><div class="row" style="margin:0 0 6px"><span class="t '+((x.official||x.off)&&!x.lead&&k!=='pvt'?'':'w')+'">'+tag+'</span></div><h3>'+esc(x.title)+'</h3><div class="mu">'+esc(x.org)+'</div>'+trustBox(x)+'<p>'+esc(x.line)+'</p>'+checks(x);
   if(x.lead)h+='<label style="margin-top:8px">Official notice link (gov.in, nic.in, ibps.in, ac.in or edu.in)<input class="w" data-f="olink" type="url" placeholder="https://..."></label>';
   if(k==='pvt'){h+='<div class="fl"><label>Apply by<input data-f="closes" type="date" value="'+esc(x.closes||'')+'"></label><label>Years needed<input data-f="minExp" type="number" value="'+esc(x.minExp||0)+'"></label><label>Qualification'+sel('edu',x.edu||'',EDUO)+'</label></div><p class="mu">Where: '+esc(x.place||'')+'</p>'}
   else if(k==='sch'){h+='<div class="fl"><label>Last date<input data-f="closes" type="date" value="'+esc(x.closes||'')+'"></label><label>Level'+sel('level',x.level||'',EDUO)+'</label><label>Offered by'+sel('gov',x.gov?'1':'0',[['1','Government'],['0','Private']])+'</label></div><p class="mu">Amount: '+esc(x.amount||'not stated')+' · Who: '+esc(x.who||'not stated')+'</p>'}
@@ -107,7 +109,7 @@ function drawHome(j){
   $('view').innerHTML=h}
 function drawQueue(j){
   var c=counts(),tabs=KORDER.map(function(k){return '<button type="button" class="tb'+(k===TAB?' on':'')+'" data-tab="'+k+'">'+KN[k]+' ('+c[k]+')</button>'}).join('');
-  var items=[];DRAFT.forEach(function(x,i){if(kindOf(x)===TAB)items.push([x,i])});
+  var items=[];DRAFT.forEach(function(x,i){if(kindOf(x)===TAB)items.push([x,i])});items.sort(function(a,b){return (b[0].trust==null?-1:b[0].trust)-(a[0].trust==null?-1:a[0].trust)});
   var nOff=items.filter(function(p){return good(p[0])}).length,nLead=items.filter(function(p){return p[0].lead}).length,fil='';
   if(TAB==='govt'||TAB==='course'){fil='<div class="tabs" style="margin-top:8px">'+[['all','All',items.length],['good','Official link',nOff],['lead','Leads',nLead]].map(function(f){return '<button type="button" class="tb'+(FILT===f[0]?' on':'')+'" data-filt="'+f[0]+'">'+f[1]+' ('+f[2]+')</button>'}).join('')+'</div>'}
   else FILT='all';
