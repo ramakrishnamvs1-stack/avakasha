@@ -19,6 +19,7 @@ label{font-size:13px;color:var(--mu);display:flex;flex-direction:column;gap:2px}
 button.tb{border-radius:999px;min-height:40px;padding:8px 14px}button.tb.on{background:var(--ac);border-color:var(--ac);color:#fff}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 4px}
 ul{margin:8px 0 0;padding-left:18px}li{margin:2px 0}a{color:var(--ac)}
 .err{color:var(--bad);font-weight:600}
+#msg:not(:empty){position:sticky;top:0;z-index:20;background:var(--s);border:1px solid var(--ln);border-radius:10px;padding:10px 12px;margin:6px 0;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.15)}
 
 .top{display:flex;align-items:center;gap:8px}.top h1{flex:1;margin:0}.pill{font-size:12.5px;font-weight:700;padding:5px 10px;border-radius:12px;background:var(--s);box-shadow:inset 0 0 0 1px var(--ln)}
 .kc h3{display:flex;align-items:center;gap:8px}.kc h3 span:first-child{flex:1}.wt{font-size:12px;font-weight:700;padding:3px 9px;border-radius:9px;background:var(--wb);color:var(--warn)}
@@ -133,7 +134,7 @@ function openSheet(k){var s=LASTJ.sched[k];SH={k:k,s:{mode:s.mode,days:s.days.sl
 /* ---- running ---- */
 var BUSY=false;
 async function runKind(k){var kd=LASTJ.kinds.filter(function(x){return x.id===k})[0];for(var i=0;i<kd.steps.length;i++){$('msg').textContent='Searching '+kd.name.toLowerCase()+' (step '+(i+1)+' of '+kd.steps.length+')… keep this page open.';await api({action:'runstep',step:kd.steps[i]})}}
-async function doRuns(kinds){if(BUSY)return;BUSY=true;try{for(var i=0;i<kinds.length;i++)await runKind(kinds[i]);$('msg').textContent=''}catch(e){$('msg').innerHTML='<span class="err">'+esc(e.message==='too_soon'?'The govt jobs search ran less than an hour ago. Try again later.':e.message)+'</span> <span class="mu">'+esc(e.detail||'')+'</span>'}BUSY=false;try{draw(await api({action:'list'}))}catch(x){}}
+async function doRuns(kinds){if(BUSY){$('msg').textContent='A search is already running. Please wait for it to finish.';return}BUSY=true;try{for(var i=0;i<kinds.length;i++)await runKind(kinds[i]);$('msg').textContent=''}catch(e){$('msg').innerHTML='<span class="err">'+esc(e.message==='too_soon'?'The govt jobs search ran less than an hour ago. Try again later.':e.message)+'</span> <span class="mu">'+esc(e.detail||'')+'</span>'}BUSY=false;try{draw(await api({action:'list'}))}catch(x){}}
 async function load(a){$('msg').textContent='Working…';try{var j=await api(a||{action:'list'});draw(j);if(!(j.last&&!j.last.ok))$('msg').textContent=''}catch(e){$('msg').innerHTML='<span class="err">'+esc(e.message)+'</span>'}}
 $('go').onclick=async function(){KEY=$('key').value;try{var j=await api({action:'list'});try{sessionStorage.setItem('ak',KEY)}catch(e){}$('login').hidden=true;$('main').hidden=false;draw(j)}catch(e){$('lerr').textContent=e.message==='forbidden'?'Wrong key.':e.message}};
 document.addEventListener('click',function(e){var b=e.target.closest('button,[data-x]');if(!b)return;var d=b.dataset;
