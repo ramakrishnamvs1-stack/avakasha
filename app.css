@@ -489,3 +489,5 @@ button.pchip{cursor:pointer}.pchip.dash{background:none;border:1.5px dashed var(
 @keyframes bwKnO{0%,30%{opacity:0;filter:blur(6px);transform:translateY(.25em) scale(1.04)}62%,100%{opacity:1;filter:blur(0);transform:none}}
 @media (prefers-reduced-motion:reduce){.bw .en,.bw .kn{animation:none!important}.bw .kn{display:none}.bw .en{opacity:1}}
 .splash .bw{justify-items:center}.splash .bw>span{justify-self:center;text-align:center}
+
+.brand .bw.go .en,.brand .bw.go .kn{animation-delay:-3.1s}

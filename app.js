@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '66';
+var APPVER = '67';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -824,6 +824,9 @@ function ecard(i) {
   var T = XTYPES.filter(function (t) { return t[0] === i.type; })[0], lv = i.g === 2 ? 'After Class ' + (i.min === 3 ? 'graduation' : '12') : XLAB[i.min];
   return '<div class="ec"><a class="ecb" href="' + i.href + '"><span class="ect"><b class="et-' + T[3] + '">' + T[2] + '</b><span class="el' + (i.g === 2 ? ' lk' : '') + '">' + esc(lv) + '</span></span><span class="ect2">' + esc(i.title) + '</span><span class="eo">' + esc(i.org) + '</span><span class="ew">' + esc(i.when) + '</span><span class="ef ' + (i.ok ? 'ok' : 'ck') + '">' + (i.ok ? '✓ ' : '! ') + esc(i.fit) + '</span></a>' + heart(i.sk, i.id) + '</div>';
 }
+/* Replays the English to Kannada swap in the top bar each time a section opens, so it is seen on arrival. */
+var LASTBP = '';
+function brandPlay(h) { if (h === 'home') { LASTBP = ''; return; } if (h === LASTBP) return; LASTBP = h; var b = document.querySelector('.brand .bw'); if (!b) return; b.classList.remove('loop'); void b.offsetWidth; b.classList.add('loop', 'go'); }
 function renderExplore() {
   var p = prof(), f = F(), hasF = !!(p && Object.keys(p.facts).length), S = xState(f, p), L = S.all;
   var types = XQ.types, on = function (t) { return !types || types.indexOf(t) >= 0; };
@@ -1521,10 +1524,11 @@ document.addEventListener('click', function (e) {
   toast(on ? 'Saved.' : 'Removed from saved.'); renderTop(route().r); if (route().r === 'saved') renderSaved();
 }, true);
 function route() { var h = location.hash.replace('#', ''); if (h.indexOf('job/') === 0) return { r: 'job', id: decodeURIComponent(h.slice(4)) }; if (h.indexOf('x/') === 0) return { r: 'x', id: decodeURIComponent(h.slice(2)) }; if (h.indexOf('t/') === 0) return { r: 't', id: decodeURIComponent(h.slice(2)) }; if (h.indexOf('ex/') === 0) return { r: 'explore', t: h.slice(3) }; if (h === 'train') return { r: 'explore', t: 'train' }; if (h === 'saved') return { r: 'saved' }; if (h.indexOf('study/') === 0) return { r: 'study', st: h.slice(6) }; if (h === 'scholar') return { r: 'explore', t: 'sch' }; if (h === 'exams') return { r: 'explore', t: 'exam' }; if (h === 'govt' || h === 'pvt') return { r: 'explore', t: h }; if (h === 'study' || h === 'summary') return { r: h }; if (h === 'explore' || h === 'profile') return { r: h }; return { r: 'home' }; }
+var BWHTML = '<span class="bw loop" aria-hidden="true"><span class="en">avakasha</span><span class="kn" lang="kn">ಅವಕಾಶ</span></span>';
 function renderTop(r) {
   var p = prof(), b = $('avatar'), br = document.querySelector('.brand'), sb = $('savedBtn');
   if (sb) { var sn = savedList().length; sb.hidden = r === 'profile' || !p; sb.innerHTML = HEART + (sn ? '<span class="cnt">' + sn + '</span>' : ''); sb.setAttribute('aria-label', 'Saved, ' + sn + (sn === 1 ? ' item' : ' items')); sb.onclick = function () { location.hash = '#saved'; }; }
-  br.innerHTML = r === 'profile' ? '<svg viewBox="0 0 24 24" aria-hidden="true" style="width:22px;height:22px;vertical-align:-4px;margin-right:8px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round"><path d="M15 5l-7 7 7 7"/></svg>Profile' : 'Avakasha'; br.style.color = r === 'profile' ? 'var(--ink)' : '';
+  var nh = r === 'profile' ? '<svg viewBox="0 0 24 24" aria-hidden="true" style="width:22px;height:22px;vertical-align:-4px;margin-right:8px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round"><path d="M15 5l-7 7 7 7"/></svg>Profile' : BWHTML; if (br.getAttribute('data-k') !== (r === 'profile' ? 'p' : 'b')) { br.innerHTML = nh; br.setAttribute('data-k', r === 'profile' ? 'p' : 'b'); } if (r === 'profile') br.removeAttribute('aria-label'); else br.setAttribute('aria-label', 'Avakasha'); br.style.color = r === 'profile' ? 'var(--ink)' : '';
   if (r === 'profile' && p) { b.className = 'avatar pill'; b.setAttribute('aria-label', 'Switch person or open menu'); b.innerHTML = '<span class="av">' + initial(p.name) + '</span><span class="an">' + esc(p.name) + '</span>' + CHEVD; b.onclick = peopleSheet; }
   else if (r === 'profile') { b.className = 'avatar pill'; b.setAttribute('aria-label', 'Menu'); b.innerHTML = '<span class="an" style="padding-left:8px">Menu</span>' + CHEVD; b.onclick = menuSheet; }
   else { b.className = 'avatar'; b.setAttribute('aria-label', 'Open profile'); b.innerHTML = '<span class="av">' + (p ? initial(p.name) : '<svg viewBox="0 0 24 24" aria-hidden="true" style="stroke:#fff;width:20px;height:20px"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>') + '</span>'; b.onclick = function () { location.hash = '#profile'; }; }
@@ -1544,7 +1548,7 @@ function render() {
   document.body.classList.toggle('is-sub', h === 'exams' || h === 'govt' || h === 'pvt' || h === 'train' || h === 'saved' || h === 'study' || h === 'scholar' || h === 'summary');
   document.body.classList.toggle('is-home', h === 'home');
   $('nav-home').setAttribute('aria-current', h === 'home' ? 'page' : 'false'); $('nav-explore').setAttribute('aria-current', h === 'explore' ? 'page' : 'false');
-  renderTop(h);
+  renderTop(h); brandPlay(h);
   if (!DATA) return;
   if (h === 'explore') refreshLive();
   if (h === 'job') renderDetail(rt.id); else if (h === 'x') renderX(rt.id); else if (h === 't') renderT(rt.id); else if (h === 'saved') renderSaved(); else if (h === 'summary') renderSummary(); else if (h === 'study') renderPaths('study', rt.st); else if (h === 'explore') renderExplore(); else if (h === 'profile') renderProfile(); else renderHome();
