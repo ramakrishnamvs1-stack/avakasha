@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '74', APPDATE = '11.26'; /* shown as v<build>.<month>.<year>; change APPDATE when the month changes */
+var APPVER = '75', APPDATE = '11.26'; /* shown as v<build>.<month>.<year>; change APPDATE when the month changes */
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -1628,5 +1628,26 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.addEventListener('controllerchange', function () { if (hadSW && !reloaded) { reloaded = true; location.reload(); } });
   navigator.serviceWorker.register('sw.js').then(function (r) { r.update(); }).catch(function () {});
 }
+/* iPhone/iPad: show how to install (Safari only). Hidden once installed or dismissed. */
+(function () {
+  try {
+    var ua = navigator.userAgent || '';
+    var ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    var installed = window.navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+    if (!ios || installed) return;
+    var gone = false; try { gone = localStorage.getItem('pa_ioshint') === '1'; } catch (e) {}
+    if (gone) return;
+    var safari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS|GSA|FBAN|FBAV|Instagram|Line|Snapchat/.test(ua);
+    setTimeout(function () {
+      var d = document.createElement('div'); d.className = 'ioshint'; d.setAttribute('role', 'dialog');
+      d.innerHTML = '<b>Install myavakasha on your iPhone</b><p>' + (safari
+        ? 'Tap the Share button <span aria-hidden="true">\u2191</span> at the bottom of Safari, then choose <b>Add to Home Screen</b>.'
+        : 'Open this link in <b>Safari</b> (tap the compass or \u2022\u2022\u2022 menu, then Open in Safari). Then tap Share and choose <b>Add to Home Screen</b>.')
+        + '</p><button type="button">Got it</button>';
+      d.querySelector('button').onclick = function () { try { localStorage.setItem('pa_ioshint', '1'); } catch (e) {} d.remove(); };
+      document.body.appendChild(d);
+    }, 6000);
+  } catch (e) {}
+})();
 window.__app = { DB: function () { return DB; }, parse: parse, findDob: findDob };
 })();

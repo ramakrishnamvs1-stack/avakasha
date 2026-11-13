@@ -502,3 +502,6 @@ button.pchip{cursor:pointer}.pchip.dash{background:none;border:1.5px dashed var(
 .splash .bw.nm::before{left:calc(50% - .42em)}
 .splash .bw.nm::after{left:calc(50% + .14em)}
 .splash .bw.nm::before,.splash .bw.nm::after{box-shadow:0 0 0 1.5px rgba(255,255,255,.9)}
+
+.ioshint{position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom,0));z-index:70;background:var(--ink);color:var(--bg);border-radius:14px;padding:14px 16px;box-shadow:0 8px 28px rgba(0,0,0,.3);font-size:14px;line-height:1.45;max-width:420px;margin:0 auto}
+.ioshint p{margin:6px 0 10px}.ioshint button{background:var(--bg);color:var(--ink);border:0;border-radius:999px;padding:8px 18px;font:inherit;font-weight:700}
