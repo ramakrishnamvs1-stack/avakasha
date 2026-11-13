@@ -1,8 +1,8 @@
 /* Offline cache. Bump VERSION whenever any file changes so phones pick up the update. */
-var VERSION = 'pa10-v71';
+var VERSION = 'pa10-v72';
 var SHELL = [
   './', './index.html', './app.css', './app.js', './config.js', './manifest.webmanifest',
-  './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png',
+  './icons/icon-192.png?v=72', './icons/icon-512.png?v=72', './icons/maskable-512.png?v=72',
   './vendor/tesseract/tesseract.min.js', './vendor/tesseract/worker.min.js',
   './vendor/tesseract/tesseract-core-lstm.wasm.js', './vendor/tesseract/tesseract-core-simd-lstm.wasm.js',
   './vendor/tesseract/eng.traineddata.gz'

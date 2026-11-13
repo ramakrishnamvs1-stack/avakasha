@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '71', APPDATE = '11.26'; /* shown as v<build>.<month>.<year>; change APPDATE when the month changes */
+var APPVER = '72', APPDATE = '11.26'; /* shown as v<build>.<month>.<year>; change APPDATE when the month changes */
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
