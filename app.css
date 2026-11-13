@@ -474,3 +474,18 @@ button.pchip{cursor:pointer}.pchip.dash{background:none;border:1.5px dashed var(
 .ect2{font-size:16px;font-weight:700;line-height:1.25}.eo{font-size:13.5px;color:var(--muted)}.ew{font-size:13px;font-weight:600}
 .ef{font-size:13px;font-weight:600}.ef.ok{color:var(--good)}.ef.ck{color:var(--warn)}
 .ec .hrt{flex:none}
+
+/* v66: the name swaps between English and Kannada. Both words sit in one grid cell so the width never jumps. */
+.bw{display:inline-grid;vertical-align:baseline}
+.bw>span{grid-area:1/1;white-space:nowrap}
+.bw .kn{opacity:0;filter:blur(5px);font-family:"Noto Sans Kannada","Kohinoor Kannada","Nirmala UI",Tunga,system-ui,sans-serif;font-weight:700;letter-spacing:0}
+.bw.loop .en{animation:bwEn 9s ease-in-out infinite}
+.bw.loop .kn{animation:bwKn 9s ease-in-out infinite}
+.bw.once .en{animation:bwEnO 2.1s ease-in-out both}
+.bw.once .kn{animation:bwKnO 2.1s ease-in-out both}
+@keyframes bwEn{0%,38%{opacity:1;filter:blur(0);transform:none}48%,90%{opacity:0;filter:blur(5px);transform:translateY(-.22em)}100%{opacity:1;filter:blur(0);transform:none}}
+@keyframes bwKn{0%,38%{opacity:0;filter:blur(5px);transform:translateY(.22em)}48%,88%{opacity:1;filter:blur(0);transform:none}98%,100%{opacity:0;filter:blur(5px);transform:translateY(.22em)}}
+@keyframes bwEnO{0%,32%{opacity:1;filter:blur(0);transform:none}55%,100%{opacity:0;filter:blur(6px);transform:translateY(-.25em) scale(.96)}}
+@keyframes bwKnO{0%,30%{opacity:0;filter:blur(6px);transform:translateY(.25em) scale(1.04)}62%,100%{opacity:1;filter:blur(0);transform:none}}
+@media (prefers-reduced-motion:reduce){.bw .en,.bw .kn{animation:none!important}.bw .kn{display:none}.bw .en{opacity:1}}
+.splash .bw{justify-items:center}.splash .bw>span{justify-self:center;text-align:center}

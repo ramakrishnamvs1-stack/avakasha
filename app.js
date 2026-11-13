@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '65';
+var APPVER = '66';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -505,7 +505,7 @@ function nextCards() {
 }
 function homeTop() {
   var p = prof(), n = savedList().length;
-  return '<div class="htop"><span class="hhi">' + (p ? 'Hi, ' + esc(p.name) : 'avakasha') + '</span>' + (p && n ? '<a class="hsv" href="#saved" aria-label="Saved, ' + n + '">' + HEART + '<b>' + n + '</b></a>' : '') + '<a class="hav" href="#profile" aria-label="Open profile">' + (p ? initial(p.name) : '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>') + '</a></div>';
+  return '<div class="htop"><span class="hhi">' + (p ? 'Hi, ' + esc(p.name) : '<span class="bw loop" role="img" aria-label="Avakasha"><span class="en" aria-hidden="true">avakasha</span><span class="kn" lang="kn" aria-hidden="true">ಅವಕಾಶ</span></span>') + '</span>' + (p && n ? '<a class="hsv" href="#saved" aria-label="Saved, ' + n + '">' + HEART + '<b>' + n + '</b></a>' : '') + '<a class="hav" href="#profile" aria-label="Open profile">' + (p ? initial(p.name) : '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>') + '</a></div>';
 }
 function homeItems() {
   var out = upExams().filter(function (x) { return x.hero; }).slice(0, 3).map(function (x) { return { exam: x }; }), nx = nextCards();
@@ -1555,7 +1555,7 @@ wireCamera();
 (function () {
   var sp = $('splash'), seen = false; try { seen = sessionStorage.getItem('pa10.splash') === '1'; sessionStorage.setItem('pa10.splash', '1'); } catch (e) {}
   if (seen) { sp.remove(); return; }
-  setTimeout(function () { sp.classList.add('out'); setTimeout(function () { sp.remove(); }, 400); }, 1500);
+  setTimeout(function () { sp.classList.add('out'); setTimeout(function () { sp.remove(); }, 400); }, 2400);
 })();
 
 load();
