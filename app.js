@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '68';
+var APPVER = '69';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -503,9 +503,49 @@ function nextCards() {
   var p = prof(), r = p && Object.keys(p.facts).length ? eduRank(F()) : 0, own = r >= 3 ? 'g' : r === 2 ? '12' : '10';
   return [own].concat(['10', '12', 'g'].filter(function (k) { return k !== own; })).map(function (k) { return C[k]; });
 }
+
+/* ---- Kannada form of a person's name, used by the home greeting. A short list of common names is exact; other names are a best guess the person can correct in the menu. ---- */
+var KNDICT = { rama: 'ರಾಮ', ram: 'ರಾಮ್', krishna: 'ಕೃಷ್ಣ', sita: 'ಸೀತಾ', geeta: 'ಗೀತಾ', gita: 'ಗೀತಾ', asha: 'ಆಶಾ', anand: 'ಆನಂದ್', akash: 'ಆಕಾಶ್', ajay: 'ಅಜಯ್', arjun: 'ಅರ್ಜುನ್', ganesh: 'ಗಣೇಶ್', suresh: 'ಸುರೇಶ್', ramesh: 'ರಮೇಶ್', mahesh: 'ಮಹೇಶ್', naresh: 'ನರೇಶ್', dinesh: 'ದಿನೇಶ್', rakesh: 'ರಾಕೇಶ್', mohan: 'ಮೋಹನ್', rohit: 'ರೋಹಿತ್', kumar: 'ಕುಮಾರ್', priya: 'ಪ್ರಿಯಾ', divya: 'ದಿವ್ಯಾ', kavya: 'ಕಾವ್ಯಾ', lakshmi: 'ಲಕ್ಷ್ಮೀ', shreya: 'ಶ್ರೇಯಾ', pooja: 'ಪೂಜಾ', anitha: 'ಅನಿತಾ', anita: 'ಅನಿತಾ', sunil: 'ಸುನಿಲ್', anil: 'ಅನಿಲ್', manjunath: 'ಮಂಜುನಾಥ್', nagaraj: 'ನಾಗರಾಜ್', basavaraj: 'ಬಸವರಾಜ್', venkatesh: 'ವೆಂಕಟೇಶ್', prakash: 'ಪ್ರಕಾಶ್', vijay: 'ವಿಜಯ್', ravi: 'ರವಿ', raju: 'ರಾಜು', kiran: 'ಕಿರಣ್', mahantesh: 'ಮಹಾಂತೇಶ್', harish: 'ಹರೀಶ್', santosh: 'ಸಂತೋಷ್', deepak: 'ದೀಪಕ್', sachin: 'ಸಚಿನ್', rahul: 'ರಾಹುಲ್', amit: 'ಅಮಿತ್', sandeep: 'ಸಂದೀಪ್', shivakumar: 'ಶಿವಕುಮಾರ್', shiva: 'ಶಿವ', lokesh: 'ಲೋಕೇಶ್', yashwanth: 'ಯಶವಂತ್', pavan: 'ಪವನ್', madhu: 'ಮಧು', meena: 'ಮೀನಾ', meera: 'ಮೀರಾ', sushma: 'ಸುಷ್ಮಾ', vinay: 'ವಿನಯ್', abhishek: 'ಅಭಿಷೇಕ್', darshan: 'ದರ್ಶನ್', chetan: 'ಚೇತನ್', ashwini: 'ಅಶ್ವಿನಿ', nandini: 'ನಂದಿನಿ', swati: 'ಸ್ವಾತಿ', shruthi: 'ಶ್ರುತಿ', shruti: 'ಶ್ರುತಿ', suma: 'ಸುಮಾ', usha: 'ಉಷಾ', latha: 'ಲತಾ', lata: 'ಲತಾ', radha: 'ರಾಧಾ' };
+var KC = { ksh: 'ಕ್ಷ', chh: 'ಛ', kh: 'ಖ', gh: 'ಘ', ch: 'ಚ', jh: 'ಝ', th: 'ತ', dh: 'ಧ', ph: 'ಫ', bh: 'ಭ', sh: 'ಶ', ng: 'ಂಗ', k: 'ಕ', g: 'ಗ', j: 'ಜ', t: 'ತ', d: 'ದ', n: 'ನ', p: 'ಪ', b: 'ಬ', m: 'ಮ', y: 'ಯ', r: 'ರ', l: 'ಲ', v: 'ವ', w: 'ವ', s: 'ಸ', h: 'ಹ', f: 'ಫ', z: 'ಜ', c: 'ಕ', q: 'ಕ', x: 'ಕ್ಷ' };
+var KVI = { a: 'ಅ', aa: 'ಆ', i: 'ಇ', ee: 'ಈ', ii: 'ಈ', u: 'ಉ', oo: 'ಊ', uu: 'ಊ', e: 'ಎ', o: 'ಒ', ai: 'ಐ', au: 'ಔ' };
+var KVS = { a: '', aa: 'ಾ', i: 'ಿ', ee: 'ೀ', ii: 'ೀ', u: 'ು', oo: 'ೂ', uu: 'ೂ', e: 'ೆ', o: 'ೊ', ai: 'ೈ', au: 'ೌ' };
+function knWord(w) {
+  w = w.toLowerCase(); if (KNDICT[w]) return KNDICT[w];
+  if (/[ಀ-೿]/.test(w)) return w;
+  if (!/^[a-z]+$/.test(w)) return '';
+  var out = '', i = 0, n = w.length, V = 'aeiou';
+  while (i < n) {
+    var ch = w[i], seg;
+    if (V.indexOf(ch) >= 0) {
+      var two = w.substr(i, 2); seg = KVI[two] !== undefined && two.length === 2 ? two : ch; i += seg.length;
+      if (seg === 'e' && (i >= n || V.indexOf(w[i]) < 0)) { out += 'ಎ'; continue; }
+      out += KVI[seg]; continue;
+    }
+    var cl = '', k;
+    for (k = 3; k >= 1; k--) { var s = w.substr(i, k); if (s.length === k && KC[s]) { cl = s; break; } }
+    if (!cl) { i++; continue; }
+    i += cl.length; var base = KC[cl];
+    var nx = w.substr(i, 2), vv = (KVS[nx] !== undefined && nx.length === 2) ? nx : (V.indexOf(w[i]) >= 0 ? w[i] : '');
+    if (vv) { i += vv.length; if (cl === 'sh' && /ರ್$/.test(out)) base = 'ಷ'; var sign = KVS[vv]; if (vv === 'e') sign = i >= n ? 'ೆ' : 'ೇ'; if (vv === 'o') sign = 'ೋ'; out += base + sign; }
+    else {
+      var nxc = w[i], isC = i < n && V.indexOf(nxc) < 0;
+      if ((cl === 'n' || cl === 'm') && isC && nxc !== 'y' && nxc !== cl) out += 'ಂ';
+      else if (cl === 'sh' && /ರ್$/.test(out)) out += 'ಷ' + (i >= n ? '್' : '್');
+      else out += base + '್';
+    }
+  }
+  return out;
+}
+function knGuess(name) { return String(name || '').trim().split(/\s+/).map(knWord).filter(Boolean).join(' '); }
+function knName(p) { return p ? (p.nameKn || knGuess(p.name)) : ''; }
+function greetHtml(p) {
+  var kn = knName(p), en = 'Hi, ' + esc(p.name);
+  if (!kn) return en;
+  return '<span class="bw loop" role="img" aria-label="Hi, ' + esc(p.name) + '"><span class="en" aria-hidden="true">' + en + '</span><span class="kn" lang="kn" aria-hidden="true">ನಮಸ್ಕಾರ, ' + esc(kn) + '</span></span>';
+}
 function homeTop() {
   var p = prof(), n = savedList().length;
-  return '<div class="htop"><span class="hhi">' + (p ? 'Hi, ' + esc(p.name) : '<span class="bw loop" role="img" aria-label="Avakasha"><span class="en" aria-hidden="true">avakasha</span><span class="kn" lang="kn" aria-hidden="true">ಅವಕಾಶ</span></span>') + '</span>' + (p && n ? '<a class="hsv" href="#saved" aria-label="Saved, ' + n + '">' + HEART + '<b>' + n + '</b></a>' : '') + '<a class="hav" href="#profile" aria-label="Open profile">' + (p ? initial(p.name) : '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>') + '</a></div>';
+  return '<div class="htop"><span class="hhi">' + (p ? greetHtml(p) : '<span class="bw loop" role="img" aria-label="Avakasha"><span class="en" aria-hidden="true">avakasha</span><span class="kn" lang="kn" aria-hidden="true">ಅವಕಾಶ</span></span>') + '</span>' + (p && n ? '<a class="hsv" href="#saved" aria-label="Saved, ' + n + '">' + HEART + '<b>' + n + '</b></a>' : '') + '<a class="hav" href="#profile" aria-label="Open profile">' + (p ? initial(p.name) : '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>') + '</a></div>';
 }
 function homeItems() {
   var out = upExams().filter(function (x) { return x.hero; }).slice(0, 3).map(function (x) { return { exam: x }; }), nx = nextCards();
@@ -888,11 +928,18 @@ function closeSheet() { stopCam(); $('sheet').hidden = true; $('sheetin').innerH
 $('sheet').addEventListener('click', function (e) { if (e.target === $('sheet')) closeSheet(); });
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('sheet').hidden) closeSheet(); });
 
+function knSheet() {
+  var p = prof(); if (!p) return;
+  sheet('<h2>Name in Kannada</h2><p class="note">This shows in your home greeting. Check the spelling and correct it if needed.</p><label class="field">Name in Kannada<input id="pkv" type="text" maxlength="40" autocomplete="off" lang="kn" value="' + esc(knName(p)) + '"></label><div class="row" style="margin-top:16px"><button class="btn pri" id="pks" type="button">Save</button><button class="btn" id="pkc" type="button">Cancel</button></div>');
+  $('pkc').onclick = closeSheet;
+  $('pks').onclick = function () { var v = $('pkv').value.trim(); if (v) p.nameKn = v; else delete p.nameKn; save(); closeSheet(); render(); toast('Saved'); };
+}
 function addPersonSheet(first, after) {
   first = first === true;
-  sheet('<h2>' + (first ? 'Who is this for?' : 'Add a person') + '</h2><p class="note">A first name or nickname is enough. It stays on this phone.</p><label class="field">Name<input id="pn" type="text" maxlength="40" autocomplete="off" placeholder="e.g. Asha"></label><div class="row" style="margin-top:16px"><button class="btn pri" id="pok" type="button">' + (first ? 'Continue' : 'Add') + '</button><button class="btn" id="pno" type="button">' + (first ? 'Later' : 'Cancel') + '</button></div>');
+  sheet('<h2>' + (first ? 'Who is this for?' : 'Add a person') + '</h2><p class="note">A first name or nickname is enough. It stays on this phone.</p><label class="field">Name<input id="pn" type="text" maxlength="40" autocomplete="off" placeholder="e.g. Asha"></label><label class="field">Name in Kannada (optional)<input id="pkn" type="text" maxlength="40" autocomplete="off" lang="kn" placeholder="ಉದಾ. ಆಶಾ"></label><p class="note" id="pknn" style="margin-top:4px">Used in your home greeting. We suggest a spelling as you type; please check it.</p><div class="row" style="margin-top:16px"><button class="btn pri" id="pok" type="button">' + (first ? 'Continue' : 'Add') + '</button><button class="btn" id="pno" type="button">' + (first ? 'Later' : 'Cancel') + '</button></div>');
   $('pno').onclick = closeSheet;
-  $('pok').onclick = function () { var n = $('pn').value.trim(); if (!n) { $('pn').focus(); return; } var p = { id: uid(), name: n, created: Date.now(), facts: {}, docs: [] }; DB.profiles.push(p); DB.active = p.id; save(); closeSheet(); location.hash = first ? '#home' : '#profile'; render(); if (typeof after === 'function') after(); };
+  var knEdited = false; $('pkn').oninput = function () { knEdited = true; }; $('pn').oninput = function () { if (!knEdited) $('pkn').value = knGuess($('pn').value); };
+  $('pok').onclick = function () { var n = $('pn').value.trim(); if (!n) { $('pn').focus(); return; } var p = { id: uid(), name: n, created: Date.now(), facts: {}, docs: [] }; var kv = $('pkn').value.trim(); if (kv) p.nameKn = kv; DB.profiles.push(p); DB.active = p.id; save(); closeSheet(); location.hash = first ? '#home' : '#profile'; render(); if (typeof after === 'function') after(); };
   setTimeout(function () { var e = $('pn'); if (e) e.focus(); }, 50);
 }
 function editSheet(k) {
@@ -914,13 +961,14 @@ function peopleSheet() {
     return '<button type="button" class="prow' + (on ? ' on' : '') + '" data-pid="' + pp.id + '"><span class="av">' + initial(pp.name) + '</span><span class="pn"><b>' + esc(pp.name) + '</b><small>' + nf + (nf === 1 ? ' detail' : ' details') + ' · ' + nd + (nd === 1 ? ' document' : ' documents') + '</small></span>' + (on ? '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : '') + '</button>'; }).join('');
   sheet('<div class="sh">People on this phone</div>' + rows
     + '<button type="button" class="prow add" id="pa"><span class="av dash">+</span><b>Add person</b></button><div class="sdiv"></div>'
+    + (p ? '<button type="button" class="mrow" id="pkn">Name in Kannada<span lang="kn">' + esc(knName(p) || 'Add') + ' ›</span></button>' : '')
     + '<button type="button" class="mrow" id="phow">How Avakasha works<span>›</span></button>'
     + '<button type="button" class="mrow" id="pbk">Backup and restore<span>' + '›' + '</span></button>'
     + (devOn() ? '<button type="button" class="mrow" id="pco">Reading cost<span>' + (l.length ? inr(t30.reduce(function (s, x) { return s + x.usd; }, 0) * rate()) + ' in 30 days · ' + t30.length + (t30.length === 1 ? ' scan' : ' scans') : 'No scans yet') + '</span></button>' : '')
     + (devOn() ? '<button type="button" class="mrow" id="pky">Claude key<span>' + (CFG.readerUrl ? 'Server set up' : userKey() ? 'Saved on this phone' : 'Not saved') + '</span></button>' : '')
     + (p ? '<div class="sdiv"></div><button type="button" class="mrow danger" id="pdel">Delete ' + esc(p.name) + '</button>' : ''));
   Array.prototype.forEach.call(document.querySelectorAll('[data-pid]'), function (b) { b.onclick = function () { DB.active = b.getAttribute('data-pid'); save(); closeSheet(); render(); }; });
-  $('pa').onclick = function () { addPersonSheet(false); }; $('phow').onclick = function () { closeSheet(); showIntro(null); }; $('pbk').onclick = menuSheet; if ($('pco')) $('pco').onclick = menuSheet; if ($('pky')) $('pky').onclick = menuSheet;
+  if ($('pkn')) $('pkn').onclick = knSheet; $('pa').onclick = function () { addPersonSheet(false); }; $('phow').onclick = function () { closeSheet(); showIntro(null); }; $('pbk').onclick = menuSheet; if ($('pco')) $('pco').onclick = menuSheet; if ($('pky')) $('pky').onclick = menuSheet;
   if ($('pdel')) $('pdel').onclick = function () { deleteSheet(p); };
 }
 function menuSheet() {
