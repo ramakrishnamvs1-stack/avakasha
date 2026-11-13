@@ -66,3 +66,7 @@ Pass A searches official government sites only (gov.in, nic.in, ibps.in, ac.in, 
 - The waiting list now cleans itself every time the review page loads: finds whose last date has passed are removed, repeats of the same notice (found under different titles or pages) are merged into the strongest one, and finds that are already approved are removed.
 - Private jobs: employers named only as "a leading company" are dropped, staffing and placement agencies score lower, no more than three listings with the same job title are kept, and the search is told to give each job's own page and its date.
 - Redeploy `worker.js` for this to work.
+
+### Using myavakasha.com
+- The worker accepts requests from both the GitHub address and `https://myavakasha.com` (and `www`). To allow another address, set `ALLOWED_ORIGIN` to it; you can list several, separated by commas.
+- GoDaddy DNS for the GitHub site: four `A` records on `@` pointing to `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153`, and a `CNAME` record on `www` pointing to `ramakrishnamvs1-stack.github.io`. Then, in the GitHub repository, open Settings, Pages, enter `myavakasha.com` as the custom domain and turn on Enforce HTTPS once it is offered.

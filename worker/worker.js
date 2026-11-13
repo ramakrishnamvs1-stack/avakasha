@@ -531,10 +531,12 @@ async function liveGet(env, origin) {
 
 export default {
   async fetch(request, env) {
-    var origin = env.ALLOWED_ORIGIN || DEFAULT_ORIGIN;
-    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(origin) });
+    /* The app may be opened from its GitHub address or from myavakasha.com. ALLOWED_ORIGIN can add more, separated by commas. */
+    var okOrigins = [DEFAULT_ORIGIN, 'https://myavakasha.com', 'https://www.myavakasha.com'].concat(String(env.ALLOWED_ORIGIN || '').split(',').map(function (o) { return o.trim(); }).filter(Boolean));
     var reqOrigin = request.headers.get('Origin');
-    if (reqOrigin && reqOrigin !== origin) return json({ error: 'forbidden' }, 403, origin);
+    var origin = reqOrigin && okOrigins.indexOf(reqOrigin) >= 0 ? reqOrigin : okOrigins[0];
+    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(origin) });
+    if (reqOrigin && okOrigins.indexOf(reqOrigin) < 0) return json({ error: 'forbidden' }, 403, origin);
     if (request.method === 'GET') {
       if (env.APP_KEY && request.headers.get('X-App-Key') !== env.APP_KEY) return json({ error: 'forbidden' }, 403, origin);
       var lr = await liveGet(env, origin); lr.headers.set('Cache-Control', 'private, max-age=300'); return lr;
