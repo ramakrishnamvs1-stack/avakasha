@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '75', APPDATE = '11.26'; /* shown as v<build>.<month>.<year>; change APPDATE when the month changes */
+var APPVER = '76', APPDATE = '11.26'; /* shown as v<build>.<month>.<year>; change APPDATE when the month changes */
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -963,6 +963,7 @@ function peopleSheet() {
     + '<button type="button" class="prow add" id="pa"><span class="av dash">+</span><b>Add person</b></button><div class="sdiv"></div>'
     + (p ? '<button type="button" class="mrow" id="pkn">Name in Kannada<span lang="kn">' + esc(knName(p) || 'Add') + ' ›</span></button>' : '')
     + '<button type="button" class="mrow" id="phow">How myavakasha works<span>›</span></button>'
+    + '<a class="mrow" id="ppriv" href="privacy.html" target="_blank" rel="noopener" style="text-decoration:none;color:inherit">Privacy policy<span>›</span></a>'
     + '<button type="button" class="mrow" id="pbk">Backup and restore<span>' + '›' + '</span></button>'
     + (devOn() ? '<button type="button" class="mrow" id="pco">Reading cost<span>' + (l.length ? inr(t30.reduce(function (s, x) { return s + x.usd; }, 0) * rate()) + ' in 30 days · ' + t30.length + (t30.length === 1 ? ' scan' : ' scans') : 'No scans yet') + '</span></button>' : '')
     + (devOn() ? '<button type="button" class="mrow" id="pky">Claude key<span>' + (CFG.readerUrl ? 'Server set up' : userKey() ? 'Saved on this phone' : 'Not saved') + '</span></button>' : '')
