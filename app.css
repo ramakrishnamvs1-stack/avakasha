@@ -491,3 +491,5 @@ button.pchip{cursor:pointer}.pchip.dash{background:none;border:1.5px dashed var(
 .splash .bw{justify-items:center}.splash .bw>span{justify-self:center;text-align:center}
 
 .brand .bw.go .en,.brand .bw.go .kn{animation-delay:-3.1s}
+
+#hslot{touch-action:pan-y}

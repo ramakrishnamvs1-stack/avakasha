@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '67';
+var APPVER = '68';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -537,6 +537,11 @@ function renderHome() {
   function next() { go((HOME.i + 1) % HOME.items.length); }
   Array.prototype.forEach.call(document.querySelectorAll('.hdots button'), function (b) { b.onclick = function () { go(+b.getAttribute('data-k')); }; });
   if (HOME.items.length > 1) HOME.t = setInterval(next, 9000);
+  /* Swipe the card left or right to move to the next or previous one, the same as tapping a dot. */
+  var sl = $('hslot'), sx = 0, sy = 0, sw = 0;
+  sl.addEventListener('touchstart', function (e) { var t = e.touches[0]; sx = t.clientX; sy = t.clientY; }, { passive: true });
+  sl.addEventListener('touchend', function (e) { var t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy, n = HOME.items.length; if (n > 1 && Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.5) { sw = Date.now(); go((HOME.i + (dx < 0 ? 1 : -1) + n) % n); } }, { passive: true });
+  sl.addEventListener('click', function (e) { if (Date.now() - sw < 600) { e.preventDefault(); e.stopPropagation(); } }, true);
 }
 /* ---- list screens: exams, govt jobs, private jobs ---- */
 function subHead(title, sub) {
