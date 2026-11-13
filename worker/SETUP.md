@@ -61,3 +61,8 @@ Pass A searches official government sites only (gov.in, nic.in, ibps.in, ac.in, 
 - After each search, the Worker opens every notice page itself (up to 14 at a time) and checks that the title and the last date really appear on it. Government sites sometimes block this; those finds are marked "not checked" and are not dropped.
 - Each find gets a **Trust score** (0 to 100): official page, a link to the specific notice, a date found, and the page check. The review page shows the score with the reasons, lists the strongest finds first, and **Approve those** only includes finds scoring 60 or more whose page check did not fail. The score helps you decide; it does not replace opening the notice.
 - Redeploy `worker.js` for this to work. The review page updates by itself.
+
+### Tidier waiting list (v2 of search optimisation)
+- The waiting list now cleans itself every time the review page loads: finds whose last date has passed are removed, repeats of the same notice (found under different titles or pages) are merged into the strongest one, and finds that are already approved are removed.
+- Private jobs: employers named only as "a leading company" are dropped, staffing and placement agencies score lower, no more than three listings with the same job title are kept, and the search is told to give each job's own page and its date.
+- Redeploy `worker.js` for this to work.

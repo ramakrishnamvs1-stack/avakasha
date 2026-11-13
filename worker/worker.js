@@ -133,7 +133,7 @@ function cleanPvt(x, seen, today) {
   var url = cleanS(x && x.url, 400).split('#')[0], host;
   try { var u = new URL(url); if (u.protocol !== 'https:') return null; host = u.hostname; } catch (e) { return null; }
   if (seen && !seen[url]) return null;
-  var title = cleanS(x.title, 100), org = cleanS(x.company || x.org, 80); if (!title || !org || junky(title)) return null;
+  var title = cleanS(x.title, 100), org = cleanS(x.company || x.org, 80); if (!title || !org || junky(title) || GENERIC_ORG.test(org)) return null;
   if (FEEWORDS.test(title + ' ' + cleanS(x.line, 300) + ' ' + cleanS(x.pay, 80))) return null;
   var closes = okDate(x.closes); if (closes && closes < today) return null;
   var city = cleanS(x.city || x.place, 40) || 'Karnataka', skills = (Array.isArray(x.skills) ? x.skills : []).map(function (s) { return cleanS(s, 30); }).filter(Boolean).slice(0, 8);
@@ -258,6 +258,7 @@ function trustOf(x) {
   else if (x.via === 'Job board') { s += 8; why.push('Job board listing'); }
   else why.push('Not an official page');
   if (u && (u.pathname.replace(/\/+$/, '').length > 1 && (u.pathname.split('/').filter(Boolean).length >= 2 || u.search))) { s += 8; why.push('Link goes to a specific page'); } else { s -= 10; why.push('Link goes to a home or list page'); }
+  if (x.k === 'pvt' && STAFFING.test(x.org || '')) { s -= 12; why.push('Staffing or placement agency'); }
   var hasDate = x.k === 'train' ? true : !!(x.closes || x.d);
   if (hasDate) { if (x.k !== 'train') { s += 12; why.push('Date found'); } } else { s -= 8; why.push('No date found'); }
   var v = x.ver && x.ver.s;
@@ -272,6 +273,35 @@ async function vet(items) {
   items.forEach(function (x) { var t = trustOf(x); x.trust = t.trust; x.tl = t.tl; x.why = t.why; });
   return items;
 }
+
+/* Two finds are the same notice when their titles share the key words and the last dates agree. Used to remove repeats. */
+var NSTOP = { post: 1, recruitment: 1, notification: 1, various: 1, govt: 1, government: 1, karnataka: 1, india: 1, group: 1, grade: 1, level: 1, application: 1, invitation: 1, online: 1, vacancy: 1, vacancie: 1, other: 1, and: 1, for: 1, the: 1, with: 1, apply: 1, new: 1, latest: 1, hiring: 1, job: 1, jobs: 1, posts: 1, department: 1, dept: 1, office: 1 };
+function ntoks(s) { return normText(s).replace(/[^a-z0-9 ]/g, ' ').split(' ').map(function (t) { return t.replace(/s$/, ''); }).filter(function (t) { return t.length >= 3 && !NSTOP[t] && !/^\d+$/.test(t); }); }
+function overlapN(a, b) { var n = a.filter(function (t) { return b.indexOf(t) >= 0; }).length; return { n: n, min: Math.min(a.length, b.length) }; }
+function sameNotice(a, b) {
+  if (!a || !b || a.k !== b.k) return false;
+  var da = a.closes || a.d || '', db = b.closes || b.d || ''; if (da && db && da !== db) return false;
+  var ta = ntoks(a.title), tb = ntoks(b.title); if (!ta.length || !tb.length) return false;
+  var o = overlapN(ta, tb); if (!(o.n >= 2 && o.n / o.min >= 0.6) && !(o.min === 1 && o.n === 1 && ta.length === tb.length)) return false;
+  var oa = ntoks(a.org), ob = ntoks(b.org), oo = overlapN(oa, ob);
+  if (a.k === 'pvt') return oo.n >= 1;
+  return (da && db && da === db) || oo.n >= 1 || !oa.length || !ob.length;
+}
+/* Cleans the waiting list: drops finds whose last date has passed, drops repeats of the same notice (keeping the strongest), and drops finds already approved. */
+function tidy(d, live, today) {
+  var out = [], changed = false, liveAll = [].concat(live.records || [], live.exams || [], live.pvt || [], live.sch || [], live.train || []);
+  (d.items || []).forEach(function (x) {
+    var dt = x.closes || x.d; if (dt && dt < today) { changed = true; return; }
+    if (x.trust == null) { var t = trustOf(x); x.trust = t.trust; x.tl = t.tl; x.why = t.why; changed = true; }
+    if (liveAll.some(function (y) { return sameNotice(x, y); })) { changed = true; return; }
+    var i = -1; for (var k = 0; k < out.length; k++) { if (sameNotice(x, out[k])) { i = k; break; } }
+    if (i < 0) { out.push(x); return; }
+    changed = true; var y = out[i]; if ((x.trust || 0) > (y.trust || 0) || ((x.trust || 0) === (y.trust || 0) && (x.official || x.off) && !(y.official || y.off))) out[i] = x;
+  });
+  d.items = out; return changed;
+}
+var GENERIC_ORG = /^(confidential|a\s+leading|leading|reputed|top|our\s+client|client\s+of|mnc|a\s+company|company|urgent|hiring)\b/i;
+var STAFFING = /consultanc|placement|manpower|recruitment\s+(agency|services|solutions)|staffing|HR\s+services/i;
 function nkey(t) { return String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40); }
 function sameTitle(a, b) { return a && b && Math.min(a.length, b.length) >= 10 && (a.indexOf(b) === 0 || b.indexOf(a) === 0); }
 function promptA(today) {
@@ -292,7 +322,7 @@ function promptB(today) {
 }
 var PVT_SHAPE = '{"title":"","company":"","city":"","line":"one short sentence","pay":"as printed, or empty","minExp":0,"edu":"10 or 12 or diploma or degree or pg","skills":[],"closes":"YYYY-MM-DD or null","srcName":"site name","url":""}';
 function promptC(today) {
-  return 'Today is ' + today + '. You help job seekers in India.\nUse web search on any site to find private-sector jobs that are open right now in Bengaluru and elsewhere in Karnataka. Cover a mix: entry-level and fresher roles, Class 10 or Class 12 pass roles (delivery, retail, office assistant, driver, technician, security), diploma or ITI roles, and graduate roles. Up to 10 jobs. List only what you saw on a page in the search results, and use that page\'s own address as url, preferring the employer\'s own careers page over a job board. Never invent a company, pay or date. Skip anything that asks the applicant to pay any fee or deposit, anything vague about the employer, and anything already closed. Keep every field short; edu is the lowest qualification asked for, and minExp is the years of experience asked for (0 if freshers can apply). Skip jobs with no named employer or no apply link, and pay that looks too good to be true.' + AUD + '\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[' + PVT_SHAPE + ']}</json>';
+  return 'Today is ' + today + '. You help job seekers in India.\nUse web search on any site to find private-sector jobs that are open right now in Bengaluru and elsewhere in Karnataka. Cover a mix: entry-level and fresher roles, Class 10 or Class 12 pass roles (delivery, retail, office assistant, driver, technician, security), diploma or ITI roles, and graduate roles. Up to 10 jobs. List only what you saw on a page in the search results, and use that page\'s own address as url, preferring the employer\'s own careers page over a job board. Never invent a company, pay or date. Skip anything that asks the applicant to pay any fee or deposit, anything vague about the employer, and anything already closed. Keep every field short; edu is the lowest qualification asked for, and minExp is the years of experience asked for (0 if freshers can apply). Skip jobs with no named employer, and pay that looks too good to be true. The url must be the page of that single job, not a search-results or list page. Give the posted or last date if the page shows one.' + AUD + '\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[' + PVT_SHAPE + ']}</json>';
 }
 /* Role families for private jobs. Each is its own search, so roles like software and Agile get looked for by name. */
 var FAMILIES = [
@@ -373,12 +403,13 @@ async function runStep(env, step, runId, fam) {
   if (step === 'C') {
     var dc = (await kget(env, 'draft')) || { items: [] }, idc = {}, tc = []; dc.items.forEach(function (x) { idc[x.id] = 1; if (x.k === 'pvt') tc.push(nkey(x.org + x.title)); });
     (live.pvt || []).forEach(function (x) { idc[x.id] = 1; });
+    var tcnt = {}; dc.items.forEach(function (x) { if (x.k === 'pvt') { var tk = nkey(x.title); tcnt[tk] = (tcnt[tk] || 0) + 1; } });
     var C = await searchPass(env, fam ? promptF(today, fam) : promptC(today), null, 5, env.PVT_MODEL || DEFAULT_PVT_MODEL);
     if (!C.ok) return { error: C.error, stop: C.stop, len: C.len, tail: C.tail, status: C.status, usage: C.u };
     var addc = 0, rawc = 0, badc = 0, dupc = 0;
     (Array.isArray(C.o.jobs) ? C.o.jobs : []).slice(0, PVT_MAX).forEach(function (x) {
       rawc++; var c = cleanPvt(x, C.seen, today); if (!c) { badc++; return; } c.run = runId; if (fam) c.fam = fam.id; if (idc[c.id]) { dupc++; return; }
-      var nk = nkey(c.org + c.title); if (tc.indexOf(nk) >= 0) { dupc++; return; } tc.push(nk); idc[c.id] = 1; dc.items.push(c); addc++;
+      var nk = nkey(c.org + c.title); if (tc.indexOf(nk) >= 0) { dupc++; return; } var tk2 = nkey(c.title); if ((tcnt[tk2] || 0) >= 3) { dupc++; return; } tcnt[tk2] = (tcnt[tk2] || 0) + 1; tc.push(nk); idc[c.id] = 1; dc.items.push(c); addc++;
     });
     await vet(dc.items.filter(function (x) { return x.run === runId && !x.trust; }));
     dc.usage = addUsage(dc.usage || {}, C.u); dc.passC = 'ok'; dc.at = Date.now();
@@ -487,6 +518,7 @@ async function adminDo(b, request, env, origin) {
     live.records = live.records.filter(function (x) { return !rm[x.id]; }); live.exams = live.exams.filter(function (x) { return !rm[x.id]; }); live.pvt = live.pvt.filter(function (x) { return !rm[x.id]; }); live.sch = live.sch.filter(function (x) { return !rm[x.id]; }); live.train = live.train.filter(function (x) { return !rm[x.id]; });
     live.at = Date.now(); await env.LIMITS.put('live', JSON.stringify(live));
   }
+  if (tidy(draft, live, today)) await env.LIMITS.put('draft', JSON.stringify(draft));
   var lastres = await kget(env, 'lastresult'), spend = parseFloat((await env.LIMITS.get('spend:' + todayStr().slice(0, 7))) || '0') || 0;
   var runlog = (await kget(env, 'runlog')) || [];
   var sched = await getSched(env);
