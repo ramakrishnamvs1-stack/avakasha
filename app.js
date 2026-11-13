@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '69';
+var APPVER = '70';
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -545,7 +545,7 @@ function greetHtml(p) {
 }
 function homeTop() {
   var p = prof(), n = savedList().length;
-  return '<div class="htop"><span class="hhi">' + (p ? greetHtml(p) : '<span class="bw loop" role="img" aria-label="Avakasha"><span class="en" aria-hidden="true">avakasha</span><span class="kn" lang="kn" aria-hidden="true">ಅವಕಾಶ</span></span>') + '</span>' + (p && n ? '<a class="hsv" href="#saved" aria-label="Saved, ' + n + '">' + HEART + '<b>' + n + '</b></a>' : '') + '<a class="hav" href="#profile" aria-label="Open profile">' + (p ? initial(p.name) : '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>') + '</a></div>';
+  return '<div class="htop"><span class="hhi">' + (p ? greetHtml(p) : '<span class="bw loop nm" role="img" aria-label="Avakasha"><span class="en" aria-hidden="true">avakasha</span><span class="kn" lang="kn" aria-hidden="true">ಅವಕಾಶ</span></span>') + '</span>' + (p && n ? '<a class="hsv" href="#saved" aria-label="Saved, ' + n + '">' + HEART + '<b>' + n + '</b></a>' : '') + '<a class="hav" href="#profile" aria-label="Open profile">' + (p ? initial(p.name) : '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>') + '</a></div>';
 }
 function homeItems() {
   var out = upExams().filter(function (x) { return x.hero; }).slice(0, 3).map(function (x) { return { exam: x }; }), nx = nextCards();
@@ -1577,7 +1577,7 @@ document.addEventListener('click', function (e) {
   toast(on ? 'Saved.' : 'Removed from saved.'); renderTop(route().r); if (route().r === 'saved') renderSaved();
 }, true);
 function route() { var h = location.hash.replace('#', ''); if (h.indexOf('job/') === 0) return { r: 'job', id: decodeURIComponent(h.slice(4)) }; if (h.indexOf('x/') === 0) return { r: 'x', id: decodeURIComponent(h.slice(2)) }; if (h.indexOf('t/') === 0) return { r: 't', id: decodeURIComponent(h.slice(2)) }; if (h.indexOf('ex/') === 0) return { r: 'explore', t: h.slice(3) }; if (h === 'train') return { r: 'explore', t: 'train' }; if (h === 'saved') return { r: 'saved' }; if (h.indexOf('study/') === 0) return { r: 'study', st: h.slice(6) }; if (h === 'scholar') return { r: 'explore', t: 'sch' }; if (h === 'exams') return { r: 'explore', t: 'exam' }; if (h === 'govt' || h === 'pvt') return { r: 'explore', t: h }; if (h === 'study' || h === 'summary') return { r: h }; if (h === 'explore' || h === 'profile') return { r: h }; return { r: 'home' }; }
-var BWHTML = '<span class="bw loop" aria-hidden="true"><span class="en">avakasha</span><span class="kn" lang="kn">ಅವಕಾಶ</span></span>';
+var BWHTML = '<span class="bw loop nm" aria-hidden="true"><span class="en">avakasha</span><span class="kn" lang="kn">ಅವಕಾಶ</span></span>';
 function renderTop(r) {
   var p = prof(), b = $('avatar'), br = document.querySelector('.brand'), sb = $('savedBtn');
   if (sb) { var sn = savedList().length; sb.hidden = r === 'profile' || !p; sb.innerHTML = HEART + (sn ? '<span class="cnt">' + sn + '</span>' : ''); sb.setAttribute('aria-label', 'Saved, ' + sn + (sn === 1 ? ' item' : ' items')); sb.onclick = function () { location.hash = '#saved'; }; }

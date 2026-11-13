@@ -493,3 +493,12 @@ button.pchip{cursor:pointer}.pchip.dash{background:none;border:1.5px dashed var(
 .brand .bw.go .en,.brand .bw.go .kn{animation-delay:-3.1s}
 
 #hslot{touch-action:pan-y}
+
+/* v70: two dots under the name, yellow and red like the Karnataka flag. Same two dots as the app icon. */
+.bw.nm{position:relative;padding-bottom:.42em}
+.bw.nm::before,.bw.nm::after{content:"";position:absolute;bottom:0;width:.28em;height:.28em;border-radius:50%}
+.bw.nm::before{left:0;background:#ffcc00}
+.bw.nm::after{left:.42em;background:#e4262c}
+.splash .bw.nm::before{left:calc(50% - .42em)}
+.splash .bw.nm::after{left:calc(50% + .14em)}
+.splash .bw.nm::before,.splash .bw.nm::after{box-shadow:0 0 0 1.5px rgba(255,255,255,.9)}
