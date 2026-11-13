@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '70';
+var APPVER = '71', APPDATE = '11.26'; /* shown as v<build>.<month>.<year>; change APPDATE when the month changes */
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -979,7 +979,7 @@ function menuSheet() {
     + (devOn() ? (function () { var l = costLog(), tot = l.reduce(function (s, x) { return s + x.usd; }, 0), t30 = l.filter(function (x) { return x.at > Date.now() - 30 * 864e5; }).reduce(function (s, x) { return s + x.usd; }, 0);
         return '<hr style="border:0;border-top:1px solid var(--line);margin:18px 0"><h3 class="h3">Reading cost</h3><p class="note" style="margin-top:4px">' + (l.length ? l.length + (l.length === 1 ? ' scan' : ' scans') + ' read with Claude on this phone: about <b>' + inr(tot * rate()) + '</b> in all, <b>' + inr(t30 * rate()) + '</b> in the last 30 days. Average ' + inr(tot / l.length * rate()) + ' a scan.' : 'No scans read with Claude yet.') + ' Estimated from the token counts Claude returns and the list price of $' + PRICE_IN + ' in and $' + PRICE_OUT + ' out per million tokens. The Anthropic console shows the real bill. Browsing and reading on the phone cost nothing. Each online search costs a little more than a scan.</p><label class="field">Rupees per US dollar<input id="rt" type="number" inputmode="decimal" step="0.1" min="1" value="' + rate() + '"></label><div class="row" style="margin-top:8px"><button class="btn" id="rts" type="button">Save rate</button>' + (l.length ? '<button class="btn" id="cc" type="button">Clear this count</button>' : '') + '</div>'; })() : '')
     + (prof() ? '<hr style="border:0;border-top:1px solid var(--line);margin:18px 0"><button class="btn danger" id="dp" type="button">Delete ' + esc(prof().name) + '’s profile</button>' : '')
-    + '<p class="note" id="vl" style="margin-top:16px">App version ' + APPVER + '. Records dated ' + esc(DATA ? DATA.version : '') + '.</p><div class="row" style="margin-top:10px"><button class="btn" id="mc" type="button">Close</button></div>');
+    + '<p class="note" id="vl" style="margin-top:16px">App version v' + APPVER + '.' + APPDATE + '. Records dated ' + esc(DATA ? DATA.version : '') + '.</p><div class="row" style="margin-top:10px"><button class="btn" id="mc" type="button">Close</button></div>');
   $('mc').onclick = closeSheet;
   var taps = 0, tapT = 0; $('vl').onclick = function () { var n = Date.now(); taps = n - tapT < 1500 ? taps + 1 : 1; tapT = n; if (taps >= 5) { taps = 0; var on = !devOn(); try { localStorage.setItem('pa10.dev', on ? '1' : '0'); } catch (e) {} closeSheet(); toast(on ? 'Developer options on.' : 'Developer options off.'); } };
   if ($('rts')) $('rts').onclick = function () { var v = parseFloat($('rt').value); if (!(v > 0)) { toast('Type a rate above zero.'); return; } try { localStorage.setItem('pa10.rate', String(v)); } catch (e) {} closeSheet(); toast('Rate saved.'); };
