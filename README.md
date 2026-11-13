@@ -1,4 +1,4 @@
-# Avakasha
+# myavakasha
 
 An installable web app for students in Karnataka after Class 10. Scan a marksheet or certificate on your phone, build a profile on the phone, and see jobs, courses and scholarships you may qualify for.
 

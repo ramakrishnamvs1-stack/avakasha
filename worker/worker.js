@@ -1,4 +1,4 @@
-/* Avakasha: reading server (Cloudflare Worker).
+/* myavakasha: reading server (Cloudflare Worker).
    Receives a photo from the app, asks Claude to read it, returns only the details the app needs.
    Secrets (set in Cloudflare, never in this file): ANTHROPIC_API_KEY. Optional: APP_KEY, MODEL, ALLOWED_ORIGIN, PER_DAY, GLOBAL_DAY.
    Optional limits: bind a KV namespace named LIMITS to count scans a day for each phone address (PER_DAY, default 5)
@@ -105,7 +105,7 @@ function cleanRecord(x, seen, today, tab) {
   var facts = (Array.isArray(x.facts) ? x.facts : []).slice(0, 6).map(function (f) { return Array.isArray(f) && f.length > 1 ? [cleanS(f[0], 40), cleanS(f[1], 200)] : null; }).filter(function (f) { return f && f[0] && f[1]; });
   var off = OFFICIAL.test(host);
   var isC = tab === 'study', r = { id: (isC ? 'dc-' : 'd-') + hash(url), k: 'rec', tab: isC ? 'study' : 'work', kind: isC ? 'Course' : 'Job', title: title, org: cleanS(x.org, 80), line: cleanS(x.line, 200), closes: closes, cyc: cleanS(x.cyc, 300) || (closes ? 'Closes ' + closes + '.' : 'Dates not found. Check the notice.'),
-    facts: facts, src: [cleanS(x.srcName, 80) || host, url], conf: off ? 'Medium' : 'Low', note: 'Found by the daily search and checked by Avakasha. Confirm in the official notice.', rules: cleanRules(x.rules), off: false };
+    facts: facts, src: [cleanS(x.srcName, 80) || host, url], conf: off ? 'Medium' : 'Low', note: 'Found by the daily search and checked by myavakasha. Confirm in the official notice.', rules: cleanRules(x.rules), off: false };
   if (Number(x.lvl) === 12) r.lvl = 12;
   if (!closes) r.stat = { k: 'unk', t: 'Dates not confirmed' };
   r.official = off;
@@ -119,7 +119,7 @@ function cleanExam(x, seen, today) {
   var facts = (Array.isArray(x.facts) ? x.facts : []).slice(0, 5).map(function (f) { return Array.isArray(f) && f.length > 1 ? [cleanS(f[0], 40), cleanS(f[1], 200)] : null; }).filter(function (f) { return f && f[0] && f[1]; });
   if (!facts.length) facts = [['Exam', d]];
   var off = OFFICIAL.test(host);
-  return { id: 'dx-' + hash(url), k: 'exam', art: 'biz', d: d, when: d, title: title, short: title, sub: cleanS(x.org, 80), org: cleanS(x.org, 80), line: cleanS(x.line, 200), facts: facts, src: [cleanS(x.srcName, 80) || host, url], note: 'Found by the daily search and checked by Avakasha. Confirm the date on the official site.', official: off };
+  return { id: 'dx-' + hash(url), k: 'exam', art: 'biz', d: d, when: d, title: title, short: title, sub: cleanS(x.org, 80), org: cleanS(x.org, 80), line: cleanS(x.line, 200), facts: facts, src: [cleanS(x.srcName, 80) || host, url], note: 'Found by the daily search and checked by myavakasha. Confirm the date on the official site.', official: off };
 }
 var EDU_NAME = { '10': 'Class 10', '12': 'Class 12', diploma: 'Diploma or ITI', degree: 'Degree', pg: 'Master\'s degree' };
 var BOARDS = /(^|\.)(naukri|linkedin|indeed|foundit|monster|shine|glassdoor|apna|workindia|quikr|timesjobs|freshersworld|jooble|instahyre|internshala|olx|talent|simplyhired|ziprecruiter|careerbuilder|hirist|cutshort|wellfound|jobhai|babajob|sulekha|justdial|facebook|whatsapp|telegram|t)\.(com|co\.in|in|app|me|io)$/i;
@@ -144,7 +144,7 @@ function cleanPvt(x, seen, today) {
   if (edu) facts.push(['Qualification', EDU_NAME[edu] + ' or higher']);
   if (skills.length) facts.push(['Skills', skills.join(', ')]);
   if (closes) facts.push(['Apply by', closes]);
-  return { id: 'dp-' + hash(url), k: 'pvt', live: true, title: title, org: org, place: city, line: cleanS(x.line, 200), skills: skills, pay: pay, minExp: minExp || 0, edu: edu, closes: closes, found: today, via: viaOf(host, org), facts: facts, src: [cleanS(x.srcName, 80) || host, url], host: host, note: 'Found on a job site by the daily search and checked by Avakasha. This is not an official page. Check the employer before you apply.' };
+  return { id: 'dp-' + hash(url), k: 'pvt', live: true, title: title, org: org, place: city, line: cleanS(x.line, 200), skills: skills, pay: pay, minExp: minExp || 0, edu: edu, closes: closes, found: today, via: viaOf(host, org), facts: facts, src: [cleanS(x.srcName, 80) || host, url], host: host, note: 'Found on a job site by the daily search and checked by myavakasha. This is not an official page. Check the employer before you apply.' };
 }
 function cleanSch(x, seen, today) {
   var url = cleanS(x && x.url, 400).split('#')[0], host;
@@ -159,7 +159,7 @@ function cleanSch(x, seen, today) {
   if (edu) facts.push(['For', EDU_NAME[edu] + ' students']);
   if (who) facts.push(['Who can apply', who]);
   facts.push(['Last date', closes || 'Not found. Check the page']);
-  return { id: 'ds-' + hash(url), k: 'sch', live: true, gov: gov, title: title, org: org, line: cleanS(x.line, 200), amount: amount, who: who, level: edu, closes: closes, found: today, facts: facts, src: [cleanS(x.srcName, 80) || host, url], host: host, official: off, note: gov ? 'Found by the weekly search and checked by Avakasha. Confirm the details and the last date on the official page before you apply.' : 'A private scholarship, found by the weekly search. This is not a government scheme and not an official page. Check the provider and apply only on its own site. Never pay to apply.' };
+  return { id: 'ds-' + hash(url), k: 'sch', live: true, gov: gov, title: title, org: org, line: cleanS(x.line, 200), amount: amount, who: who, level: edu, closes: closes, found: today, facts: facts, src: [cleanS(x.srcName, 80) || host, url], host: host, official: off, note: gov ? 'Found by the weekly search and checked by myavakasha. Confirm the details and the last date on the official page before you apply.' : 'A private scholarship, found by the weekly search. This is not a government scheme and not an official page. Check the provider and apply only on its own site. Never pay to apply.' };
 }
 function cleanTrain(x, seen, today) {
   var url = cleanS(x && x.url, 400).split('#')[0], host;
@@ -173,7 +173,7 @@ function cleanTrain(x, seen, today) {
   if (amin && amax) facts.push(['Age', amin + ' to ' + amax + ' years']);
   if (dur) facts.push(['Length', dur]);
   if (who) facts.push(['Who can join', who]);
-  var t = { id: 'dt-' + hash(url), k: 'train', title: title, org: org, line: cleanS(x.line, 200), free: free, minEdu: me, off: off, facts: facts, src: [cleanS(x.srcName, 80) || host, url], go: url, found: today, host: host, note: off ? 'Found by the weekly search and checked by Avakasha. Courses, centres and dates change, so confirm on the official page before you join.' : 'Found by the weekly search. This is not an official government page. Confirm on the provider\'s own site before you join, and never pay to get a place.' };
+  var t = { id: 'dt-' + hash(url), k: 'train', title: title, org: org, line: cleanS(x.line, 200), free: free, minEdu: me, off: off, facts: facts, src: [cleanS(x.srcName, 80) || host, url], go: url, found: today, host: host, note: off ? 'Found by the weekly search and checked by myavakasha. Courses, centres and dates change, so confirm on the official page before you join.' : 'Found by the weekly search. This is not an official government page. Confirm on the provider\'s own site before you join, and never pay to get a place.' };
   if (amin && amax && amax >= amin) { t.ageMin = amin; t.ageMax = amax; }
   return t;
 }
@@ -230,10 +230,10 @@ var TSTOP = { with: 1, from: 1, that: 1, this: 1, have: 1, post: 1, posts: 1, re
 async function peek(url) {
   var ctl = new AbortController(), tm = setTimeout(function () { ctl.abort(); }, 9000);
   try {
-    var r = await fetch(url, { signal: ctl.signal, redirect: 'follow', headers: { 'user-agent': 'Mozilla/5.0 (compatible; AvakashaCheck/1.0)', accept: 'text/html,application/xhtml+xml,*/*;q=0.5' } });
+    var r = await fetch(url, { signal: ctl.signal, redirect: 'follow', headers: { 'user-agent': 'Mozilla/5.0 (compatible; myavakashaCheck/1.0)', accept: 'text/html,application/xhtml+xml,*/*;q=0.5' } });
     if (!r.ok) return { s: 'none', t: 'The page did not open (' + r.status + ').' };
     var ct = (r.headers.get('content-type') || '').toLowerCase();
-    if (ct.indexOf('pdf') >= 0 || /\.pdf($|\?)/i.test(url)) return { s: 'none', t: 'A PDF. Avakasha did not read it, so open it and check.' };
+    if (ct.indexOf('pdf') >= 0 || /\.pdf($|\?)/i.test(url)) return { s: 'none', t: 'A PDF. myavakasha did not read it, so open it and check.' };
     var tx = (await r.text()).slice(0, 500000);
     tx = tx.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;|&#160;/g, ' ').replace(/&amp;/g, '&');
     return { s: 'page', text: normText(tx) };

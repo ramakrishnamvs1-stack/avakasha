@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '72', APPDATE = '11.26'; /* shown as v<build>.<month>.<year>; change APPDATE when the month changes */
+var APPVER = '73', APPDATE = '11.26'; /* shown as v<build>.<month>.<year>; change APPDATE when the month changes */
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -545,7 +545,7 @@ function greetHtml(p) {
 }
 function homeTop() {
   var p = prof(), n = savedList().length;
-  return '<div class="htop"><span class="hhi">' + (p ? greetHtml(p) : '<span class="bw loop nm" role="img" aria-label="Avakasha"><span class="en" aria-hidden="true">avakasha</span><span class="kn" lang="kn" aria-hidden="true">ಅವಕಾಶ</span></span>') + '</span>' + (p && n ? '<a class="hsv" href="#saved" aria-label="Saved, ' + n + '">' + HEART + '<b>' + n + '</b></a>' : '') + '<a class="hav" href="#profile" aria-label="Open profile">' + (p ? initial(p.name) : '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>') + '</a></div>';
+  return '<div class="htop"><span class="hhi">' + (p ? greetHtml(p) : '<span class="bw loop nm" role="img" aria-label="myavakasha"><span class="en" aria-hidden="true">avakasha</span><span class="kn" lang="kn" aria-hidden="true">ಅವಕಾಶ</span></span>') + '</span>' + (p && n ? '<a class="hsv" href="#saved" aria-label="Saved, ' + n + '">' + HEART + '<b>' + n + '</b></a>' : '') + '<a class="hav" href="#profile" aria-label="Open profile">' + (p ? initial(p.name) : '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>') + '</a></div>';
 }
 function homeItems() {
   var out = upExams().filter(function (x) { return x.hero; }).slice(0, 3).map(function (x) { return { exam: x }; }), nx = nextCards();
@@ -610,7 +610,7 @@ function renderExams() {
 }
 function summaryText(p) {
   var f = F(), L = [], by = function (tab) { return DATA.records.filter(function (r) { return r.tab === tab && relevant(r, f, p); }).map(function (r) { return evaluate(r, f); }); };
-  L.push('Avakasha summary for ' + p.name); var lu = lastUpdate(p); if (lu) L.push('Details last updated ' + fmt(new Date(lu)));
+  L.push('myavakasha summary for ' + p.name); var lu = lastUpdate(p); if (lu) L.push('Details last updated ' + fmt(new Date(lu)));
   var st = [];
   if (f.board || f.pct) st.push('Class 10: ' + [f.board, f.pct ? Number(f.pct).toFixed(1) + '%' : '', f.examYear].filter(Boolean).join(', '));
   if (f.board12 || f.pct12 || f.stream12) st.push('Class 12: ' + [f.board12, f.pct12 ? Number(f.pct12).toFixed(1) + '%' : '', f.stream12 ? String(showVal('stream12', f.stream12)) : '', f.year12].filter(Boolean).join(', '));
@@ -645,7 +645,7 @@ function renderPaths(tab, stage) {
   var groups = [0, 1, 2, 3].map(function (g) { var it = ev.filter(function (e) { return e.grp === g; }); return it.length ? '<section class="group"><h2>' + (isS || g < 2 ? GROUPS[g][0] : 'Plan ahead: next admission') + ' <span class="n">' + it.length + '</span></h2><p class="gnote">' + (isS || g < 2 ? GROUPS[g][1] : 'Applications are not open right now. The next intake is shown on each card.') + '</p><div class="recs">' + it.map(card).join('') + '</div></section>' : ''; }).join('');
   if (ids) { groups = '<div class="recs">' + ev.map(card).join('') + '</div>'; intro = stage === '10' ? 'Courses you can join after Class 10. The tag on each card shows whether you fit now.' : 'Entrance exams and degree courses after Class 12. The tag on each card shows whether you fit now.'; }
   $('app').innerHTML = subHead(isS ? 'Scholarships' : ids ? (stage === '10' ? 'After Class 10' : 'After Class 12') : 'Study paths', intro)
-    + (groups || '<div class="card"><p class="note">Nothing to show yet. Scan a marksheet and Avakasha will match these to you.</p></div>')
+    + (groups || '<div class="card"><p class="note">Nothing to show yet. Scan a marksheet and myavakasha will match these to you.</p></div>')
     + (isS ? '' : '<p class="foot">Admission dates change every year. Check the college or board website before you apply.</p>');
   wireBack('#home');
 }
@@ -696,7 +696,7 @@ function renderPvt() {
   var g1 = items.filter(function (i) { return i.m.g === 1; }), g2 = items.filter(function (i) { return i.m.g === 2; }), g3 = items.filter(function (i) { return i.m.g === 3; });
   function sec(t, a) { return a.length ? (t ? '<h3 class="h3" style="margin:16px 4px 8px">' + t + '</h3>' : '') + '<div class="xl">' + a.map(function (i) { return xcard(i.x, 'pvt', i.m); }).join('') + '</div>' : ''; }
   $('app').innerHTML = subHead('Pvt Jobs', sig ? 'Open jobs, with the ones that fit your profile first.' : 'Open private jobs.')
-    + '<div class="banner" style="margin-top:12px"><b>Not from an official page.</b> These were found on job sites and checked by Avakasha, but not by the employer. Check the employer first, and never pay anyone to get a job.</div>'
+    + '<div class="banner" style="margin-top:12px"><b>Not from an official page.</b> These were found on job sites and checked by myavakasha, but not by the employer. Check the employer first, and never pay anyone to get a job.</div>'
     + sec(sig && g1.length ? 'Suits you' : '', g1) + sec(sig && g1.length ? 'You can apply' : '', g2)
     + (g3.length ? '<div class="row" style="margin-top:16px"><button class="btn xbtn" id="showCl" type="button">' + (SHOWCL ? 'Hide ones that need more' : 'Show ones that need more') + '</button></div>' : '')
     + (SHOWCL ? sec('', g3) : '')
@@ -962,7 +962,7 @@ function peopleSheet() {
   sheet('<div class="sh">People on this phone</div>' + rows
     + '<button type="button" class="prow add" id="pa"><span class="av dash">+</span><b>Add person</b></button><div class="sdiv"></div>'
     + (p ? '<button type="button" class="mrow" id="pkn">Name in Kannada<span lang="kn">' + esc(knName(p) || 'Add') + ' ›</span></button>' : '')
-    + '<button type="button" class="mrow" id="phow">How Avakasha works<span>›</span></button>'
+    + '<button type="button" class="mrow" id="phow">How myavakasha works<span>›</span></button>'
     + '<button type="button" class="mrow" id="pbk">Backup and restore<span>' + '›' + '</span></button>'
     + (devOn() ? '<button type="button" class="mrow" id="pco">Reading cost<span>' + (l.length ? inr(t30.reduce(function (s, x) { return s + x.usd; }, 0) * rate()) + ' in 30 days · ' + t30.length + (t30.length === 1 ? ' scan' : ' scans') : 'No scans yet') + '</span></button>' : '')
     + (devOn() ? '<button type="button" class="mrow" id="pky">Claude key<span>' + (CFG.readerUrl ? 'Server set up' : userKey() ? 'Saved on this phone' : 'Not saved') + '</span></button>' : '')
@@ -987,13 +987,13 @@ function menuSheet() {
   if ($('aks')) $('aks').onclick = function () { var v = $('ak').value.trim(); if (!/^sk-ant-/.test(v)) { toast('That does not look like an Anthropic key. It starts with sk-ant-'); return; } try { localStorage.setItem('pa10.key', v); } catch (e) { toast('Could not save the key on this phone.'); return; } closeSheet(); toast('Key saved on this phone.'); };
   if ($('akc')) $('akc').onclick = function () { try { localStorage.removeItem('pa10.key'); } catch (e) {} closeSheet(); toast('Key removed.'); };
   $('bk').onclick = function () {
-    var blob = new Blob([JSON.stringify({ app: 'avakasha', saved: new Date().toISOString(), db: DB }, null, 1)], { type: 'application/json' });
-    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'avakasha-backup-' + TODAY.toISOString().slice(0, 10) + '.json'; document.body.appendChild(a); a.click(); a.remove(); toast('Backup file saved to your downloads.');
+    var blob = new Blob([JSON.stringify({ app: 'myavakasha', saved: new Date().toISOString(), db: DB }, null, 1)], { type: 'application/json' });
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'myavakasha-backup-' + TODAY.toISOString().slice(0, 10) + '.json'; document.body.appendChild(a); a.click(); a.remove(); toast('Backup file saved to your downloads.');
   };
   $('rs').onclick = function () { $('rsf').click(); };
   $('rsf').onchange = function () {
     var fl = $('rsf').files[0]; if (!fl) return; var rd = new FileReader();
-    rd.onload = function () { try { var o = JSON.parse(rd.result); var db = o.db || o; if (!db.profiles) throw 0; var ids = {}; DB.profiles.forEach(function (p) { ids[p.id] = 1; }); var n = 0; db.profiles.forEach(function (p) { if (!ids[p.id]) { DB.profiles.push(p); n++; } }); if (!DB.active && DB.profiles.length) DB.active = DB.profiles[0].id; save(); closeSheet(); render(); toast(n + ' profile' + (n === 1 ? '' : 's') + ' restored.'); } catch (e) { toast('That file is not an Avakasha backup.'); } };
+    rd.onload = function () { try { var o = JSON.parse(rd.result); var db = o.db || o; if (!db.profiles) throw 0; var ids = {}; DB.profiles.forEach(function (p) { ids[p.id] = 1; }); var n = 0; db.profiles.forEach(function (p) { if (!ids[p.id]) { DB.profiles.push(p); n++; } }); if (!DB.active && DB.profiles.length) DB.active = DB.profiles[0].id; save(); closeSheet(); render(); toast(n + ' profile' + (n === 1 ? '' : 's') + ' restored.'); } catch (e) { toast('That file is not an myavakasha backup.'); } };
     rd.readAsText(fl);
   };
   if ($('dp')) $('dp').onclick = function () { deleteSheet(prof()); };
@@ -1430,7 +1430,7 @@ var ART = [
   '<svg width="260" height="260" viewBox="0 0 260 260" aria-hidden="true"><rect x="78" y="28" width="104" height="204" rx="20" fill="#17323f"/><rect x="88" y="46" width="84" height="168" rx="8" fill="#f2f5f7"/><rect x="108" y="34" width="44" height="6" rx="3" fill="#2f4a58"/><rect x="108" y="108" width="44" height="38" rx="8" fill="#0d6e6e"/><path d="M116 108v-9a14 14 0 0 1 28 0v9" fill="none" stroke="#0d6e6e" stroke-width="7" stroke-linecap="round"/><circle cx="130" cy="127" r="5" fill="#f6b73c"/><rect x="100" y="162" width="60" height="7" rx="3.5" fill="#c9d2d9"/><rect x="108" y="176" width="44" height="7" rx="3.5" fill="#dfe5ea"/></svg>'
 ];
 var INTRO = [
-  ['Scan your documents', 'Point your camera at a marksheet, certificate, licence or work letter. Avakasha reads it and builds your profile.'],
+  ['Scan your documents', 'Point your camera at a marksheet, certificate, licence or work letter. myavakasha reads it and builds your profile.'],
   ['See what suits you', 'Jobs, courses and scholarships that match your details, open right now. Add more documents and the list grows.'],
   ['Stays on your phone', 'Your details are kept on this phone, and photos are not saved. You decide what to add.']
 ];
@@ -1478,11 +1478,11 @@ function icsDay(d) { return d.getFullYear() + ('0' + (d.getMonth() + 1)).slice(-
 function addCal(id) {
   var c = CAL[id]; if (!c) return;
   var d0 = pd(c.iso), d1 = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() + 1);
-  var lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Avakasha//EN', 'BEGIN:VEVENT', 'UID:' + id + '@avakasha', 'DTSTAMP:' + new Date().toISOString().replace(/[-:]|\.\d{3}/g, ''),
+  var lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//myavakasha//EN', 'BEGIN:VEVENT', 'UID:' + id + '@myavakasha.com', 'DTSTAMP:' + new Date().toISOString().replace(/[-:]|\.\d{3}/g, ''),
     'DTSTART;VALUE=DATE:' + icsDay(d0), 'DTEND;VALUE=DATE:' + icsDay(d1), 'SUMMARY:' + icsEsc(c.title + ' (last date)'), 'DESCRIPTION:' + icsEsc('Check the official notice before you apply. ' + (c.url || '')),
     'BEGIN:VALARM', 'TRIGGER:-P7D', 'ACTION:DISPLAY', 'DESCRIPTION:Closes in 7 days', 'END:VALARM', 'BEGIN:VALARM', 'TRIGGER:-P1D', 'ACTION:DISPLAY', 'DESCRIPTION:Closes tomorrow', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'];
   var blob = new Blob([lines.join('\r\n') + '\r\n'], { type: 'text/calendar' }), a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = 'avakasha-' + id.replace(/[^a-z0-9]+/gi, '-').slice(0, 40) + '.ics'; document.body.appendChild(a); a.click(); a.remove(); toast('Calendar file saved. Open it to add the reminder.');
+  a.href = URL.createObjectURL(blob); a.download = 'myavakasha-' + id.replace(/[^a-z0-9]+/gi, '-').slice(0, 40) + '.ics'; document.body.appendChild(a); a.click(); a.remove(); toast('Calendar file saved. Open it to add the reminder.');
 }
 function hasDocType(p, t) { var dt = DOCTYPES.filter(function (d) { return d[0] === t; })[0]; return (p.docs || []).some(function (d) { return d.type === t || (dt && d.label === dt[1]); }); }
 /* Documents a job probably needs, worked out from its rules. The official notice has the full list. */
@@ -1577,11 +1577,11 @@ document.addEventListener('click', function (e) {
   toast(on ? 'Saved.' : 'Removed from saved.'); renderTop(route().r); if (route().r === 'saved') renderSaved();
 }, true);
 function route() { var h = location.hash.replace('#', ''); if (h.indexOf('job/') === 0) return { r: 'job', id: decodeURIComponent(h.slice(4)) }; if (h.indexOf('x/') === 0) return { r: 'x', id: decodeURIComponent(h.slice(2)) }; if (h.indexOf('t/') === 0) return { r: 't', id: decodeURIComponent(h.slice(2)) }; if (h.indexOf('ex/') === 0) return { r: 'explore', t: h.slice(3) }; if (h === 'train') return { r: 'explore', t: 'train' }; if (h === 'saved') return { r: 'saved' }; if (h.indexOf('study/') === 0) return { r: 'study', st: h.slice(6) }; if (h === 'scholar') return { r: 'explore', t: 'sch' }; if (h === 'exams') return { r: 'explore', t: 'exam' }; if (h === 'govt' || h === 'pvt') return { r: 'explore', t: h }; if (h === 'study' || h === 'summary') return { r: h }; if (h === 'explore' || h === 'profile') return { r: h }; return { r: 'home' }; }
-var BWHTML = '<span class="bw loop nm" aria-hidden="true"><span class="en">avakasha</span><span class="kn" lang="kn">ಅವಕಾಶ</span></span>';
+var BWHTML = '<span class="bw loop nm" aria-hidden="true"><span class="en">myavakasha</span><span class="kn" lang="kn">ನನ್ನ ಅವಕಾಶ</span></span>';
 function renderTop(r) {
   var p = prof(), b = $('avatar'), br = document.querySelector('.brand'), sb = $('savedBtn');
   if (sb) { var sn = savedList().length; sb.hidden = r === 'profile' || !p; sb.innerHTML = HEART + (sn ? '<span class="cnt">' + sn + '</span>' : ''); sb.setAttribute('aria-label', 'Saved, ' + sn + (sn === 1 ? ' item' : ' items')); sb.onclick = function () { location.hash = '#saved'; }; }
-  var nh = r === 'profile' ? '<svg viewBox="0 0 24 24" aria-hidden="true" style="width:22px;height:22px;vertical-align:-4px;margin-right:8px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round"><path d="M15 5l-7 7 7 7"/></svg>Profile' : BWHTML; if (br.getAttribute('data-k') !== (r === 'profile' ? 'p' : 'b')) { br.innerHTML = nh; br.setAttribute('data-k', r === 'profile' ? 'p' : 'b'); } if (r === 'profile') br.removeAttribute('aria-label'); else br.setAttribute('aria-label', 'Avakasha'); br.style.color = r === 'profile' ? 'var(--ink)' : '';
+  var nh = r === 'profile' ? '<svg viewBox="0 0 24 24" aria-hidden="true" style="width:22px;height:22px;vertical-align:-4px;margin-right:8px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round"><path d="M15 5l-7 7 7 7"/></svg>Profile' : BWHTML; if (br.getAttribute('data-k') !== (r === 'profile' ? 'p' : 'b')) { br.innerHTML = nh; br.setAttribute('data-k', r === 'profile' ? 'p' : 'b'); } if (r === 'profile') br.removeAttribute('aria-label'); else br.setAttribute('aria-label', 'myavakasha'); br.style.color = r === 'profile' ? 'var(--ink)' : '';
   if (r === 'profile' && p) { b.className = 'avatar pill'; b.setAttribute('aria-label', 'Switch person or open menu'); b.innerHTML = '<span class="av">' + initial(p.name) + '</span><span class="an">' + esc(p.name) + '</span>' + CHEVD; b.onclick = peopleSheet; }
   else if (r === 'profile') { b.className = 'avatar pill'; b.setAttribute('aria-label', 'Menu'); b.innerHTML = '<span class="an" style="padding-left:8px">Menu</span>' + CHEVD; b.onclick = menuSheet; }
   else { b.className = 'avatar'; b.setAttribute('aria-label', 'Open profile'); b.innerHTML = '<span class="av">' + (p ? initial(p.name) : '<svg viewBox="0 0 24 24" aria-hidden="true" style="stroke:#fff;width:20px;height:20px"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>') + '</span>'; b.onclick = function () { location.hash = '#profile'; }; }
