@@ -105,6 +105,8 @@ function drawHome(j){
   (j.kinds||[]).forEach(function(k){var s=j.sched[k.id],st=kindStats(j,k);
     h+='<div class="c kc"><h3><span>'+esc(k.name)+'</span><span class="wt">'+c[k.id]+' waiting</span></h3><div class="sch"><span>'+esc(schedTxt(s))+'</span><button type="button" class="lnk" data-sched="'+k.id+'">Change</button></div><div style="font-size:13px;margin-top:2px">Last run '+esc(fmtLast(st.last))+(st.cost!=null?' · <b>about ₹'+st.cost+'</b>':'')+'</div>'+(s.mode!=='daily'?'<div class="wr" style="margin-top:4px">Next run: '+esc(nextTxt(s))+'</div>':'')+'<div class="row"><button type="button" data-run="'+k.id+'">Run now</button><button type="button" class="p" data-open="'+k.id+'">Review '+c[k.id]+'</button></div></div>'});
   var lv=j.live||{},nl=(lv.records||[]).length+(lv.exams||[]).length+(lv.pvt||[]).length+(lv.sch||[]).length+(lv.train||[]).length;
+  var ch=j.changes||[],wl=j.watchlog,lr=j.lastrecheck,badW=wl?wl.pages.filter(function(p){return !p.ok}).length:0;
+  h+='<div class="c"><h3><span>Saved notices and official pages</span><span class="wt">'+ch.length+' to look at</span></h3><div style="font-size:13px" class="mu">Every saved notice is re-checked about once a week, for free. Dates the page confirms as extended are updated by themselves. Cancellations, missing dates and dead pages come to you.</div><div style="font-size:13px;margin-top:6px">Last re-check '+esc(fmtLast(lr&&lr.at))+(lr&&lr.sum?' · '+lr.sum.checked+' checked, '+lr.sum.ext+' extended, '+lr.sum.chg+' flagged':'')+'</div><div style="font-size:13px;margin-top:2px">Official pages watched '+(j.watchsize||0)+' · last look '+esc(fmtLast(wl&&wl.at))+(wl?' · '+wl.added+' new link'+(wl.added===1?'':'s')+(badW?' · '+badW+' page'+(badW===1?'':'s')+' did not open':''):'')+'</div><div class="row" style="margin-top:8px"><button type="button" data-view="chg">Look at changes ('+ch.length+')</button><button type="button" data-recheck="1">Re-check now</button><button type="button" data-watchnow="1">Check pages now</button></div></div>';
   h+='<div class="row" style="justify-content:center"><button type="button" data-runall="1">Run all now</button><button type="button" id="reload">Reload</button></div><div class="row" style="justify-content:center"><button type="button" class="lnk" data-view="live">Live now ('+nl+')</button><button type="button" class="lnk" data-view="hist">Run history</button></div><p class="mu">Costs are estimates from recent runs. Nothing runs on a day you have not picked, and Run now works any time.</p>';
   $('view').innerHTML=h}
 function drawQueue(j){
@@ -117,6 +119,12 @@ function drawQueue(j){
   var bulk=nOff?'<div class="c bulk"><span>'+nOff+' find'+(nOff===1?' has':'s have')+' an official link and a date, and none mention a fee.</span><button type="button" class="p" data-bulk="1">Approve those '+nOff+'</button></div>':'';
   var note={govt:'Check each against its notice, fix any number, then approve or reject. Leads need an official notice link before they can be approved.',exam:'Check the date against the official notice.',pvt:'Found on job sites. Open each listing, check the employer is real and nothing asks for a fee, then approve.',course:'Admissions found on official sites. Check the last date, then approve.',sch:'Government and private scholarships. Check the provider is real and nothing asks for a fee, fix level and last date, then approve.',train:'Skill programs. Check the cost and the age range on the page, then approve.'}[TAB];
   $('view').innerHTML='<div class="row" style="margin:0"><button type="button" class="lnk" data-view="home">‹ Searches</button></div><div class="tabs">'+tabs+'</div>'+fil+bulk+'<p class="mu">'+note+'</p>'+(shown.length?shown.map(function(p){return card(p[0],p[1])}).join(''):'<div class="c mu">Nothing waiting here.</div>')}
+function drawChg(j){var ch=j.changes||[],held=j.held||[],wl=j.watchlog,KL={ext:'Date extended (updated automatically)',chg:'Check this',gone:'Page gone, hidden from students',none:'Page would not open'};
+  var h='<div class="row" style="margin:0"><button type="button" class="lnk" data-view="home">‹ Searches</button></div><h3 style="margin:10px 2px">Changes found</h3>';
+  h+=ch.length?ch.map(function(c){return '<div class="c"><b>'+esc(c.title)+'</b><div class="mu" style="font-size:13px">'+esc(KL[c.kind]||c.kind)+(c.from?': '+esc(c.from)+' to '+esc(c.to):'')+'</div><div style="font-size:13px;margin:4px 0">'+esc(c.note)+'</div><div class="row"><a href="'+esc(c.url)+'" target="_blank" rel="noopener">Open the page</a>'+(c.kind==='gone'?'<button type="button" data-unhold="'+esc(c.key)+'">Show to students again</button>':'')+'<button type="button" data-dismiss="'+esc(c.key)+'">Done</button></div></div>'}).join(''):'<div class="c mu">Nothing needs a look.</div>';
+  if(held.length)h+='<p class="mu">Hidden now: '+held.map(function(x){return esc(x.title)}).join('; ')+'</p>';
+  if(wl&&wl.pages){var bad=wl.pages.filter(function(p){return !p.ok});if(bad.length)h+='<h3 style="margin:14px 2px 6px">Pages that did not open</h3><div class="c mu" style="font-size:13px">'+bad.map(function(p){return esc(p.name)+' (code '+(p.code||'none')+')'}).join('<br>')+'<br>Some government sites block automatic visits. If one stays on this list, remove or replace it in the WATCH list in worker.js.</div>'}
+  $('view').innerHTML=h}
 function drawLive(j){var l=j.live||{},all=[].concat(l.records||[],l.exams||[],l.pvt||[],l.sch||[],l.train||[]);
   $('view').innerHTML='<div class="row" style="margin:0"><button type="button" class="lnk" data-view="home">‹ Searches</button></div><h3 style="margin:10px 2px">Live now</h3>'+(all.map(function(x){return '<div class="c"><b>'+esc(x.title)+'</b> <span class="mu">'+esc(x.closes||x.d||'')+'</span><div class="row"><button class="d" data-rm="'+esc(x.id)+'">Remove</button></div></div>'}).join('')||'<div class="c mu">Nothing live yet.</div>')}
 function drawHist(j){var SN={A:'Govt jobs: official sites',B:'Govt jobs: other sites',C:'Private jobs',E:'Exams',K:'Courses',S:'Scholarships',T:'Trainings'};
@@ -125,7 +133,7 @@ function draw(j){
   LASTJ=j;DRAFT=(j.draft&&j.draft.items)||[];
   if(j.spend!=null){$('spend').hidden=false;$('spend').textContent='This month ₹'+j.spend}
   var L=j.last;$('msg').innerHTML=L&&!L.ok?'<span class="err">Last automatic run failed: '+esc(L.error||'')+'</span> <span class="mu">'+esc(JSON.stringify({stop:L.stop,status:L.status}))+'</span>':'';
-  if(VIEW==='queue')drawQueue(j);else if(VIEW==='live')drawLive(j);else if(VIEW==='hist')drawHist(j);else drawHome(j)}
+  if(VIEW==='queue')drawQueue(j);else if(VIEW==='live')drawLive(j);else if(VIEW==='hist')drawHist(j);else if(VIEW==='chg')drawChg(j);else drawHome(j)}
 /* ---- schedule sheet ---- */
 var SH=null;
 function drawSheet(){var k=SH&&SH.k,mu=document.getElementById('sheetroot');if(!k){mu.innerHTML='';return}
@@ -148,6 +156,10 @@ document.addEventListener('click',function(e){var b=e.target.closest('button,[da
   if(d.run){doRuns([d.run]);return}
   if(d.runall){if(confirm('Run every search now? About ₹'+(KORDER.length*20)+' in all and several minutes. Keep this page open.'))doRuns(KORDER);return}
   if(d.open){TAB=d.open;FILT='all';VIEW='queue';draw(LASTJ);window.scrollTo(0,0);return}
+  if(d.recheck){load({action:'recheck'});return}
+  if(d.watchnow){load({action:'watchnow'});return}
+  if(d.dismiss){load({action:'dismiss',keys:[d.dismiss]});return}
+  if(d.unhold){load({action:'unhold',keys:[d.unhold]});return}
   if(d.view){VIEW=d.view;draw(LASTJ);window.scrollTo(0,0);return}
   if(d.tab){TAB=d.tab;FILT='all';draw(LASTJ);return}
   if(d.filt){FILT=d.filt;draw(LASTJ);return}

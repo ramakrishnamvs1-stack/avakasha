@@ -231,9 +231,9 @@ async function peek(url) {
   var ctl = new AbortController(), tm = setTimeout(function () { ctl.abort(); }, 9000);
   try {
     var r = await fetch(url, { signal: ctl.signal, redirect: 'follow', headers: { 'user-agent': 'Mozilla/5.0 (compatible; myavakashaCheck/1.0)', accept: 'text/html,application/xhtml+xml,*/*;q=0.5' } });
-    if (!r.ok) return { s: 'none', t: 'The page did not open (' + r.status + ').' };
+    if (!r.ok) return { s: 'none', t: 'The page did not open (' + r.status + ').', code: r.status };
     var ct = (r.headers.get('content-type') || '').toLowerCase();
-    if (ct.indexOf('pdf') >= 0 || /\.pdf($|\?)/i.test(url)) return { s: 'none', t: 'A PDF. myavakasha did not read it, so open it and check.' };
+    if (ct.indexOf('pdf') >= 0 || /\.pdf($|\?)/i.test(url)) return { s: 'none', t: 'A PDF. myavakasha did not read it, so open it and check.', pdf: true };
     var tx = (await r.text()).slice(0, 500000);
     tx = tx.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;|&#160;/g, ' ').replace(/&amp;/g, '&');
     return { s: 'page', text: normText(tx) };
@@ -300,25 +300,182 @@ function tidy(d, live, today) {
   });
   d.items = out; return changed;
 }
+
+/* ---- Rotating focus: each run gives extra attention to a different group of departments, so coverage widens over the week. ---- */
+var FOCUS = {
+  A: ['Karnataka State Police, Fire and Emergency Services, Prisons and Excise recruitment', 'Karnataka High Court, District Courts and the Karnataka Judicial Department recruitment', 'KPTCL, the ESCOMs (BESCOM, MESCOM, HESCOM, GESCOM, CESC), KSRTC, BMTC and the other state transport corporations', 'Anganwadi (Women and Child Development), Health and Family Welfare, Zilla Panchayat and Gram Panchayat recruitment in Karnataka', 'banks and finance: IBPS, RBI, NABARD, SIDBI and public sector banks', 'defence and paramilitary: Army, Navy, Air Force, Agniveer, CRPF, BSF, CISF, SSB', 'central departments: Railways, Postal, Income Tax, Customs, ESIC, EPFO and the Staff Selection Commission'],
+  E: ['Karnataka state exams: KCET, KEA, KPSC, KSET, PGCET and the Karnataka teacher eligibility test', 'central exams: SSC, UPSC and the national entrance exams (NEET, JEE, CUET)', 'banking and railway exams: IBPS, SBI, RBI, RRB NTPC and Group D', 'defence and teaching exams: NDA, CDS, Agniveer, CTET and state TET'],
+  K: ['PUC, diploma, polytechnic and ITI admissions in Karnataka', 'degree admissions through the state: KEA, UGCET, state universities and RGUHS (nursing and paramedical)', 'central admissions open to Karnataka students: JoSAA, CUET, IGNOU and central universities', 'agriculture, veterinary, fisheries and horticulture courses at the Karnataka agricultural universities'],
+  T: ['Kaushalya Karnataka and the Karnataka Skill Development Corporation', 'PMKVY, Skill India Digital and NSDC schemes', 'ITI short courses and the Government Tool Rooms and training centres', 'NULM, DAY-NRLM and RUDSETI self-employment training'],
+  S: ['Karnataka Social Welfare (SC and ST) and the State Scholarship Portal post-matric schemes', 'Karnataka Backward Classes and Minorities Welfare scholarships', 'central schemes on the National Scholarship Portal (NMMSS, minority pre and post matric, PM-USP)', 'AICTE and UGC schemes (Pragati, Saksham, PG scholarships)', 'schemes for building workers children, farmers children and students with disabilities', 'private foundations and company scholarships']
+};
+var FOCUS_WEEKLY = { K: 1, T: 1, S: 1 };
+function focusFor(key, today) {
+  var g = FOCUS[key]; if (!g) return '';
+  var d = Math.floor(Date.parse(today) / 864e5), i = Math.floor(d / (FOCUS_WEEKLY[key] ? 7 : 1)) % g.length;
+  return ' This run, give extra attention to: ' + g[i] + '. Still include any other open notice you come across.';
+}
+
+/* ---- Weekly re-check of saved notices. Plain page fetches only, no AI cost. ---- */
+var CANCEL_RE = /\b(cancel+ed|cancellation|withdrawn|scrapped)\b/g;
+var RESCHED_RE = /\b(postponed|re-?scheduled)\b/g;
+function monthNo(n) { return MONTHS.map(function (x) { return x.slice(0, 3); }).indexOf(String(n).slice(0, 3)) + 1; }
+function isoOf(y, m, d) { y = +y; m = +m; d = +d; if (!(y >= 2024 && y <= 2035 && m >= 1 && m <= 12 && d >= 1 && d <= 31)) return null; return y + '-' + ('0' + m).slice(-2) + '-' + ('0' + d).slice(-2); }
+function parseDatesIn(t) {
+  var out = [], m, MN = '(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sept|sep|oct|nov|dec)';
+  var r1 = new RegExp('(\\d{1,2}) ' + MN + ' (\\d{4})', 'g'), r2 = new RegExp(MN + ' (\\d{1,2}) (\\d{4})', 'g'), r3 = /(\d{1,2})[\/\- ](\d{1,2})[\/\- ](\d{4})/g;
+  while ((m = r1.exec(t))) { var a = isoOf(m[3], monthNo(m[2]), m[1]); if (a) out.push({ i: m.index, d: a }); }
+  while ((m = r2.exec(t))) { var b = isoOf(m[3], monthNo(m[1]), m[2]); if (b) out.push({ i: m.index, d: b }); }
+  while ((m = r3.exec(t))) { var c = isoOf(m[3], m[2], m[1]); if (c) out.push({ i: m.index, d: c }); }
+  return out.sort(function (x, y) { return x.i - y.i; });
+}
+function titleToks(title) { return normText(title).replace(/[^a-z0-9 ]/g, ' ').split(' ').filter(function (t) { return t.length >= 4 && !TSTOP[t]; }); }
+function nearTitle(text, toks, re) {
+  var need = Math.max(1, Math.ceil(toks.length * 0.4)), m; re.lastIndex = 0;
+  while ((m = re.exec(text))) { var w = text.slice(Math.max(0, m.index - 250), m.index + 250), n = toks.filter(function (t) { return w.indexOf(t) >= 0; }).length; if (n >= need) return true; }
+  return false;
+}
+function findExtension(text, toks, closes) {
+  var re = /extend|extension/g, m, max = new Date(Date.parse(closes) + 120 * 864e5).toISOString().slice(0, 10);
+  while ((m = re.exec(text))) {
+    var w = text.slice(Math.max(0, m.index - 200), m.index + 200); if (!toks.some(function (t) { return w.indexOf(t) >= 0; })) continue;
+    var ds = parseDatesIn(text.slice(m.index, m.index + 180));
+    for (var i = 0; i < ds.length; i++) if (ds[i].d > closes && ds[i].d <= max) return ds[i].d;
+  }
+  return null;
+}
+async function recheckOne(x) {
+  var u = x.src && x.src[1]; if (!u) return { s: 'weak' };
+  var r = await peek(u);
+  if (r.s !== 'page') return { s: r.code === 404 || r.code === 410 ? 'gone' : r.pdf ? 'pdf' : 'none', t: r.t };
+  var text = r.text, toks = titleToks(x.title), hit = toks.filter(function (t) { return text.indexOf(t) >= 0; }).length, ratio = toks.length ? hit / toks.length : 1;
+  var before = (x.rc && x.rc.s === 'ok') || (x.ver && x.ver.s === 'ok');
+  if (ratio < 0.5) return before ? { s: 'chg', t: 'The page no longer clearly mentions this title.' } : { s: 'weak' };
+  var date = x.closes || x.d || null;
+  if (x.k !== 'exam' && x.closes) { var ex = findExtension(text, toks, x.closes); if (ex) return { s: 'ext', to: ex }; }
+  if (nearTitle(text, toks, CANCEL_RE)) return { s: 'chg', t: 'The page mentions a cancellation near this title. Open it and check.' };
+  if (x.k === 'exam' && nearTitle(text, toks, RESCHED_RE)) return { s: 'chg', t: 'The page mentions a postponement or new schedule near this title. Open it and check.' };
+  if (date && before && !dateForms(date).some(function (f) { return f && text.indexOf(f) >= 0; })) return { s: 'chg', t: 'The date ' + date + ' is no longer seen on the page. It may have changed.' };
+  return { s: 'ok' };
+}
+var RC_LISTS = ['records', 'exams', 'sch', 'train'];
+async function recheckLive(env, limit, force) {
+  if (!env.LIMITS) return { error: 'not_configured' };
+  var today = todayStr(), now = Date.now(), live = (await kget(env, 'live')) || { records: [], exams: [] }, due = [];
+  RC_LISTS.forEach(function (l) { (live[l] || []).forEach(function (x) { if (x.hold || !x.src) return; var dt = x.closes || x.d; if (dt && dt < today) return; if (!force && x.rc && x.rc.at > now - 6 * 864e5) return; due.push(x); }); });
+  due.sort(function (a, b) { return ((a.rc && a.rc.at) || 0) - ((b.rc && b.rc.at) || 0); });
+  due = due.slice(0, limit || 25);
+  var changes = (await kget(env, 'changes')) || [], sum = { checked: 0, ok: 0, ext: 0, chg: 0, gone: 0, none: 0, due: due.length };
+  function note(x, kind, text, extra) {
+    var key = x.id + ':' + kind; changes = changes.filter(function (c) { return c.key !== key; });
+    var c = { key: key, id: x.id, title: x.title, k: x.k, kind: kind, note: text, at: now, url: x.src[1] }; if (extra) Object.keys(extra).forEach(function (k) { c[k] = extra[k]; }); changes.unshift(c);
+  }
+  for (var i = 0; i < due.length; i += 8) {
+    var part = due.slice(i, i + 8), res = await Promise.all(part.map(function (x) { return recheckOne(x).catch(function () { return { s: 'none' }; }); }));
+    part.forEach(function (x, j) {
+      var r = res[j], prev = x.rc || {}; sum.checked++;
+      if (r.s === 'ok') { x.rc = { at: now, s: 'ok' }; sum.ok++; }
+      else if (r.s === 'ext') {
+        var old = x.closes; x.closes = r.to; x.cyc = 'Closes ' + r.to + '. Extended from ' + old + '.'; x.rc = { at: now, s: 'ok' }; sum.ext++;
+        note(x, 'ext', 'The page says the last date was extended. Updated automatically.', { from: old, to: r.to, auto: true });
+      } else if (r.s === 'chg') { x.rc = { at: now, s: 'chg' }; sum.chg++; note(x, 'chg', r.t); }
+      else if (r.s === 'gone') {
+        var g = (prev.g || 0) + 1; x.rc = { at: now, s: 'gone', g: g }; sum.gone++;
+        if (g >= 2) { x.hold = true; note(x, 'gone', 'The notice page is gone (not found twice in a row). Hidden from students until you restore it.'); }
+      } else { var f = r.s === 'none' ? (prev.f || 0) + 1 : 0; x.rc = { at: now, s: prev.s === 'ok' ? 'ok' : r.s, f: f }; sum.none++; if (f === 3) note(x, 'none', 'The notice page could not be opened three times in a row. Open it yourself and check.'); }
+    });
+  }
+  changes = changes.slice(0, 100);
+  if (due.length) { live.at = Date.now(); await env.LIMITS.put('live', JSON.stringify(live)); await env.LIMITS.put('changes', JSON.stringify(changes)); }
+  await env.LIMITS.put('lastrecheck', JSON.stringify({ at: now, sum: sum }));
+  return { ok: true, sum: sum };
+}
+
+/* ---- Watchlist: official recruitment pages fetched directly. Only NEW links are raised, for you to review. Edit this list freely. ---- */
+var WATCH = [
+  { id: 'kpsc', name: 'KPSC', url: 'https://kpsc.kar.nic.in/', org: 'Karnataka Public Service Commission', tab: 'work' },
+  { id: 'kea', name: 'KEA', url: 'https://cetonline.karnataka.gov.in/kea/', org: 'Karnataka Examinations Authority', tab: 'work' },
+  { id: 'ssc', name: 'SSC', url: 'https://ssc.gov.in/', org: 'Staff Selection Commission', tab: 'work' },
+  { id: 'upsc', name: 'UPSC', url: 'https://upsc.gov.in/', org: 'Union Public Service Commission', tab: 'work' },
+  { id: 'ibps', name: 'IBPS', url: 'https://www.ibps.in/', org: 'IBPS', tab: 'work' },
+  { id: 'rrbbnc', name: 'RRB Bengaluru', url: 'https://www.rrbbnc.gov.in/', org: 'Railway Recruitment Board, Bengaluru', tab: 'work' },
+  { id: 'indiapost', name: 'India Post', url: 'https://www.indiapost.gov.in/', org: 'India Post', tab: 'work' },
+  { id: 'isro', name: 'ISRO', url: 'https://www.isro.gov.in/', org: 'ISRO', tab: 'work' },
+  { id: 'ksp', name: 'Karnataka State Police', url: 'https://ksp.karnataka.gov.in/', org: 'Karnataka State Police', tab: 'work' },
+  { id: 'hckar', name: 'Karnataka Judiciary', url: 'https://karnatakajudiciary.kar.nic.in/', org: 'Karnataka High Court and District Courts', tab: 'work' },
+  { id: 'kptcl', name: 'KPTCL', url: 'https://kptcl.karnataka.gov.in/', org: 'KPTCL', tab: 'work' },
+  { id: 'bmtc', name: 'BMTC', url: 'https://mybmtc.karnataka.gov.in/', org: 'BMTC', tab: 'work' },
+  { id: 'anganwadi', name: 'Anganwadi Karnataka', url: 'https://anganwadirecruit.kar.nic.in/', org: 'Women and Child Development, Karnataka', tab: 'work' },
+  { id: 'pue', name: 'Karnataka PU Department', url: 'https://pue.karnataka.gov.in/', org: 'Department of Pre-University Education', tab: 'study' },
+  { id: 'dte', name: 'Karnataka DTE', url: 'https://dtek.karnataka.gov.in/', org: 'Department of Technical Education', tab: 'study' }
+];
+var WATCH_RELEVANT = /recruit|notification|vacanc|apply|posts?\b|admission|advt|advertis|walk-?in|application|examination|exam\b|final list|result of|selection/i;
+var WATCH_SKIP = /^(home|contact|about|login|sitemap|rti|faq|feedback|skip to|screen reader|read more|click here|more|view all|archive)\b/i;
+async function rawGet(url) {
+  var ctl = new AbortController(), tm = setTimeout(function () { ctl.abort(); }, 9000);
+  try {
+    var r = await fetch(url, { signal: ctl.signal, redirect: 'follow', headers: { 'user-agent': 'Mozilla/5.0 (compatible; myavakashaCheck/1.0)', accept: 'text/html,*/*;q=0.5' } });
+    if (!r.ok) return { ok: false, code: r.status };
+    return { ok: true, html: (await r.text()).slice(0, 800000), url: r.url || url };
+  } catch (e) { return { ok: false, code: 0 }; } finally { clearTimeout(tm); }
+}
+function linksOf(html, base) {
+  var out = [], seen = {}, re = /<a\s[^>]*?href\s*=\s*["']([^"'#][^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi, m;
+  while ((m = re.exec(html))) {
+    var tx = m[2].replace(/<[^>]+>/g, ' ').replace(/&nbsp;|&#160;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+    if (tx.length < 15 || tx.length > 200 || WATCH_SKIP.test(tx) || !WATCH_RELEVANT.test(tx)) continue;
+    var u; try { u = new URL(m[1].trim(), base); } catch (e) { continue; } if (u.protocol !== 'https:') continue; u.hash = '';
+    var h = u.href; if (seen[h]) continue; seen[h] = 1; out.push({ url: h, text: tx });
+  }
+  return out;
+}
+async function watchRun(env, limit) {
+  if (!env.LIMITS) return { error: 'not_configured' };
+  var today = todayStr(), runId = Date.now(), live = (await kget(env, 'live')) || { records: [], exams: [] }, d = (await kget(env, 'draft')) || { items: [] };
+  var log = [], added = 0, liveAll = [].concat(live.records || [], live.exams || [], live.sch || [], live.train || []), have = {}; d.items.forEach(function (x) { have[x.id] = 1; });
+  var pages = WATCH.slice(0, limit || 20), res = [];
+  for (var i = 0; i < pages.length; i += 8) res = res.concat(await Promise.all(pages.slice(i, i + 8).map(function (w) { return rawGet(w.url); })));
+  for (var j = 0; j < pages.length; j++) {
+    var w = pages[j], r = res[j], e = { id: w.id, name: w.name, at: runId };
+    if (!r.ok) { e.ok = false; e.code = r.code; log.push(e); continue; }
+    var links = linksOf(r.html, r.url), key = 'w:' + w.id, st = await kget(env, key), seenH = st && st.h ? st.h : null, now = links.map(function (l) { return hash(l.url); });
+    e.ok = true; e.links = links.length;
+    if (!seenH) { e.baseline = true; }
+    else {
+      var fresh = links.filter(function (l) { return seenH.indexOf(hash(l.url)) < 0; }).slice(0, 10); e.fresh = fresh.length;
+      fresh.forEach(function (l) {
+        var c = cleanRecord({ title: l.text, org: w.org, line: 'Spotted on the ' + w.name + ' page.', url: l.url, srcName: w.name + ' website', closes: null }, null, today, w.tab); if (!c) return;
+        if (have[c.id] || liveAll.some(function (y) { return y.id === c.id; })) return;
+        c.run = runId; c.watch = true; c.note = 'A new link on the ' + w.name + ' page. Open it, check the dates and details, then approve.'; if (!c.official) c.lead = true;
+        var t = trustOf(c); c.trust = t.trust; c.tl = t.tl; c.why = t.why; d.items.push(c); have[c.id] = 1; added++;
+      });
+    }
+    await env.LIMITS.put(key, JSON.stringify({ h: (now.concat(seenH || [])).filter(function (v, k, a) { return a.indexOf(v) === k; }).slice(0, 400), at: runId }));
+    log.push(e);
+  }
+  if (added) { d.at = Date.now(); await env.LIMITS.put('draft', JSON.stringify(d)); }
+  await env.LIMITS.put('watchlog', JSON.stringify({ at: runId, added: added, pages: log }));
+  return { ok: true, added: added, pages: log.length };
+}
 var GENERIC_ORG = /^(confidential|a\s+leading|leading|reputed|top|our\s+client|client\s+of|mnc|a\s+company|company|urgent|hiring)\b/i;
 var STAFFING = /consultanc|placement|manpower|recruitment\s+(agency|services|solutions)|staffing|HR\s+services/i;
 function nkey(t) { return String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40); }
 function sameTitle(a, b) { return a && b && Math.min(a.length, b.length) >= 10 && (a.indexOf(b) === 0 || b.indexOf(a) === 0); }
 function promptA(today) {
-  return 'Today is ' + today + '. You help job seekers in India (Karnataka first, then central government).\nUse web search, which is limited to official government sites, to find government job recruitments that are open to apply for right now, in Karnataka or central government, at any qualification level (Class 10, Class 12, ITI or diploma, degree). Check these official sites by name: KEA (cetonline.karnataka.gov.in), KPSC (kpsc.kar.nic.in), Karnataka School Education Department, Karnataka Forest Department, Staff Selection Commission (ssc.gov.in), UPSC (upsc.gov.in), IBPS (ibps.in), the Railway Recruitment Boards, India Post (indiapost.gov.in), ISRO and BEL.\nRules: list only what you saw on a page in the search results, and use that page\'s own address as url. Never invent a date or a number. Add the Pay and Vacancies facts only when the notice page itself states them; otherwise leave those two facts out. Skip anything already closed. Up to 12 jobs. Keep every field short.' + AUD + '\n' + RULES_TEXT + '\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[' + JOB_SHAPE + ']}</json>';
+  return 'Today is ' + today + '. You help job seekers in India (Karnataka first, then central government).\nUse web search, which is limited to official government sites, to find government job recruitments that are open to apply for right now, in Karnataka or central government, at any qualification level (Class 10, Class 12, ITI or diploma, degree). Check these official sites by name: KEA (cetonline.karnataka.gov.in), KPSC (kpsc.kar.nic.in), Karnataka School Education Department, Karnataka Forest Department, Staff Selection Commission (ssc.gov.in), UPSC (upsc.gov.in), IBPS (ibps.in), the Railway Recruitment Boards, India Post (indiapost.gov.in), ISRO and BEL.\nRules: list only what you saw on a page in the search results, and use that page\'s own address as url. Never invent a date or a number. Add the Pay and Vacancies facts only when the notice page itself states them; otherwise leave those two facts out. Skip anything already closed. Up to 14 jobs. Keep every field short.' + focusFor('A', today) + AUD + '\n' + RULES_TEXT + '\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[' + JOB_SHAPE + ']}</json>';
 }
 function promptE(today) {
-  return 'Today is ' + today + '. You help students and job seekers in India (Karnataka first, then national).\nUse web search, which is limited to official government sites, to find government and entrance exams coming in the next 8 months (for example KCET, NEET, JEE, CUET, SSC, UPSC, KPSC, KEA, IBPS, railway and state exams). List only what you saw on a page in the search results, and use that page\'s own address as url. Never invent a date. Skip anything already held. Up to 8 exams. Keep every field short; include the qualification needed as a fact.' + AUD + '\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"exams":[{"title":"","org":"","date":"YYYY-MM-DD","line":"","facts":[["Exam","..."],["Qualification","..."]],"srcName":"","url":""}]}</json>';
+  return 'Today is ' + today + '. You help students and job seekers in India (Karnataka first, then national).\nUse web search, which is limited to official government sites, to find government and entrance exams coming in the next 8 months (for example KCET, NEET, JEE, CUET, SSC, UPSC, KPSC, KEA, IBPS, railway and state exams). List only what you saw on a page in the search results, and use that page\'s own address as url. Never invent a date. Skip anything already held. Up to 10 exams. Keep every field short; include the qualification needed as a fact.' + focusFor('E', today) + AUD + '\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"exams":[{"title":"","org":"","date":"YYYY-MM-DD","line":"","facts":[["Exam","..."],["Qualification","..."]],"srcName":"","url":""}]}</json>';
 }
 function promptK(today) {
-  return 'Today is ' + today + '. You help students in Karnataka, India find courses to join.\nUse web search, which is limited to official government and university sites, to find course admissions that are open or opening soon for Karnataka students: PUC (Class 11) admissions, diploma and polytechnic admissions, ITI admissions, and degree admissions through state bodies (for example the Karnataka Department of Technical Education, the Department of Pre-University Education, the Department of Skill Development, KEA and Karnataka state universities). Up to 8 items. List only what you saw on a page in the search results, with that page\'s own address as url. Never invent a date or a number. Skip anything whose last date has passed. Set closes to the last date to apply. Keep every field short.' + AUD + '\n' + RULES_TEXT + '\nUse lvl 12 only when Class 12 is needed to join. Reply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[' + JOB_SHAPE + ']}</json>';
+  return 'Today is ' + today + '. You help students in Karnataka, India find courses to join.\nUse web search, which is limited to official government and university sites, to find course admissions that are open or opening soon for Karnataka students: PUC (Class 11) admissions, diploma and polytechnic admissions, ITI admissions, and degree admissions through state bodies (for example the Karnataka Department of Technical Education, the Department of Pre-University Education, the Department of Skill Development, KEA and Karnataka state universities). Up to 8 items. List only what you saw on a page in the search results, with that page\'s own address as url. Never invent a date or a number. Skip anything whose last date has passed. Set closes to the last date to apply. Keep every field short.' + focusFor('K', today) + AUD + '\n' + RULES_TEXT + '\nUse lvl 12 only when Class 12 is needed to join. Reply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[' + JOB_SHAPE + ']}</json>';
 }
 var TRAIN_SHAPE = '{"title":"","provider":"who runs it","free":true,"cost":"as printed, or empty","ageMin":15,"ageMax":45,"level":"none or 10 or 12 or degree","length":"how long","who":"who can join in one sentence","line":"one short sentence","srcName":"site name","url":""}';
 function promptT(today) {
-  return 'Today is ' + today + '. You help young people in Karnataka, India find skill training.\nUse web search on any site to find skill training programs open to join for candidates in Karnataka, preferring government schemes (for example Kaushalya Karnataka, the Karnataka Skill Development Corporation, Skill India Digital, PMKVY, NSDC, the Government Tool Rooms and training centres, and ITI short courses) and also a few well known free or low-cost private programs. Up to 8 programs. List only what you saw on a page in the search results, with that page\'s own address as url, preferring the official page. Never invent a cost, an age limit or a provider. Skip anything that asks the applicant to pay a registration fee or deposit to be considered. Keep every field short.' + AUD + '\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"programs":[' + TRAIN_SHAPE + ']}</json>';
+  return 'Today is ' + today + '. You help young people in Karnataka, India find skill training.\nUse web search on any site to find skill training programs open to join for candidates in Karnataka, preferring government schemes (for example Kaushalya Karnataka, the Karnataka Skill Development Corporation, Skill India Digital, PMKVY, NSDC, the Government Tool Rooms and training centres, and ITI short courses) and also a few well known free or low-cost private programs. Up to 8 programs. List only what you saw on a page in the search results, with that page\'s own address as url, preferring the official page. Never invent a cost, an age limit or a provider. Skip anything that asks the applicant to pay a registration fee or deposit to be considered. Keep every field short.' + focusFor('T', today) + AUD + '\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"programs":[' + TRAIN_SHAPE + ']}</json>';
 }
 function promptB(today) {
-  return 'Today is ' + today + '. You help job seekers in India (Karnataka first, then central government).\nUse web search on any site to find government job recruitments that are open to apply for right now, in Karnataka or central government, at any qualification level. Up to 10 jobs. List only what you saw on a page in the search results, with that page\'s own address as url. Never invent a date or a number. Skip anything already closed. Keep every field short.' + AUD + '\n' + RULES_TEXT + '\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[' + JOB_SHAPE + ']}</json>';
+  return 'Today is ' + today + '. You help job seekers in India (Karnataka first, then central government).\nUse web search on any site to find government job recruitments that are open to apply for right now, in Karnataka or central government, at any qualification level. Up to 12 jobs. List only what you saw on a page in the search results, with that page\'s own address as url. Never invent a date or a number. Skip anything already closed. Keep every field short.' + focusFor('A', today) + AUD + '\n' + RULES_TEXT + '\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"jobs":[' + JOB_SHAPE + ']}</json>';
 }
 var PVT_SHAPE = '{"title":"","company":"","city":"","line":"one short sentence","pay":"as printed, or empty","minExp":0,"edu":"10 or 12 or diploma or degree or pg","skills":[],"closes":"YYYY-MM-DD or null","srcName":"site name","url":""}';
 function promptC(today) {
@@ -335,7 +492,7 @@ function promptF(today, f) {
 }
 var SCH_SHAPE = '{"title":"","provider":"who offers it","gov":true,"level":"10 or 12 or diploma or degree or pg","amount":"as printed, or empty","who":"who can apply in one sentence, with income limit, category or marks if stated","line":"one short sentence","closes":"YYYY-MM-DD or null","srcName":"site name","url":""}';
 function promptS(today) {
-  return 'Today is ' + today + '. You help students in Karnataka, India find scholarships.\nUse web search on any site to find scholarships that are open to apply for right now (or open soon) for students in Karnataka: (1) government schemes, state and central (for example through the State Scholarship Portal, the National Scholarship Portal, Karnataka Social Welfare, Backward Classes, Minorities and other departments, and AICTE or UGC schemes), and (2) private scholarships offered by foundations, trusts and companies (for example Reliance Foundation, Tata, HDFC, Azim Premji, Buddy4Study listings). Cover a mix of levels: Class 10 pass students going to PUC, ITI or diploma, Class 12 pass students, and degree students. Up to 12 scholarships, about half government and half private. List only what you saw on a page in the search results, with that page\'s own address as url, preferring the provider\'s own page. Set gov to true only for government schemes. Never invent an amount, a date or a provider. Skip anything that asks the applicant to pay any fee, and anything already closed. Keep every field short.' + AUD + '\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"scholarships":[' + SCH_SHAPE + ']}</json>';
+  return 'Today is ' + today + '. You help students in Karnataka, India find scholarships.\nUse web search on any site to find scholarships that are open to apply for right now (or open soon) for students in Karnataka: (1) government schemes, state and central (for example through the State Scholarship Portal, the National Scholarship Portal, Karnataka Social Welfare, Backward Classes, Minorities and other departments, and AICTE or UGC schemes), and (2) private scholarships offered by foundations, trusts and companies (for example Reliance Foundation, Tata, HDFC, Azim Premji, Buddy4Study listings). Cover a mix of levels: Class 10 pass students going to PUC, ITI or diploma, Class 12 pass students, and degree students. Up to 14 scholarships, about half government and half private. List only what you saw on a page in the search results, with that page\'s own address as url, preferring the provider\'s own page. Set gov to true only for government schemes. Never invent an amount, a date or a provider. Skip anything that asks the applicant to pay any fee, and anything already closed. Keep every field short.' + focusFor('S', today) + AUD + '\nReply with only this JSON, between <json> and </json> tags, with no other words after it: <json>{"scholarships":[' + SCH_SHAPE + ']}</json>';
 }
 function addUsage(a, b) { return { input_tokens: (a.input_tokens || 0) + (b.input_tokens || 0), output_tokens: (a.output_tokens || 0) + (b.output_tokens || 0), searches: (a.searches || 0) + (b.searches || 0), inr: (a.inr || 0) + (b.inr || 0), fellBack: !!(a.fellBack || b.fellBack) }; }
 /* The daily job has two steps so each fits in one request. Step A searches official government sites only and starts a fresh draft. Step B searches anywhere for posts step A missed; those are "leads" that need an official notice link before they can be approved. Nothing reaches users until it is approved. */
@@ -354,7 +511,7 @@ async function runStep(env, step, runId, fam) {
   }
   function dedupeTitles(items) { var t = [], out = []; items.forEach(function (x) { var nk = nkey(x.title); if (t.some(function (y) { return sameTitle(y, nk); })) return; t.push(nk); out.push(x); }); return out; }
   if (step === 'A') {
-    var A = await searchPass(env, promptA(today), OFFICIAL_DOMAINS, 8);
+    var A = await searchPass(env, promptA(today), OFFICIAL_DOMAINS, 9);
     if (!A.ok) return { error: A.error, stop: A.stop, len: A.len, tail: A.tail, status: A.status, usage: A.u };
     var rawA = Array.isArray(A.o.jobs) ? A.o.jobs.length : 0, itemsA = [];
     (Array.isArray(A.o.jobs) ? A.o.jobs : []).forEach(function (x) { var c = cleanRecord(x, A.seen, today); if (c && !known[c.id]) { c.run = runId; itemsA.push(c); } });
@@ -497,6 +654,14 @@ async function adminDo(b, request, env, origin) {
     var kd = KINDS.filter(function (k) { return k.id === b.kind; })[0]; if (!kd) return json({ error: 'unknown_kind' }, 400, origin);
     var cur = (await kget(env, 'sched')) || {}; cur[kd.id] = cleanSched({ mode: b.mode, days: b.days }, kd.def); await env.LIMITS.put('sched', JSON.stringify(cur));
   }
+  if (b.action === 'recheck') { var rr = await recheckLive(env, 30, true); if (rr.error) return json({ error: rr.error }, 500, origin); live = (await kget(env, 'live')) || live; live.pvt = live.pvt || []; live.sch = live.sch || []; live.train = live.train || []; }
+  if (b.action === 'watchnow') { var wr0 = await watchRun(env, 20); if (wr0.error) return json({ error: wr0.error }, 500, origin); draft = (await kget(env, 'draft')) || draft; }
+  if (b.action === 'dismiss' || b.action === 'unhold') {
+    var dk = {}; (Array.isArray(b.keys) ? b.keys : []).forEach(function (k) { dk[k] = 1; });
+    var chg = (await kget(env, 'changes')) || [];
+    if (b.action === 'unhold') { chg.filter(function (c) { return dk[c.key] && c.kind === 'gone'; }).forEach(function (c) { ['records', 'exams', 'sch', 'train'].forEach(function (l) { (live[l] || []).forEach(function (x) { if (x.id === c.id) { x.hold = false; x.rc = { at: Date.now(), s: 'ok', g: 0 }; } }); }); }); live.at = Date.now(); await env.LIMITS.put('live', JSON.stringify(live)); }
+    await env.LIMITS.put('changes', JSON.stringify(chg.filter(function (c) { return !dk[c.key]; })));
+  }
   if (b.action === 'approve') {
     var ids = {};
     (Array.isArray(b.items) ? b.items : []).slice(0, 40).forEach(function (x) {
@@ -522,10 +687,13 @@ async function adminDo(b, request, env, origin) {
   var lastres = await kget(env, 'lastresult'), spend = parseFloat((await env.LIMITS.get('spend:' + todayStr().slice(0, 7))) || '0') || 0;
   var runlog = (await kget(env, 'runlog')) || [];
   var sched = await getSched(env);
-  return json({ ok: true, sched: sched, kinds: KINDS.map(function (k) { return { id: k.id, name: k.name, steps: k.steps }; }), fams: FAMILIES.map(function (f) { return { id: f.id, name: f.name }; }), draft: draft, last: lastres, spend: Math.round(spend), runlog: runlog, live: { at: live.at, records: live.records.map(function (x) { return { id: x.id, title: x.title, closes: x.closes }; }), exams: live.exams.map(function (x) { return { id: x.id, title: x.title, d: x.d }; }), pvt: live.pvt.map(function (x) { return { id: x.id, title: x.title + ' · ' + x.org, closes: x.closes, d: x.found }; }), sch: live.sch.map(function (x) { return { id: x.id, title: (x.gov ? 'Govt scholarship: ' : 'Private scholarship: ') + x.title, closes: x.closes, d: x.found }; }), train: live.train.map(function (x) { return { id: x.id, title: 'Training: ' + x.title, d: x.found }; }) } }, 200, origin);
+  var chgs = (await kget(env, 'changes')) || [], wlog = await kget(env, 'watchlog'), lrc = await kget(env, 'lastrecheck'), held = [];
+  ['records', 'exams', 'sch', 'train'].forEach(function (l) { (live[l] || []).forEach(function (x) { if (x.hold) held.push({ id: x.id, title: x.title }); }); });
+  return json({ ok: true, changes: chgs, watchlog: wlog, lastrecheck: lrc, held: held, watchsize: WATCH.length, sched: sched, kinds: KINDS.map(function (k) { return { id: k.id, name: k.name, steps: k.steps }; }), fams: FAMILIES.map(function (f) { return { id: f.id, name: f.name }; }), draft: draft, last: lastres, spend: Math.round(spend), runlog: runlog, live: { at: live.at, records: live.records.map(function (x) { return { id: x.id, title: x.title, closes: x.closes }; }), exams: live.exams.map(function (x) { return { id: x.id, title: x.title, d: x.d }; }), pvt: live.pvt.map(function (x) { return { id: x.id, title: x.title + ' · ' + x.org, closes: x.closes, d: x.found }; }), sch: live.sch.map(function (x) { return { id: x.id, title: (x.gov ? 'Govt scholarship: ' : 'Private scholarship: ') + x.title, closes: x.closes, d: x.found }; }), train: live.train.map(function (x) { return { id: x.id, title: 'Training: ' + x.title, d: x.found }; }) } }, 200, origin);
 }
 async function liveGet(env, origin) {
   var today = todayStr(), live = (await kget(env, 'live')) || { at: 0, records: [], exams: [] };
+  ['records', 'exams', 'pvt', 'sch', 'train'].forEach(function (l) { live[l] = (live[l] || []).filter(function (x) { return !x.hold; }); });
   return json({ at: live.at, records: live.records.filter(function (x) { return !x.closes || x.closes >= today; }), exams: live.exams.filter(function (x) { return x.d >= today; }), pvt: (live.pvt || []).filter(function (x) { return x.closes ? x.closes >= today : x.found >= cutoff(21); }), sch: (live.sch || []).filter(function (x) { return x.closes ? x.closes >= today : x.found >= cutoff(45); }), train: (live.train || []).filter(function (x) { return x.found >= cutoff(90); }) }, 200, origin);
 }
 
@@ -584,6 +752,8 @@ export default {
         var sl = parseInt((await env.LIMITS.get('slots')) || '0', 10) || 0, split = Date.now() - sl < 3 * 864e5;
         var kinds = KINDS.filter(function (k) { return dueToday(sched, k, dow) && (split ? k.slot === slot : slot === 0); });
         r = await runKinds(env, kinds, 'daily');
+        if (slot === 1) { try { await watchRun(env, 20); } catch (e) {} }
+        if (slot === 2) { try { await recheckLive(env, kinds.length ? 10 : 25, false); } catch (e) {} }
       } catch (e) { r = { error: 'upstream' }; }
       await env.LIMITS.put('lastresult', JSON.stringify({ at: Date.now(), ok: !!r.ok, n: r.n, leads: r.leads, error: r.error, stop: r.stop, len: r.len, tail: r.tail, status: r.status, usage: r.usage }));
     })());

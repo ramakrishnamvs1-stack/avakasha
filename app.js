@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '76', APPDATE = '11.26'; /* shown as v<build>.<month>.<year>; change APPDATE when the month changes */
+var APPVER = '77', APPDATE = '11.26'; /* shown as v<build>.<month>.<year>; change APPDATE when the month changes */
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -440,7 +440,7 @@ function renderDetail(id) {
     + (rules ? '<div class="dh">How you match</div><div class="dlist"><ul class="rules">' + rules + '</ul></div>' : '')
     + '<div class="dh">Key facts</div><div class="dlist">' + facts + '</div>'
     + calBlock('job-' + r.id, r.title, r.closes, url, 'Add last date to calendar') + docsBlock(r)
-    + '<div class="dh">About</div><div class="dabout"><p>' + esc(r.line) + '</p><p class="muted">' + esc(r.cyc) + '</p><p class="note">Source: <a href="' + r.src[1] + '" target="_blank" rel="noopener">' + esc(r.src[0]) + '</a>. Read on ' + esc(DATA.readOn) + '. Confidence: ' + r.conf + '. ' + esc(r.note) + '</p></div>'
+    + '<div class="dh">About</div><div class="dabout"><p>' + esc(r.line) + '</p><p class="muted">' + esc(r.cyc) + '</p><p class="note">Source: <a href="' + r.src[1] + '" target="_blank" rel="noopener">' + esc(r.src[0]) + '</a>. Read on ' + esc(DATA.readOn) + '. Confidence: ' + r.conf + '. ' + esc(r.note) + esc(rcTxt(r)) + '</p></div>'
     + '<p class="foot">Check dates, age limits and fees on the official website before you apply, and never pay an agent to apply.</p>'
     + '<div class="dact"><a class="btn pri" href="' + url + '" target="_blank" rel="noopener">' + lab + ' ↗</a></div>';
   $('dback').onclick = function () { if (history.length > 1) history.back(); else location.hash = '#explore'; };
@@ -764,7 +764,7 @@ function renderSchX(x) {
   $('app').innerHTML = '<div class="dbar"><button type="button" id="dback" aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><b>Scholarship details</b>' + heart('x', x.id) + '</div>'
     + '<div class="pills" style="margin-top:8px"><span class="tg ' + (x.gov ? 'og' : 'w') + '">' + (x.gov ? 'Government' : 'Private') + '</span></div>'
     + '<h1 class="dtitle">' + esc(x.title) + '</h1><div class="org" style="font-size:15px;margin-top:6px">' + esc(x.org) + '</div>'
-    + '<div class="dnote ' + (x.gov && x.official ? 'g' : 'w') + '"><b>' + (x.gov ? (x.official ? 'From an official page.' : 'Not from an official page.') : 'Private scholarship. Not from an official page.') + '</b> ' + esc(x.note) + '</div>'
+    + '<div class="dnote ' + (x.gov && x.official ? 'g' : 'w') + '"><b>' + (x.gov ? (x.official ? 'From an official page.' : 'Not from an official page.') : 'Private scholarship. Not from an official page.') + '</b> ' + esc(x.note) + esc(rcTxt(x)) + '</div>'
     + '<div class="dh">Key facts</div><div class="dlist">' + facts + '</div>'
     + (x.closes ? calBlock('x-' + x.id, x.title, x.closes, x.src[1], 'Add last date to calendar') : '')
     + '<div class="dh">About</div><div class="dabout"><p>' + esc(x.line) + '</p><p class="note">Source: <a href="' + esc(x.src[1]) + '" target="_blank" rel="noopener">' + esc(x.src[0]) + '</a>. Found on ' + esc(x.found || '') + '.</p></div>'
@@ -1579,6 +1579,8 @@ document.addEventListener('click', function (e) {
 }, true);
 function route() { var h = location.hash.replace('#', ''); if (h.indexOf('job/') === 0) return { r: 'job', id: decodeURIComponent(h.slice(4)) }; if (h.indexOf('x/') === 0) return { r: 'x', id: decodeURIComponent(h.slice(2)) }; if (h.indexOf('t/') === 0) return { r: 't', id: decodeURIComponent(h.slice(2)) }; if (h.indexOf('ex/') === 0) return { r: 'explore', t: h.slice(3) }; if (h === 'train') return { r: 'explore', t: 'train' }; if (h === 'saved') return { r: 'saved' }; if (h.indexOf('study/') === 0) return { r: 'study', st: h.slice(6) }; if (h === 'scholar') return { r: 'explore', t: 'sch' }; if (h === 'exams') return { r: 'explore', t: 'exam' }; if (h === 'govt' || h === 'pvt') return { r: 'explore', t: h }; if (h === 'study' || h === 'summary') return { r: h }; if (h === 'explore' || h === 'profile') return { r: h }; return { r: 'home' }; }
 var BWHTML = '<span class="bw loop nm" aria-hidden="true"><span class="en">myavakasha</span><span class="kn" lang="kn">ನನ್ನ ಅವಕಾಶ</span></span>';
+/* Shows when a live notice's own page was last re-checked by the weekly check. */
+function rcTxt(x) { if (!x || !x.rc || x.rc.s !== 'ok' || !x.rc.at) return ''; var d = new Date(x.rc.at); return ' Page last checked on ' + d.getDate() + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()] + '.'; }
 function renderTop(r) {
   var p = prof(), b = $('avatar'), br = document.querySelector('.brand'), sb = $('savedBtn');
   if (sb) { var sn = savedList().length; sb.hidden = r === 'profile' || !p; sb.innerHTML = HEART + (sn ? '<span class="cnt">' + sn + '</span>' : ''); sb.setAttribute('aria-label', 'Saved, ' + sn + (sn === 1 ? ' item' : ' items')); sb.onclick = function () { location.hash = '#saved'; }; }
