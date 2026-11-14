@@ -70,3 +70,11 @@ Pass A searches official government sites only (gov.in, nic.in, ibps.in, ac.in, 
 ### Using myavakasha.com
 - The worker accepts requests from both the GitHub address and `https://myavakasha.com` (and `www`). To allow another address, set `ALLOWED_ORIGIN` to it; you can list several, separated by commas.
 - GoDaddy DNS for the GitHub site: four `A` records on `@` pointing to `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153`, and a `CNAME` record on `www` pointing to `ramakrishnamvs1-stack.github.io`. Then, in the GitHub repository, open Settings, Pages, enter `myavakasha.com` as the custom domain and turn on Enforce HTTPS once it is offered.
+
+## Saved-notice re-check, official-page watchlist and rotating focus
+
+- **Re-check:** about once a week (in the 40-minute cron slot) each saved govt notice, exam, scholarship and training page is opened again. No AI is used, so it costs nothing. A date extension that the page itself states is updated automatically. A cancellation, a missing date or a dead page is listed under "Look at changes" on the review page. A page that is gone twice in a row is hidden from students until you restore it.
+- **Watchlist:** the `WATCH` list near the middle of worker.js holds official recruitment pages. They are opened in the 20-minute cron slot. The first visit only records what is already there. After that, any new relevant link is added to your waiting list. Pages that did not open are listed on the review page. Edit the list freely; each entry is `{ id, name, url, org, tab }` (`tab` is `work` or `study`).
+- **Rotation:** each search adds an "extra attention" group of departments that changes every day (govt jobs, exams) or every week (courses, scholarships, trainings).
+- **Buttons:** "Re-check now" and "Check pages now" on the review home page run these on demand.
+- After pasting the new worker.js, press Deploy. No new settings or bindings are needed.
