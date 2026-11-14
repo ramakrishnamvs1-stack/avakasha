@@ -54,7 +54,7 @@ function showVal(k, v) {
 }
 
 /* ================= storage ================= */
-var APPVER = '77', APPDATE = '11.26'; /* shown as v<build>.<month>.<year>; change APPDATE when the month changes */
+var APPVER = '78', APPDATE = '11.26'; /* shown as v<build>.<month>.<year>; change APPDATE when the month changes */
 var CFG = window.PA_CONFIG || {};
 var KEY = 'pa10.db.v2';
 var DB = { profiles: [], active: null };
@@ -466,21 +466,19 @@ function getLive(force) {
   }).catch(function () { clearTimeout(t); return old ? old.j : null; });
 }
 function lastLive() { try { var o = JSON.parse(localStorage.getItem('pa10.live') || 'null'); return o && o.j ? o : null; } catch (e) { return null; } }
-var LIVEIDS = {};
+var LIVEIDS = {}, START = null;
 function mergeLive(j) {
-  if (!j || !DATA) return;
-  DATA.records = DATA.records.filter(function (r) { return !LIVEIDS[r.id]; });
-  EXTRA.exams = (EXTRA.exams || []).filter(function (x) { return !LIVEIDS[x.id]; });
-  EXTRA.trains = (EXTRA.trains || []).filter(function (x) { return !LIVEIDS[x.id]; });
+  if (!j || !DATA || !Array.isArray(j.records)) return;
+  /* Once the shared live list has loaded, the app shows only that list, so the counts match the review page. The built-in starter notices are used only when the live list has never loaded (first open while offline). */
+  var ok = function (x) { return x && x.id && x.title; }, full = function (x) { return ok(x) && x.org && Array.isArray(x.src) && Array.isArray(x.facts); };
+  if (!START) START = { records: DATA.records.slice(), exams: (EXTRA.exams || []).slice(), trains: (EXTRA.trains || []).slice() };
   LIVEIDS = {};
-  var tl = {}; DATA.records.forEach(function (r) { tl[r.title.toLowerCase()] = 1; });
-  (j.records || []).forEach(function (r) { if (r && r.id && r.title && !tl[r.title.toLowerCase()]) { DATA.records.push(r); LIVEIDS[r.id] = 1; tl[r.title.toLowerCase()] = 1; } });
-  EXTRA.livePvt = (j.pvt || []).filter(function (x) { return x && x.id && x.title && x.org && Array.isArray(x.src) && Array.isArray(x.facts); });
-  EXTRA.liveSch = (j.sch || []).filter(function (x) { return x && x.id && x.title && x.org && Array.isArray(x.src) && Array.isArray(x.facts); });
-  var tt = {}; (EXTRA.trains || []).forEach(function (x) { tt[x.title.toLowerCase()] = 1; });
-  (j.train || []).forEach(function (x) { if (x && x.id && x.title && x.org && Array.isArray(x.src) && Array.isArray(x.facts) && !tt[x.title.toLowerCase()]) { (EXTRA.trains = EXTRA.trains || []).push(x); LIVEIDS[x.id] = 1; tt[x.title.toLowerCase()] = 1; } });
-  var te = {}; (EXTRA.exams || []).forEach(function (x) { te[x.title.toLowerCase()] = 1; });
-  (j.exams || []).forEach(function (x) { if (x && x.id && x.title && !te[x.title.toLowerCase()]) { (EXTRA.exams = EXTRA.exams || []).push(x); LIVEIDS[x.id] = 1; te[x.title.toLowerCase()] = 1; } });
+  DATA.records = j.records.filter(ok); DATA.records.forEach(function (r) { LIVEIDS[r.id] = 1; });
+  EXTRA.exams = (j.exams || []).filter(ok); EXTRA.exams.forEach(function (x) { LIVEIDS[x.id] = 1; });
+  EXTRA.trains = (j.train || []).filter(full); EXTRA.trains.forEach(function (x) { LIVEIDS[x.id] = 1; });
+  EXTRA.pvt = [];
+  EXTRA.livePvt = (j.pvt || []).filter(full);
+  EXTRA.liveSch = (j.sch || []).filter(full);
 }
 var ARTS = {
   med: '<svg viewBox="0 0 190 300" aria-hidden="true"><path d="M10 300V252Q10 205 55 195L95 185L135 195Q180 205 180 252V300Z" fill="#fff"/><path d="M70 188L95 232L120 188" fill="none" stroke="#dfe5ea" stroke-width="3"/><path d="M80 190L95 226L110 190Z" fill="#0d6e6e"/><rect x="85" y="165" width="20" height="28" fill="#d99a6c"/><ellipse cx="95" cy="135" rx="34" ry="40" fill="#e9b58a"/><path d="M60 130Q60 86 95 88Q130 86 130 130Q118 106 95 108Q72 106 60 130Z" fill="#2b2118"/><circle cx="82" cy="138" r="2.6" fill="#2b2118"/><circle cx="108" cy="138" r="2.6" fill="#2b2118"/><path d="M85 153Q95 160 105 153" fill="none" stroke="#8a4b2a" stroke-width="2.4" stroke-linecap="round"/><path d="M68 194Q58 228 76 248Q96 262 112 240" fill="none" stroke="#17323f" stroke-width="4" stroke-linecap="round"/><circle cx="112" cy="238" r="8" fill="#17323f"/><circle cx="112" cy="238" r="3.5" fill="#f6b73c"/><path d="M146 222v22M135 233h22" stroke="#0d6e6e" stroke-width="6" stroke-linecap="round"/></svg>',
@@ -899,7 +897,7 @@ function renderExplore() {
     + '<div class="ql">I hold</div><div class="qr" id="qlv">' + r1 + '</div><div class="ql">Show me</div><div class="qr" id="qty">' + r2 + '</div>'
     + (subSch ? '<div class="ql">Scholarships from</div><div class="qr" id="qsc">' + [['govt', 'Govt', true], ['private', 'Private', false]].map(function (c) { return '<button type="button" class="qc" data-s="' + c[0] + '" aria-pressed="' + (XQ.sch === c[0]) + '">' + c[1] + '<b>' + L.filter(function (i) { return i.type === 'sch' && i.g !== 3 && !!i.gov === c[2]; }).length + '</b></button>'; }).join('') + '</div>' : '')
     + '<div class="qres">' + shown.length + (shown.length === 1 ? ' match' : ' matches') + '</div>' + h
-    + '<p class="foot">Records marked “Read from the official notice” were taken from the government’s own notice. The others come from news or listing pages and have not been checked against an official notice, so open the official site first. Private jobs were found on job sites, not by the employer, and the sample listings are examples. Check dates, age limits and fees before you apply, and never pay an agent to apply or to get a job. Dates were read on ' + esc(DATA.readOn) + '.</p>';
+    + '<p class="foot">Records marked “Read from the official notice” were taken from the government’s own notice. The others come from news or listing pages and have not been checked against an official notice, so open the official site first. Private jobs were found on job sites, not by the employer. Check dates, age limits and fees before you apply, and never pay an agent to apply or to get a job. Dates were read on ' + esc(DATA.readOn) + '.</p>';
   Array.prototype.forEach.call(document.querySelectorAll('#qlv .qc'), function (b) { b.onclick = function () { XQ.lvl = b.getAttribute('data-l'); xsave(); renderExplore(); }; });
   Array.prototype.forEach.call(document.querySelectorAll('#qty .qc'), function (b) {
     b.onclick = function () {
