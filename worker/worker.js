@@ -597,6 +597,7 @@ async function bumpRuns(env, counts, field) {
 async function runLogged(env, step, src, fam) {
   var runId = Date.now(), r = await runStep(env, step, runId, fam), inr = r && r.usage && r.usage.inr || 0;
   if (env.LIMITS) { try { var lg = (await kget(env, 'runlog')) || []; lg.unshift({ id: runId, at: runId, live: 0, rej: 0, step: step, label: fam ? fam.name : null, src: src || 'manual', ok: !!r.ok, error: r.ok ? null : (r.error || 'upstream'), raw: r.stats && r.stats.raw, added: r.stats && r.stats.added, dup: r.stats && r.stats.dup, bad: r.stats && r.stats.bad, inr: Math.round(inr * 10) / 10, model: r.usage && r.usage.model, fellBack: !!(r.usage && r.usage.fellBack) }); await env.LIMITS.put('runlog', JSON.stringify(lg.slice(0, 45))); } catch (e) {} }
+  if (r && r.ok) { try { var an = await autoApprove(env); if (an) r.auto = an; } catch (e) {} }
   if (inr > 0 && env.LIMITS) { try { var k = 'spend:' + todayStr().slice(0, 7), v = parseFloat((await env.LIMITS.get(k)) || '0') || 0; await env.LIMITS.put(k, String(v + inr), { expirationTtl: 7776000 }); } catch (e) {} }
   return r;
 }
@@ -634,6 +635,43 @@ async function runKinds(env, kinds, src) {
   }
   return last;
 }
+/* Turns finds into live notices. Used by the Approve button and by auto-approval. */
+function approveInto(live, items, today, auto) {
+  var ids = {};
+  items.slice(0, 40).forEach(function (x) {
+    if (!x || !Array.isArray(x.src)) return; x.url = x.src[1]; x.srcName = x.src[0]; x.date = x.d;
+    x.provider = x.org; var c = x.k === 'exam' ? cleanExam(x, null, today) : x.k === 'pvt' ? cleanPvt(x, null, today) : x.k === 'sch' ? cleanSch(x, null, today) : x.k === 'train' ? cleanTrain(x, null, today) : cleanRecord(x, null, today, x.tab); if (!c) return;
+    if (x.lead && !c.official) return;
+    if (auto) { c.auto = true; c.autoAt = Date.now(); if (x.ver) c.ver = x.ver; c.trust = x.trust; }
+    var list = c.k === 'exam' ? live.exams : c.k === 'pvt' ? live.pvt : c.k === 'sch' ? live.sch : c.k === 'train' ? live.train : live.records; var i = list.map(function (y) { return y.id; }).indexOf(c.id);
+    if (i >= 0) list[i] = c; else list.push(c); ids[c.id] = 1; if (x.id) ids[x.id] = 1;
+  });
+  return ids;
+}
+/* Auto-approval: only a find from a gov.in or nic.in page that was opened and checked (title matches, date seen), with a date and a high score. Everything else waits for review. */
+function autoEligible(x) {
+  if (!x || x.lead || x.watch) return false;
+  if (!/(^|\.)(gov\.in|nic\.in)$/.test(hostOfItem(x))) return false;
+  if (!(x.ver && x.ver.s === 'ok')) return false;
+  if (x.trust != null && x.trust < 70) return false;
+  if (x.k === 'rec') return !!x.closes;
+  if (x.k === 'exam') return !!x.d;
+  if (x.k === 'sch') return !!(x.closes && x.gov !== false);
+  return false;
+}
+async function autoApprove(env) {
+  if (!env.LIMITS) return 0;
+  var st = await kget(env, 'auto'); if (st && st.on === false) return 0;
+  var today = todayStr(), d = (await kget(env, 'draft')) || { items: [] }, el = d.items.filter(autoEligible).slice(0, 40); if (!el.length) return 0;
+  var live = (await kget(env, 'live')) || { records: [], exams: [] }; live.pvt = live.pvt || []; live.sch = live.sch || []; live.train = live.train || [];
+  var ids = approveInto(live, el.map(function (x) { return JSON.parse(JSON.stringify(x)); }), today, true), n = el.filter(function (x) { return ids[x.id]; }).length; if (!n) return 0;
+  live.at = Date.now(); await env.LIMITS.put('live', JSON.stringify(live));
+  var lc = {}, got = []; d.items.forEach(function (x) { if (ids[x.id]) { got.push({ id: x.id, title: x.title, k: x.k, at: Date.now(), url: x.src[1] }); if (x.run) lc[x.run] = (lc[x.run] || 0) + 1; } });
+  await bumpRuns(env, lc, 'live');
+  d.items = d.items.filter(function (x) { return !ids[x.id]; }); await env.LIMITS.put('draft', JSON.stringify(d));
+  var al = (await kget(env, 'autolog')) || []; await env.LIMITS.put('autolog', JSON.stringify(got.concat(al).slice(0, 60)));
+  return n;
+}
 async function adminDo(b, request, env, origin) {
   if (!env.ADMIN_KEY || !env.LIMITS) return json({ error: 'not_configured' }, 500, origin);
   var ip = request.headers.get('CF-Connecting-IP') || 'x', kf = 'fail:' + todayStr() + ':' + ip, nf = parseInt((await env.LIMITS.get(kf)) || '0', 10);
@@ -654,6 +692,8 @@ async function adminDo(b, request, env, origin) {
     var kd = KINDS.filter(function (k) { return k.id === b.kind; })[0]; if (!kd) return json({ error: 'unknown_kind' }, 400, origin);
     var cur = (await kget(env, 'sched')) || {}; cur[kd.id] = cleanSched({ mode: b.mode, days: b.days }, kd.def); await env.LIMITS.put('sched', JSON.stringify(cur));
   }
+  if (b.action === 'autonow') { await autoApprove(env); live = (await kget(env, 'live')) || live; live.pvt = live.pvt || []; live.sch = live.sch || []; live.train = live.train || []; draft = (await kget(env, 'draft')) || draft; }
+  if (b.action === 'setauto') { await env.LIMITS.put('auto', JSON.stringify({ on: !!b.on })); }
   if (b.action === 'recheck') { var rr = await recheckLive(env, 30, true); if (rr.error) return json({ error: rr.error }, 500, origin); live = (await kget(env, 'live')) || live; live.pvt = live.pvt || []; live.sch = live.sch || []; live.train = live.train || []; }
   if (b.action === 'watchnow') { var wr0 = await watchRun(env, 20); if (wr0.error) return json({ error: wr0.error }, 500, origin); draft = (await kget(env, 'draft')) || draft; }
   if (b.action === 'dismiss' || b.action === 'unhold') {
@@ -663,14 +703,7 @@ async function adminDo(b, request, env, origin) {
     await env.LIMITS.put('changes', JSON.stringify(chg.filter(function (c) { return !dk[c.key]; })));
   }
   if (b.action === 'approve') {
-    var ids = {};
-    (Array.isArray(b.items) ? b.items : []).slice(0, 40).forEach(function (x) {
-      if (!x || !Array.isArray(x.src)) return; x.url = x.src[1]; x.srcName = x.src[0]; x.date = x.d;
-      x.provider = x.org; var c = x.k === 'exam' ? cleanExam(x, null, today) : x.k === 'pvt' ? cleanPvt(x, null, today) : x.k === 'sch' ? cleanSch(x, null, today) : x.k === 'train' ? cleanTrain(x, null, today) : cleanRecord(x, null, today, x.tab); if (!c) return;
-      if (x.lead && !c.official) return;
-      var list = c.k === 'exam' ? live.exams : c.k === 'pvt' ? live.pvt : c.k === 'sch' ? live.sch : c.k === 'train' ? live.train : live.records; var i = list.map(function (y) { return y.id; }).indexOf(c.id);
-      if (i >= 0) list[i] = c; else list.push(c); ids[c.id] = 1;
-    });
+    var ids = approveInto(live, Array.isArray(b.items) ? b.items : [], today, false);
     live.at = Date.now(); await env.LIMITS.put('live', JSON.stringify(live));
     var lc = {}; draft.items.forEach(function (x) { if (ids[x.id] && x.run) lc[x.run] = (lc[x.run] || 0) + 1; }); await bumpRuns(env, lc, 'live');
     draft.items = draft.items.filter(function (x) { return !ids[x.id]; }); await env.LIMITS.put('draft', JSON.stringify(draft));
@@ -687,9 +720,9 @@ async function adminDo(b, request, env, origin) {
   var lastres = await kget(env, 'lastresult'), spend = parseFloat((await env.LIMITS.get('spend:' + todayStr().slice(0, 7))) || '0') || 0;
   var runlog = (await kget(env, 'runlog')) || [];
   var sched = await getSched(env);
-  var chgs = (await kget(env, 'changes')) || [], wlog = await kget(env, 'watchlog'), lrc = await kget(env, 'lastrecheck'), held = [];
+  var autost = (await kget(env, 'auto')) || { on: true }, autolog = (await kget(env, 'autolog')) || [], chgs = (await kget(env, 'changes')) || [], wlog = await kget(env, 'watchlog'), lrc = await kget(env, 'lastrecheck'), held = [];
   ['records', 'exams', 'sch', 'train'].forEach(function (l) { (live[l] || []).forEach(function (x) { if (x.hold) held.push({ id: x.id, title: x.title }); }); });
-  return json({ ok: true, changes: chgs, watchlog: wlog, lastrecheck: lrc, held: held, watchsize: WATCH.length, sched: sched, kinds: KINDS.map(function (k) { return { id: k.id, name: k.name, steps: k.steps }; }), fams: FAMILIES.map(function (f) { return { id: f.id, name: f.name }; }), draft: draft, last: lastres, spend: Math.round(spend), runlog: runlog, live: { at: live.at, records: live.records.map(function (x) { return { id: x.id, title: x.title, closes: x.closes }; }), exams: live.exams.map(function (x) { return { id: x.id, title: x.title, d: x.d }; }), pvt: live.pvt.map(function (x) { return { id: x.id, title: x.title + ' · ' + x.org, closes: x.closes, d: x.found }; }), sch: live.sch.map(function (x) { return { id: x.id, title: (x.gov ? 'Govt scholarship: ' : 'Private scholarship: ') + x.title, closes: x.closes, d: x.found }; }), train: live.train.map(function (x) { return { id: x.id, title: 'Training: ' + x.title, d: x.found }; }) } }, 200, origin);
+  return json({ ok: true, changes: chgs, auto: { on: autost.on !== false, log: autolog }, watchlog: wlog, lastrecheck: lrc, held: held, watchsize: WATCH.length, sched: sched, kinds: KINDS.map(function (k) { return { id: k.id, name: k.name, steps: k.steps }; }), fams: FAMILIES.map(function (f) { return { id: f.id, name: f.name }; }), draft: draft, last: lastres, spend: Math.round(spend), runlog: runlog, live: { at: live.at, records: live.records.map(function (x) { return { id: x.id, title: x.title, closes: x.closes }; }), exams: live.exams.map(function (x) { return { id: x.id, title: x.title, d: x.d }; }), pvt: live.pvt.map(function (x) { return { id: x.id, title: x.title + ' · ' + x.org, closes: x.closes, d: x.found }; }), sch: live.sch.map(function (x) { return { id: x.id, title: (x.gov ? 'Govt scholarship: ' : 'Private scholarship: ') + x.title, closes: x.closes, d: x.found }; }), train: live.train.map(function (x) { return { id: x.id, title: 'Training: ' + x.title, d: x.found }; }) } }, 200, origin);
 }
 async function liveGet(env, origin) {
   var today = todayStr(), live = (await kget(env, 'live')) || { at: 0, records: [], exams: [] };

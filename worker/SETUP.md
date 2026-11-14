@@ -78,3 +78,7 @@ Pass A searches official government sites only (gov.in, nic.in, ibps.in, ac.in, 
 - **Rotation:** each search adds an "extra attention" group of departments that changes every day (govt jobs, exams) or every week (courses, scholarships, trainings).
 - **Buttons:** "Re-check now" and "Check pages now" on the review home page run these on demand.
 - After pasting the new worker.js, press Deploy. No new settings or bindings are needed.
+
+## Auto-approval
+
+After each search finishes, a find goes live by itself only when ALL of these are true: its page is on gov.in or nic.in, the page was opened and checked (the title matches and the date is on the page), it has a last date (or exam date), its score is 70 or more, it is not a lead, and it is a job, course, exam or government scholarship. Private jobs, trainings, leads, watchlist links and anything on other sites wait for your review. The review page lists what was approved automatically, with a "Take it down" button, and a switch to turn auto-approval off or on.
